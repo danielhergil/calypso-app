@@ -28,6 +28,7 @@ fun NavigationWrapper (navHostController: NavHostController, auth: FirebaseAuth)
         }
         composable("home"){
             HomeScreen(
+                navigateToCamera = { navHostController.navigate("camera") },
                 navigateToAddTeam = { navHostController.navigate("addTeam") },
                 navigateToLibrary = { navHostController.navigate("library") },
                 navigateToDeploy = { navHostController.navigate("deploy") },
@@ -35,5 +36,4 @@ fun NavigationWrapper (navHostController: NavHostController, auth: FirebaseAuth)
             )
         }
     }
-
 }

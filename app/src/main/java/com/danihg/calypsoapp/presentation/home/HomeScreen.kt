@@ -25,6 +25,7 @@ import com.danihg.calypsoapp.ui.theme.CalypsoRed
 @Preview
 @Composable
 fun HomeScreen(
+    navigateToCamera: () -> Unit = {},
     navigateToAddTeam: () -> Unit = {},
     navigateToLibrary: () -> Unit = {},
     navigateToDeploy: () -> Unit = {},
@@ -40,8 +41,15 @@ fun HomeScreen(
     ) {
         Spacer(modifier = Modifier.weight(1f))
         ModernCard(
+            title = "Camera",
+            icon = R.drawable.ic_camera, // Replace with actual drawable
+            onClick = navigateToCamera,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.weight(1f))
+        ModernCard(
             title = "Add Team",
-            icon = R.drawable.ic_add, // Replace with actual drawable
+            icon = R.drawable.ic_add_2, // Replace with actual drawable
             onClick = navigateToAddTeam,
             modifier = Modifier.fillMaxWidth()
         )
@@ -74,7 +82,7 @@ fun HomeScreen(
 fun ModernCard(title: String, icon: Int, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier
-            .height(170.dp)
+            .height(130.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
