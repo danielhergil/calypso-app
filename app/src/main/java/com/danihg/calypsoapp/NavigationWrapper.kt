@@ -8,6 +8,7 @@ import com.danihg.calypsoapp.presentation.home.HomeScreen
 import com.danihg.calypsoapp.presentation.initial.InitialScreen
 import com.danihg.calypsoapp.presentation.login.LoginScreen
 import com.danihg.calypsoapp.presentation.signup.SignupScreen
+import com.danihg.calypsoapp.presentation.camera.CameraScreen
 import com.google.firebase.auth.FirebaseAuth
 
 @Composable
@@ -34,6 +35,9 @@ fun NavigationWrapper (navHostController: NavHostController, auth: FirebaseAuth)
                 navigateToDeploy = { navHostController.navigate("deploy") },
                 navigateToOverlay = { navHostController.navigate("overlay") }
             )
+        }
+        composable("camera") {
+            CameraScreen()
         }
     }
 }

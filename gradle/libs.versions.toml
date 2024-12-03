@@ -1,5 +1,6 @@
 [versions]
 agp = "8.7.1"
+coreKtxVersion = "1.12.0"
 kotlin = "2.0.0"
 coreKtx = "1.15.0"
 junit = "4.13.2"
@@ -11,9 +12,13 @@ composeBom = "2024.04.01"
 firebaseBom = "33.1.1"
 services = "4.4.2"
 navigationCompose = "2.7.7"
+rootEncoderLibrary = "2.5.4"
+
 
 [libraries]
+androidx-activity-ktx = { module = "androidx.activity:activity-ktx", version.ref = "activityCompose" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-core-ktx-v1120 = { module = "androidx.core:core-ktx", version.ref = "coreKtxVersion" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
@@ -31,6 +36,9 @@ androidx-material3 = { group = "androidx.compose.material3", name = "material3" 
 firebase-bom = {module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom"}
 firebase-auth = {module = "com.google.firebase:firebase-auth-ktx"}
 firebase-firestore = {module = "com.google.firebase:firebase-firestore"}
+
+rootencoder-library = {module = "com.github.pedroSG94.RootEncoder:library", version.ref = "rootEncoderLibrary"}
+rootencoder-extra = {module = "com.github.pedroSG94.RootEncoder:extra-sources", version.ref = "rootEncoderLibrary"}
 
 androidx-navigation-compose = {module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose"}
 

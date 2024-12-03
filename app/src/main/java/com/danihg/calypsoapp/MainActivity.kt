@@ -1,10 +1,13 @@
 package com.danihg.calypsoapp
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -21,11 +24,26 @@ class MainActivity : ComponentActivity() {
     private lateinit var navHostController: NavHostController
     private lateinit var auth: FirebaseAuth
 
+    private val permissionsLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val deniedPermissions = permissions.filter { !it.value }
+
+        if (deniedPermissions.isNotEmpty()) {
+            // Handle denied permissions
+            showToast("Some permissions were denied: ${deniedPermissions.keys.joinToString()}")
+        } else {
+            // All permissions granted
+            showToast("All permissions granted")
+        }
+    }
+
     @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         auth = Firebase.auth
+        requestPermissions()
         setContent {
             navHostController = rememberNavController()
             CalypsoAppTheme {
@@ -40,9 +58,27 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        val currentUser = auth.currentUser
-        if (currentUser != null) {
-            navHostController.navigate("home")
+        window.decorView.post {
+            val currentUser = auth.currentUser
+            if (::navHostController.isInitialized && currentUser != null) {
+                navHostController.navigate("home") {
+                    popUpTo("login") { inclusive = true }
+                }
+            }
         }
+    }
+
+    private fun requestPermissions() {
+        permissionsLauncher.launch(
+            arrayOf(
+                Manifest.permission.CAMERA,
+                Manifest.permission.RECORD_AUDIO,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+            )
+        )
+    }
+
+    private fun showToast(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 }

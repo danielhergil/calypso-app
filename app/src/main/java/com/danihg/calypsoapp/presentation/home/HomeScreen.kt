@@ -43,35 +43,35 @@ fun HomeScreen(
         ModernCard(
             title = "Camera",
             icon = R.drawable.ic_camera, // Replace with actual drawable
-            onClick = navigateToCamera,
+            onClick = { navigateToCamera() },
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.weight(1f))
         ModernCard(
             title = "Add Team",
             icon = R.drawable.ic_add_2, // Replace with actual drawable
-            onClick = navigateToAddTeam,
+            onClick = { navigateToAddTeam() },
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.weight(1f))
         ModernCard(
             title = "Library",
             icon = R.drawable.ic_library, // Replace with actual drawable
-            onClick = navigateToLibrary,
+            onClick = { navigateToLibrary() },
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.weight(1f))
         ModernCard(
             title = "Deploy",
             icon = R.drawable.ic_rocket, // Replace with actual drawable
-            onClick = navigateToDeploy,
+            onClick = { navigateToDeploy() },
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.weight(1f))
         ModernCard(
             title = "Overlay",
             icon = R.drawable.ic_overlay, // Replace with actual drawable
-            onClick = navigateToOverlay,
+            onClick = { navigateToOverlay() },
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.weight(1f))
