@@ -28,7 +28,7 @@ fun HomeScreen(
     navigateToCamera: () -> Unit = {},
     navigateToAddTeam: () -> Unit = {},
     navigateToLibrary: () -> Unit = {},
-    navigateToDeploy: () -> Unit = {},
+    navigateToSettings: () -> Unit = {},
     navigateToOverlay: () -> Unit = {}
 ) {
     Column(
@@ -62,9 +62,9 @@ fun HomeScreen(
         )
         Spacer(modifier = Modifier.weight(1f))
         ModernCard(
-            title = "Deploy",
-            icon = R.drawable.ic_rocket, // Replace with actual drawable
-            onClick = { navigateToDeploy() },
+            title = "Settings",
+            icon = R.drawable.ic_settings, // Replace with actual drawable
+            onClick = { navigateToSettings() },
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.weight(1f))
