@@ -10,44 +10,52 @@ import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.ViewGroup
 import android.widget.Toast
-import androidx.compose.foundation.Image
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.semantics.Role.Companion.Image
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.zIndex
 import com.danihg.calypsoapp.R
-import com.danihg.calypsoapp.ui.theme.Black
-import com.danihg.calypsoapp.ui.theme.CalypsoRed
-import com.danihg.calypsoapp.ui.theme.ShapeButton
+import com.danihg.calypsoapp.ui.theme.GreyTransparent
 import com.pedro.common.ConnectChecker
 import com.pedro.library.generic.GenericStream
 
@@ -97,7 +105,7 @@ fun PreventScreenLock() {
     }
 }
 
-@Preview
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
 fun CameraScreen () {
 
@@ -138,11 +146,19 @@ fun CameraScreen () {
             getGlInterface().autoHandleOrientation = true
         }
     }
+
     var isStreaming by remember { mutableStateOf(false) }
+    var isSettingsMenuVisible by remember { mutableStateOf(false) }
+    var selectedResolution by remember { mutableStateOf("1080p") }
+    var selectedFPS by remember { mutableIntStateOf(30) }
+    var selectedBitrate by remember { mutableIntStateOf(3000 * 1000) }
+    var rtmpEndpoint by remember { mutableStateOf(TextFieldValue("rtmp://a.rtmp.youtube.com/live2/")) }
 
     Scaffold(
-        content = { padding ->
-            Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+        modifier = Modifier.fillMaxSize(), // Fills the entire screen
+        contentWindowInsets = WindowInsets(0, 0, 0, 0), // Removes insets added by Scaffold
+        content = {
+            Box(modifier = Modifier.fillMaxSize()) {
                 // SurfaceView for camera preview
 
                 AndroidView(
@@ -176,64 +192,165 @@ fun CameraScreen () {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(120.dp) // Fixed height for the black box
-                        .align(androidx.compose.ui.Alignment.BottomCenter)
-                        .background(androidx.compose.ui.graphics.Color.Black)
+                        .height(140.dp) // Fixed height for the black box
+                        .align(Alignment.BottomCenter)
+                        .background(Color.Transparent)
                 ) {
-                    Button(
-                        onClick = {
-                            if (isStreaming) {
-                                genericStream.stopStream()
-                                isStreaming = false
-                            } else {
-                                genericStream.startStream("rtmp://a.rtmp.youtube.com/live2/j2sh-690b-fg9y-2fah-7444")
-                                isStreaming = true
-                            }
-                        },
+                    Row(
                         modifier = Modifier
-                            .size(60.dp)
-                            .align(androidx.compose.ui.Alignment.Center)
-                            .border(3.dp, Color.White, CircleShape),
-                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                            containerColor = Color.Red
-                        ),
-                        shape = CircleShape
-                    ) {}
-                    // Left button
-                    Button(
-                        onClick = { /* Handle left button click */ },
-                        modifier = Modifier
-                            .size(40.dp)
-                            .align(androidx.compose.ui.Alignment.Center)
-                            .offset(x = (-120).dp), // Position to the left of the red button
-                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                            containerColor = Color(0x66FFFFFF) // White-grey with transparency
-                        ),
-                        shape = CircleShape
-                    ) {}
-
-                    // Right button
-                    Button(
-                        onClick = { /* Handle right button click */ },
-                        modifier = Modifier
-                            .size(40.dp)
-                            .align(androidx.compose.ui.Alignment.Center)
-                            .offset(x = 120.dp), // Position to the right of the red button
-                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                            containerColor = Color(0x66FFFFFF) // White-grey with transparency
-                        ),
-                        shape = CircleShape
+                            .fillMaxWidth()
+                            .align(Alignment.TopCenter),
+                        horizontalArrangement = Arrangement.Center, // Centers everything horizontally
+                        verticalAlignment = Alignment.CenterVertically // Centers everything vertically
                     ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.ic_settings),
-                            contentDescription = "Right Button Icon",
-                            contentScale = ContentScale.Fit,
-                            colorFilter = ColorFilter.tint(Color.White),
-                            modifier = Modifier.size(30.dp) // Adjust size as needed
+                        // Left button (optional)
+                        AuxButton(
+                            modifier = Modifier
+                                .size(50.dp)
+                                .zIndex(2f),
+                            painter = painterResource(id = R.drawable.ic_rocket),
+                            onClick = {
+
+                            }
                         )
+
+                        Spacer(modifier = Modifier.width(60.dp))
+
+                        // Red button (Center Button)
+                        Button(
+                            onClick = {
+                                if (isStreaming) {
+                                    genericStream.stopStream()
+                                    isStreaming = false
+                                } else {
+                                    genericStream.startStream("rtmp://a.rtmp.youtube.com/live2/j2sh-690b-fg9y-2fah-7444")
+                                    isStreaming = true
+                                }
+                            },
+                            modifier = Modifier
+                                .size(70.dp)
+                                .border(3.dp, Color.White, CircleShape),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.Red
+                            ),
+                            shape = CircleShape
+                        ) {}
+
+                        Spacer(modifier = Modifier.width(60.dp))
+
+                        // Right button (AuxButton with Icon)
+                        AuxButton(
+                            modifier = Modifier
+                                .size(50.dp)
+                                .zIndex(2f),
+                            painter = painterResource(id = R.drawable.ic_settings),
+                            onClick = {
+                                isSettingsMenuVisible = !isSettingsMenuVisible
+                            }
+                        )
+
+                    }
+                }
+
+                // Fullscreen Settings Menu
+                AnimatedVisibility(
+                    visible = isSettingsMenuVisible,
+                    enter = androidx.compose.animation.fadeIn(tween(500)) + androidx.compose.animation.slideInVertically(initialOffsetY = { it }),
+                    exit = androidx.compose.animation.fadeOut(tween(500)) + androidx.compose.animation.slideOutVertically(targetOffsetY = { it })
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.9f))
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            // Resolution Section
+                            Text("Resolution")
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                RadioButton(
+                                    selected = selectedResolution == "1080p",
+                                    onClick = { selectedResolution = "1080p" }
+                                )
+                                Text("1080p")
+                                Spacer(modifier = Modifier.width(16.dp))
+                                RadioButton(
+                                    selected = selectedResolution == "720p",
+                                    onClick = { selectedResolution = "720p" }
+                                )
+                                Text("720p")
+                            }
+
+                            // FPS Section
+                            Text("FPS")
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                RadioButton(
+                                    selected = selectedFPS == 30,
+                                    onClick = { selectedFPS = 30 }
+                                )
+                                Text("30 FPS")
+                                Spacer(modifier = Modifier.width(16.dp))
+                                RadioButton(
+                                    selected = selectedFPS == 60,
+                                    onClick = { selectedFPS = 60 }
+                                )
+                                Text("60 FPS")
+                            }
+
+                            // Bitrate Section
+                            Text("Bitrate")
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                RadioButton(
+                                    selected = selectedBitrate == 3000 * 1000,
+                                    onClick = { selectedBitrate = 3000 * 1000 }
+                                )
+                                Text("High (1080p)")
+                                Spacer(modifier = Modifier.width(16.dp))
+                                RadioButton(
+                                    selected = selectedBitrate == 1500 * 1000,
+                                    onClick = { selectedBitrate = 1500 * 1000 }
+                                )
+                                Text("High (720p)")
+                            }
+
+                            // RTMP Endpoint Section
+                            Text("RTMP Endpoint")
+                            BasicTextField(
+                                value = rtmpEndpoint,
+                                onValueChange = { rtmpEndpoint = it },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(8.dp)
+                                    .background(Color.White)
+                                    .padding(8.dp)
+                            )
+                        }
                     }
                 }
             }
         }
     )
+}
+
+
+@Composable
+fun AuxButton(modifier: Modifier = Modifier, painter: Painter, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(50.dp)
+            .clip(CircleShape)
+            .background(GreyTransparent)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            painter,
+            contentDescription = "Right Button Icon",
+            tint = Color.White,
+            modifier = Modifier.size(30.dp)
+        )
+    }
 }
