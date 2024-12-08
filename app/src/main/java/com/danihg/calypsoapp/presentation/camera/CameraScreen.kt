@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.pm.ActivityInfo
-import android.content.res.Configuration
 import android.os.PowerManager
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -24,21 +23,16 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -47,10 +41,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
@@ -115,8 +107,17 @@ fun CameraScreen () {
 
     val showToast = rememberToast()
     val context = LocalContext.current
-    val configuration = LocalConfiguration.current // To detect orientation changes
-    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    // Retrieve video/audio settings from SharedPreferences with default values
+    val sharedPreferences = context.getSharedPreferences("CameraSettings", Context.MODE_PRIVATE)
+    val videoWidth = sharedPreferences.getInt("videoWidth", 1920)
+    val videoHeight = sharedPreferences.getInt("videoHeight", 1080)
+    val videoBitrate = sharedPreferences.getInt("videoBitrate", 5000 * 1000)
+    val videoFPS = sharedPreferences.getInt("videoFPS", 30)
+    val audioSampleRate = sharedPreferences.getInt("audioSampleRate", 32000)
+    val audioIsStereo = sharedPreferences.getBoolean("audioIsStereo", true)
+    val audioBitrate = sharedPreferences.getInt("audioBitrate", 128 * 1000)
+
     val genericStream = remember {
         GenericStream(context, object : ConnectChecker {
             override fun onConnectionStarted(url: String) {}
@@ -141,18 +142,14 @@ fun CameraScreen () {
                 showToast("Authentication success")
             }
         }).apply {
-            prepareVideo(1920, 1080, 3000 * 1000, 30)
-            prepareAudio(32000, true, 128 * 1000)
+            prepareVideo(videoWidth, videoHeight, videoBitrate, videoFPS)
+            prepareAudio(audioSampleRate, audioIsStereo, audioBitrate)
             getGlInterface().autoHandleOrientation = true
         }
     }
 
     var isStreaming by remember { mutableStateOf(false) }
     var isSettingsMenuVisible by remember { mutableStateOf(false) }
-    var selectedResolution by remember { mutableStateOf("1080p") }
-    var selectedFPS by remember { mutableIntStateOf(30) }
-    var selectedBitrate by remember { mutableIntStateOf(3000 * 1000) }
-    var rtmpEndpoint by remember { mutableStateOf(TextFieldValue("rtmp://a.rtmp.youtube.com/live2/")) }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(), // Fills the entire screen
@@ -267,67 +264,7 @@ fun CameraScreen () {
                             modifier = Modifier.fillMaxSize(),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
-                        ) {
-                            // Resolution Section
-                            Text("Resolution")
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                RadioButton(
-                                    selected = selectedResolution == "1080p",
-                                    onClick = { selectedResolution = "1080p" }
-                                )
-                                Text("1080p")
-                                Spacer(modifier = Modifier.width(16.dp))
-                                RadioButton(
-                                    selected = selectedResolution == "720p",
-                                    onClick = { selectedResolution = "720p" }
-                                )
-                                Text("720p")
-                            }
-
-                            // FPS Section
-                            Text("FPS")
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                RadioButton(
-                                    selected = selectedFPS == 30,
-                                    onClick = { selectedFPS = 30 }
-                                )
-                                Text("30 FPS")
-                                Spacer(modifier = Modifier.width(16.dp))
-                                RadioButton(
-                                    selected = selectedFPS == 60,
-                                    onClick = { selectedFPS = 60 }
-                                )
-                                Text("60 FPS")
-                            }
-
-                            // Bitrate Section
-                            Text("Bitrate")
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                RadioButton(
-                                    selected = selectedBitrate == 3000 * 1000,
-                                    onClick = { selectedBitrate = 3000 * 1000 }
-                                )
-                                Text("High (1080p)")
-                                Spacer(modifier = Modifier.width(16.dp))
-                                RadioButton(
-                                    selected = selectedBitrate == 1500 * 1000,
-                                    onClick = { selectedBitrate = 1500 * 1000 }
-                                )
-                                Text("High (720p)")
-                            }
-
-                            // RTMP Endpoint Section
-                            Text("RTMP Endpoint")
-                            BasicTextField(
-                                value = rtmpEndpoint,
-                                onValueChange = { rtmpEndpoint = it },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(8.dp)
-                                    .background(Color.White)
-                                    .padding(8.dp)
-                            )
-                        }
+                        ){}
                     }
                 }
             }
