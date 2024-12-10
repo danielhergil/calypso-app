@@ -47,8 +47,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import com.danihg.calypsoapp.R
+import com.danihg.calypsoapp.filters.ScoreboardFilterRender
 import com.danihg.calypsoapp.ui.theme.GreyTransparent
 import com.pedro.common.ConnectChecker
+import com.pedro.encoder.input.gl.render.filters.BaseFilterRender
+import com.pedro.encoder.input.gl.render.filters.GreyScaleFilterRender
 import com.pedro.library.generic.GenericStream
 
 
@@ -207,7 +210,7 @@ fun CameraScreen () {
                                 .zIndex(2f),
                             painter = painterResource(id = R.drawable.ic_rocket),
                             onClick = {
-
+                                genericStream.getGlInterface().setFilter(ScoreboardFilterRender())
                             }
                         )
 
