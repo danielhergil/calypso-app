@@ -11,6 +11,7 @@ lifecycleRuntimeKtx = "2.8.6"
 activityCompose = "1.9.3"
 composeBom = "2024.04.01"
 firebaseBom = "33.1.1"
+openglApi = "gl1.1-android-2.1_r1"
 services = "4.4.2"
 navigationCompose = "2.7.7"
 rootEncoderLibrary = "2.5.4"
@@ -42,6 +43,7 @@ firebase-bom = {module = "com.google.firebase:firebase-bom", version.ref = "fire
 firebase-auth = {module = "com.google.firebase:firebase-auth-ktx"}
 firebase-firestore = {module = "com.google.firebase:firebase-firestore"}
 
+opengl-api = { module = "org.khronos:opengl-api", version.ref = "openglApi" }
 rootencoder-library = {module = "com.github.pedroSG94.RootEncoder:library", version.ref = "rootEncoderLibrary"}
 rootencoder-extra = {module = "com.github.pedroSG94.RootEncoder:extra-sources", version.ref = "rootEncoderLibrary"}
 

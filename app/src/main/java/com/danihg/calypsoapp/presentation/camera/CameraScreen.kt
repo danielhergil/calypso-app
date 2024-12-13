@@ -1,6 +1,5 @@
 package com.danihg.calypsoapp.presentation.camera
 
-import com.danihg.calypsoapp.R
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
@@ -19,12 +18,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -50,6 +47,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
+import com.danihg.calypsoapp.R
 import com.danihg.calypsoapp.filters.ScoreboardFilterRender
 import com.danihg.calypsoapp.ui.theme.GreyTransparent
 import com.pedro.common.ConnectChecker
@@ -122,13 +120,18 @@ fun CameraScreen () {
     val audioIsStereo = sharedPreferences.getBoolean("audioIsStereo", true)
     val audioBitrate = sharedPreferences.getInt("audioBitrate", 128 * 1000)
 
+    val options = BitmapFactory.Options()
+    options.inScaled = false
+
     val leftLogoBitmap = BitmapFactory.decodeResource(
         context.resources,
-        R.drawable.rivas_50
+        R.drawable.rivas_50,
+        options
     )
     val rightLogoBitmap = BitmapFactory.decodeResource(
         context.resources,
-        R.drawable.alcorcon_50
+        R.drawable.alcorcon_50,
+        options
     )
 
     val genericStream = remember {

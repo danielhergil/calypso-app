@@ -50,6 +50,7 @@ dependencies {
     implementation(libs.rootencoder.extra)
     implementation(libs.androidx.activity.ktx)
     implementation(libs.androidx.core.ktx.v1120)
+    implementation(libs.opengl.api)
 
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.core.ktx)

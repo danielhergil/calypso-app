@@ -94,7 +94,7 @@ public class ScoreboardFilterRender extends BaseFilterRender {
                     "\n" +
                     "void main() {\n" +
                     "    vec4 texColor = texture2D(uSampler, vTextureCoord);\n" +
-                    "    vec2 scoreboardPos = vec2(0.09, 0.05);  // Top-left corner\n" +
+                    "    vec2 scoreboardPos = vec2(0.08, 0.05);  // Top-left corner\n" +
                     "    vec2 scoreboardSize = vec2(0.25, 0.1);\n" +
                     "    vec2 adjustedCoord = vec2(vTextureCoord.x, 1.0 - vTextureCoord.y);  // Flip Y-axis\n" +
                     "    vec2 localCoord = (adjustedCoord - scoreboardPos) / scoreboardSize;\n" +
@@ -105,9 +105,9 @@ public class ScoreboardFilterRender extends BaseFilterRender {
                     "    float boxDist = roundedBox(localCoord - 0.5, vec2(0.5), 0.1);\n" +
                     "    \n" +
                     "    // Render logos\n" +
-                    "    vec2 leftLogoPos = scoreboardPos + vec2(-0.12, 0.02);  // Left of the scoreboard\n" +
+                    "    vec2 leftLogoPos = scoreboardPos + vec2(-0.095, 0.02);  // Left of the scoreboard\n" +
                     "    vec2 rightLogoPos = scoreboardPos + vec2(scoreboardSize.x - 0.02, 0.02);  // Right of the scoreboard\n" +
-                    "    vec2 logoSize = vec2(0.07, 0.07);\n" +
+                    "    vec2 logoSize = vec2(0.06, 0.07 * uLeftLogoSize.y / uLeftLogoSize.x);\n" +
                     "    \n" +
                     "    vec2 leftLogoCoord = (adjustedCoord - leftLogoPos) / logoSize;\n" +
                     "    vec2 rightLogoCoord = (adjustedCoord - rightLogoPos) / logoSize;\n" +
@@ -222,15 +222,20 @@ public class ScoreboardFilterRender extends BaseFilterRender {
         GLES20.glGenTextures(1, textures, 0);
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textures[0]);
 
-        GLES20.glTexParameterf(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
+        GLES20.glTexParameterf(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR);
         GLES20.glTexParameterf(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
         GLES20.glTexParameterf(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
         GLES20.glTexParameterf(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
 
         GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, logoBitmap, 0);
 
-        logoSize[0] = (float) logoBitmap.getWidth() / (float) logoBitmap.getHeight();
-        logoSize[1] = 1.0f;
+        // Generate mipmaps for better quality on downscaling
+        GLES20.glGenerateMipmap(GLES20.GL_TEXTURE_2D);
+
+        // Calculate the aspect ratio of the logo
+        float logoAspectRatio = (float) logoBitmap.getWidth() / (float) logoBitmap.getHeight();
+        logoSize[0] = logoAspectRatio; // Width
+        logoSize[1] = 1.0f; // Height
 
         return textures[0];
     }
