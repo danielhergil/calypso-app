@@ -1,9 +1,11 @@
 package com.danihg.calypsoapp.presentation.camera
 
+import com.danihg.calypsoapp.R
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.pm.ActivityInfo
+import android.graphics.BitmapFactory
 import android.os.PowerManager
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -20,9 +22,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -46,12 +50,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
-import com.danihg.calypsoapp.R
 import com.danihg.calypsoapp.filters.ScoreboardFilterRender
 import com.danihg.calypsoapp.ui.theme.GreyTransparent
 import com.pedro.common.ConnectChecker
-import com.pedro.encoder.input.gl.render.filters.BaseFilterRender
-import com.pedro.encoder.input.gl.render.filters.GreyScaleFilterRender
 import com.pedro.library.generic.GenericStream
 
 
@@ -105,7 +106,7 @@ fun PreventScreenLock() {
 fun CameraScreen () {
 
     // Lock the screen to portrait mode
-    LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
+    LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
     PreventScreenLock()
 
     val showToast = rememberToast()
@@ -120,6 +121,15 @@ fun CameraScreen () {
     val audioSampleRate = sharedPreferences.getInt("audioSampleRate", 32000)
     val audioIsStereo = sharedPreferences.getBoolean("audioIsStereo", true)
     val audioBitrate = sharedPreferences.getInt("audioBitrate", 128 * 1000)
+
+    val leftLogoBitmap = BitmapFactory.decodeResource(
+        context.resources,
+        R.drawable.rivas_50
+    )
+    val rightLogoBitmap = BitmapFactory.decodeResource(
+        context.resources,
+        R.drawable.alcorcon_50
+    )
 
     val genericStream = remember {
         GenericStream(context, object : ConnectChecker {
@@ -148,6 +158,7 @@ fun CameraScreen () {
             prepareVideo(videoWidth, videoHeight, videoBitrate, videoFPS)
             prepareAudio(audioSampleRate, audioIsStereo, audioBitrate)
             getGlInterface().autoHandleOrientation = true
+//            setOrientation(180)
         }
     }
 
@@ -188,35 +199,35 @@ fun CameraScreen () {
                     modifier = Modifier.fillMaxSize() // Fills the screen
                 )
 
-                // Black box at the bottom with a red circular button
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(140.dp) // Fixed height for the black box
-                        .align(Alignment.BottomCenter)
+                        .fillMaxHeight()
+                        .width(160.dp)
+                        .padding(end = 80.dp)
+                        .align(Alignment.CenterEnd)
                         .background(Color.Transparent)
                 ) {
-                    Row(
+                    Column(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .align(Alignment.TopCenter),
-                        horizontalArrangement = Arrangement.Center, // Centers everything horizontally
-                        verticalAlignment = Alignment.CenterVertically // Centers everything vertically
+                            .fillMaxHeight()
+                            .align(Alignment.Center),
+                        verticalArrangement = Arrangement.SpaceEvenly,
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // Left button (optional)
+                        // Top button (Left Button in previous version)
                         AuxButton(
                             modifier = Modifier
                                 .size(50.dp)
                                 .zIndex(2f),
                             painter = painterResource(id = R.drawable.ic_rocket),
                             onClick = {
-                                genericStream.getGlInterface().setFilter(ScoreboardFilterRender())
+                                genericStream.getGlInterface().setFilter(ScoreboardFilterRender(leftLogoBitmap, rightLogoBitmap))
                             }
                         )
 
-                        Spacer(modifier = Modifier.width(60.dp))
+                        Spacer(modifier = Modifier.height(5.dp))
 
-                        // Red button (Center Button)
+                        // Red circular button (Center Button)
                         Button(
                             onClick = {
                                 if (isStreaming) {
@@ -236,9 +247,9 @@ fun CameraScreen () {
                             shape = CircleShape
                         ) {}
 
-                        Spacer(modifier = Modifier.width(60.dp))
+                        Spacer(modifier = Modifier.height(5.dp))
 
-                        // Right button (AuxButton with Icon)
+                        // Bottom button (Right Button in previous version)
                         AuxButton(
                             modifier = Modifier
                                 .size(50.dp)
@@ -248,7 +259,6 @@ fun CameraScreen () {
                                 isSettingsMenuVisible = !isSettingsMenuVisible
                             }
                         )
-
                     }
                 }
 
