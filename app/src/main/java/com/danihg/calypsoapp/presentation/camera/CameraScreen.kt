@@ -4,14 +4,27 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.pm.ActivityInfo
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RadialGradient
+import android.graphics.Rect
+import android.graphics.Shader
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
+import android.util.Log
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -42,15 +55,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
+import androidx.core.content.res.ResourcesCompat
+import androidx.test.internal.runner.junit4.statement.UiThreadStatement.runOnUiThread
 import com.danihg.calypsoapp.R
 import com.danihg.calypsoapp.filters.ScoreboardFilterRender
 import com.danihg.calypsoapp.ui.theme.GreyTransparent
 import com.pedro.common.ConnectChecker
+import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
+import com.pedro.encoder.utils.gl.TranslateTo
 import com.pedro.library.generic.GenericStream
 
 
@@ -120,6 +138,8 @@ fun CameraScreen () {
     val audioIsStereo = sharedPreferences.getBoolean("audioIsStereo", true)
     val audioBitrate = sharedPreferences.getInt("audioBitrate", 128 * 1000)
 
+
+    // Scoreboard variables
     val options = BitmapFactory.Options()
     options.inScaled = false
 
@@ -133,6 +153,12 @@ fun CameraScreen () {
         R.drawable.alcorcon_50,
         options
     )
+    val selectedBackgroundColor: Int = Color.Transparent.toArgb()
+    var leftTeamGoals = 0
+    val rightTeamGoals = 0
+    val imageObjectFilterRender = ImageObjectFilterRender()
+
+    var overlayDrawn by remember { mutableStateOf(false) }
 
     val genericStream = remember {
         GenericStream(context, object : ConnectChecker {
@@ -168,12 +194,197 @@ fun CameraScreen () {
     var isStreaming by remember { mutableStateOf(false) }
     var isSettingsMenuVisible by remember { mutableStateOf(false) }
 
+//    fun createScoreboardBitmap(
+//        leftLogoBitmap: Bitmap?,
+//        rightLogoBitmap: Bitmap?,
+//        leftTeamGoals: Int,
+//        rightTeamGoals: Int,
+//        backgroundColor: Int
+//    ): Bitmap {
+//        val logoSize = 100
+//        val logoPadding = 20 // Padding between logos and scoreboard
+//        val scoreboardWidth = 500 // Reduced width of the scoreboard box
+//        val scoreboardHeight = 150
+//        val width = scoreboardWidth + 2 * logoSize + 4 * logoPadding // Extra space for logos and padding on both sides
+//        val height = scoreboardHeight
+//        val scoreboardLeft = logoSize + 2 * logoPadding.toFloat()
+//        val scoreboardRight = scoreboardLeft + scoreboardWidth
+//        val scoreboardBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+//        val canvas = Canvas(scoreboardBitmap)
+//        val paint = Paint().apply {
+//            isAntiAlias = true
+//            typeface = ResourcesCompat.getFont(context, R.font.montserrat_medium) // Ensure context is available here
+//        }
+//
+//        // Draw scoreboard box
+//        paint.color = Color(0xFF222222).toArgb()
+//        paint.style = Paint.Style.FILL
+//        canvas.drawRoundRect(scoreboardLeft, 0f, scoreboardRight, height.toFloat(), 20f, 20f, paint)
+//
+//        // Add a rounded rectangle border for the scoreboard
+//        paint.color = Color.White.toArgb()
+//        paint.style = Paint.Style.STROKE
+//        paint.strokeWidth = 8f
+//        canvas.drawRoundRect(scoreboardLeft + 4f, 4f, scoreboardRight - 4f, height - 4f, 20f, 20f, paint)
+//        paint.style = Paint.Style.FILL // Reset paint style to fill
+//
+//        // Draw team scores separated by a horizontal dash
+//        paint.color = Color.White.toArgb()
+//        paint.textSize = 80f
+//        paint.typeface = ResourcesCompat.getFont(context, R.font.montserrat_bold) // Use a bolder font
+//        val scoreLeftX = scoreboardLeft + scoreboardWidth / 4f - 35f
+//        val scoreRightX = scoreboardLeft + 3 * scoreboardWidth / 4f - 35f
+//        val scoreCenterY = height / 2f + 30f
+//        canvas.drawText(leftTeamGoals.toString(), scoreLeftX, scoreCenterY, paint)
+//        canvas.drawText("-", (scoreboardLeft + scoreboardRight) / 2f - 20f, scoreCenterY, paint)
+//        canvas.drawText(rightTeamGoals.toString(), scoreRightX, scoreCenterY, paint)
+//
+//        // Draw team logos on the sides of the scoreboard
+//        leftLogoBitmap?.let {
+//            val destRect1 = Rect(logoPadding, (height - logoSize) / 2, logoPadding + logoSize, (height + logoSize) / 2)
+//            canvas.drawBitmap(it, null, destRect1, null)
+//        }
+//
+//        rightLogoBitmap?.let {
+//            val destRect2 = Rect(width - logoPadding - logoSize, (height - logoSize) / 2, width - logoPadding, (height + logoSize) / 2)
+//            canvas.drawBitmap(it, null, destRect2, null)
+//        }
+//
+//        return scoreboardBitmap
+//    }
+//
+//    fun updateOverlay() {
+//        Handler(Looper.getMainLooper()).post {
+//            val scoreboardBitmap: Bitmap = createScoreboardBitmap(
+//                leftLogoBitmap,
+//                rightLogoBitmap,
+//                leftTeamGoals,
+//                rightTeamGoals,
+//                selectedBackgroundColor
+//            )
+//            imageObjectFilterRender.setImage(scoreboardBitmap)
+//
+//
+//            val bitmapWidth = scoreboardBitmap.width
+//            val bitmapHeight = scoreboardBitmap.height
+//            val scaleX = 33.3f
+//            val scaleY = bitmapHeight.toFloat() / bitmapWidth.toFloat() * scaleX
+//
+//            imageObjectFilterRender.setScale(scaleX, scaleY)
+//
+//            // Calculate new position for left-right alignment with padding
+//            val paddingLeft = 3f
+//            val paddingTop = 3f
+//            imageObjectFilterRender.setPosition(paddingLeft, paddingTop)
+//        }
+//    }
+//
+//    fun drawOverlay() {
+//        Handler(Looper.getMainLooper()).postDelayed({
+//            updateOverlay()
+//        }, 100)
+//    }
+
     Scaffold(
         modifier = Modifier.fillMaxSize(), // Fills the entire screen
         contentWindowInsets = WindowInsets(0, 0, 0, 0), // Removes insets added by Scaffold
         content = {
             Box(modifier = Modifier.fillMaxSize()) {
                 // SurfaceView for camera preview
+
+                fun createScoreboardBitmap(
+                    leftLogoBitmap: Bitmap?,
+                    rightLogoBitmap: Bitmap?,
+                    leftTeamGoals: Int,
+                    rightTeamGoals: Int,
+                    backgroundColor: Int
+                ): Bitmap {
+                    val logoSize = 100
+                    val logoPadding = 20 // Padding between logos and scoreboard
+                    val scoreboardWidth = 500 // Reduced width of the scoreboard box
+                    val scoreboardHeight = 150
+                    val width = scoreboardWidth + 2 * logoSize + 4 * logoPadding // Extra space for logos and padding on both sides
+                    val height = scoreboardHeight
+                    val scoreboardLeft = logoSize + 2 * logoPadding.toFloat()
+                    val scoreboardRight = scoreboardLeft + scoreboardWidth
+                    val scoreboardBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                    val canvas = Canvas(scoreboardBitmap)
+                    val paint = Paint().apply {
+                        isAntiAlias = true
+                        typeface = ResourcesCompat.getFont(context, R.font.montserrat_medium) // Ensure context is available here
+                    }
+
+                    // Draw scoreboard box
+                    paint.color = Color(0xFF222222).toArgb()
+                    paint.style = Paint.Style.FILL
+                    canvas.drawRoundRect(scoreboardLeft, 0f, scoreboardRight, height.toFloat(), 20f, 20f, paint)
+
+                    // Add a rounded rectangle border for the scoreboard
+                    paint.color = Color.White.toArgb()
+                    paint.style = Paint.Style.STROKE
+                    paint.strokeWidth = 8f
+                    canvas.drawRoundRect(scoreboardLeft + 4f, 4f, scoreboardRight - 4f, height - 4f, 20f, 20f, paint)
+                    paint.style = Paint.Style.FILL // Reset paint style to fill
+
+                    // Draw team scores separated by a horizontal dash
+                    paint.color = Color.White.toArgb()
+                    paint.textSize = 80f
+                    paint.typeface = ResourcesCompat.getFont(context, R.font.montserrat_bold) // Use a bolder font
+                    val scoreLeftX = scoreboardLeft + scoreboardWidth / 4f - 35f
+                    val scoreRightX = scoreboardLeft + 3 * scoreboardWidth / 4f - 35f
+                    val scoreCenterY = height / 2f + 30f
+                    canvas.drawText(leftTeamGoals.toString(), scoreLeftX, scoreCenterY, paint)
+                    canvas.drawText("-", (scoreboardLeft + scoreboardRight) / 2f - 20f, scoreCenterY, paint)
+                    canvas.drawText(rightTeamGoals.toString(), scoreRightX, scoreCenterY, paint)
+
+                    // Draw team logos on the sides of the scoreboard
+                    leftLogoBitmap?.let {
+                        val destRect1 = Rect(logoPadding, (height - logoSize) / 2, logoPadding + logoSize, (height + logoSize) / 2)
+                        canvas.drawBitmap(it, null, destRect1, null)
+                    }
+
+                    rightLogoBitmap?.let {
+                        val destRect2 = Rect(width - logoPadding - logoSize, (height - logoSize) / 2, width - logoPadding, (height + logoSize) / 2)
+                        canvas.drawBitmap(it, null, destRect2, null)
+                    }
+
+                    return scoreboardBitmap
+                }
+
+                fun updateOverlay() {
+                    Handler(Looper.getMainLooper()).post {
+                        val scoreboardBitmap: Bitmap = createScoreboardBitmap(
+                            leftLogoBitmap,
+                            rightLogoBitmap,
+                            leftTeamGoals,
+                            rightTeamGoals,
+                            selectedBackgroundColor
+                        )
+                        imageObjectFilterRender.setImage(scoreboardBitmap)
+
+
+                        val bitmapWidth = scoreboardBitmap.width
+                        val bitmapHeight = scoreboardBitmap.height
+                        val scaleX = 33.3f
+                        val scaleY = bitmapHeight.toFloat() / bitmapWidth.toFloat() * scaleX
+
+                        imageObjectFilterRender.setScale(scaleX, scaleY)
+
+                        // Calculate new position for left-right alignment with padding
+                        val paddingLeft = 3f
+                        val paddingTop = 3f
+                        imageObjectFilterRender.setPosition(paddingLeft, paddingTop)
+                    }
+                }
+
+                fun drawOverlay() {
+                    if (genericStream.isOnPreview) {
+                        updateOverlay()
+                        Log.d("CameraScreen", "Overlay drawn")
+                    } else {
+                        Log.d("CameraScreen", "Preview not active, overlay not drawn")
+                    }
+                }
 
                 AndroidView(
                     factory = { ctx ->
@@ -224,7 +435,8 @@ fun CameraScreen () {
                                 .zIndex(2f),
                             painter = painterResource(id = R.drawable.ic_rocket),
                             onClick = {
-                                genericStream.getGlInterface().setFilter(ScoreboardFilterRender(leftLogoBitmap, rightLogoBitmap))
+                                genericStream.getGlInterface().addFilter(imageObjectFilterRender)
+                                drawOverlay()
                             }
                         )
 
@@ -268,8 +480,8 @@ fun CameraScreen () {
                 // Fullscreen Settings Menu
                 AnimatedVisibility(
                     visible = isSettingsMenuVisible,
-                    enter = androidx.compose.animation.fadeIn(tween(500)) + androidx.compose.animation.slideInVertically(initialOffsetY = { it }),
-                    exit = androidx.compose.animation.fadeOut(tween(500)) + androidx.compose.animation.slideOutVertically(targetOffsetY = { it })
+                    enter = fadeIn(tween(500)) + slideInVertically(initialOffsetY = { it }),
+                    exit = fadeOut(tween(500)) + slideOutVertically(targetOffsetY = { it })
                 ) {
                     Box(
                         modifier = Modifier
@@ -280,7 +492,18 @@ fun CameraScreen () {
                             modifier = Modifier.fillMaxSize(),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
-                        ){}
+                        ){
+                            AuxButton(
+                                modifier = Modifier
+                                    .size(50.dp)
+                                    .zIndex(2f),
+                                painter = painterResource(id = R.drawable.ic_settings),
+                                onClick = {
+                                    leftTeamGoals++
+                                    drawOverlay()
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -307,3 +530,4 @@ fun AuxButton(modifier: Modifier = Modifier, painter: Painter, onClick: () -> Un
         )
     }
 }
+
