@@ -12,16 +12,22 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -29,8 +35,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Divider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -42,16 +54,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import com.danihg.calypsoapp.R
-import com.danihg.calypsoapp.filters.ScoreboardFilterRender
 import com.danihg.calypsoapp.ui.theme.GreyTransparent
 import com.pedro.common.ConnectChecker
+import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
 import com.pedro.library.generic.GenericStream
+import com.danihg.calypsoapp.overlays.drawOverlay
 
 
 @Composable
@@ -120,6 +134,8 @@ fun CameraScreen () {
     val audioIsStereo = sharedPreferences.getBoolean("audioIsStereo", true)
     val audioBitrate = sharedPreferences.getInt("audioBitrate", 128 * 1000)
 
+
+    // Scoreboard variables
     val options = BitmapFactory.Options()
     options.inScaled = false
 
@@ -133,6 +149,14 @@ fun CameraScreen () {
         R.drawable.alcorcon_50,
         options
     )
+    val selectedBackgroundColor: Int = Color.Transparent.toArgb()
+    var leftTeamGoals = 0
+    var rightTeamGoals = 0
+    val imageObjectFilterRender = ImageObjectFilterRender()
+
+    var overlayDrawn by remember { mutableStateOf(false) }
+    var showApplyButton by remember { mutableStateOf(false) }
+    var showScoreboardOverlay by remember { mutableStateOf(false) }
 
     val genericStream = remember {
         GenericStream(context, object : ConnectChecker {
@@ -224,7 +248,28 @@ fun CameraScreen () {
                                 .zIndex(2f),
                             painter = painterResource(id = R.drawable.ic_rocket),
                             onClick = {
-                                genericStream.getGlInterface().setFilter(ScoreboardFilterRender(leftLogoBitmap, rightLogoBitmap))
+                                showApplyButton = !showApplyButton
+                                if (!overlayDrawn) {
+                                    genericStream.getGlInterface()
+                                        .addFilter(imageObjectFilterRender)
+                                    drawOverlay(
+                                        context = context,
+                                        leftLogoBitmap = leftLogoBitmap,
+                                        rightLogoBitmap = rightLogoBitmap,
+                                        leftTeamGoals = leftTeamGoals,
+                                        rightTeamGoals = rightTeamGoals,
+                                        backgroundColor = selectedBackgroundColor,
+                                        imageObjectFilterRender = imageObjectFilterRender,
+                                        isOnPreview = genericStream.isOnPreview
+                                    )
+                                    overlayDrawn = true
+                                }
+                                else {
+                                    genericStream.getGlInterface().removeFilter(imageObjectFilterRender)
+                                    leftTeamGoals = 0
+                                    rightTeamGoals = 0
+                                    overlayDrawn = false
+                                }
                             }
                         )
 
@@ -265,11 +310,30 @@ fun CameraScreen () {
                     }
                 }
 
+//                // Fullscreen Scoreboard Menu
+//                AnimatedVisibility(
+//                    visible = showApplyButton,
+//                    enter = fadeIn(tween(500)) + slideInVertically(initialOffsetY = { it }),
+//                    exit = fadeOut(tween(500)) + slideOutVertically(targetOffsetY = { it })
+//                ) {
+//                    Box(
+//                        modifier = Modifier
+//                            .fillMaxSize()
+//                            .background(Color.Black.copy(alpha = 0.9f))
+//                    ) {
+//                        Column(
+//                            modifier = Modifier.fillMaxSize(),
+//                            horizontalAlignment = Alignment.CenterHorizontally,
+//                            verticalArrangement = Arrangement.Center
+//                        ){}
+//                    }
+//                }
+
                 // Fullscreen Settings Menu
                 AnimatedVisibility(
                     visible = isSettingsMenuVisible,
-                    enter = androidx.compose.animation.fadeIn(tween(500)) + androidx.compose.animation.slideInVertically(initialOffsetY = { it }),
-                    exit = androidx.compose.animation.fadeOut(tween(500)) + androidx.compose.animation.slideOutVertically(targetOffsetY = { it })
+                    enter = fadeIn(tween(500)) + slideInVertically(initialOffsetY = { it }),
+                    exit = fadeOut(tween(500)) + slideOutVertically(targetOffsetY = { it })
                 ) {
                     Box(
                         modifier = Modifier
@@ -280,7 +344,27 @@ fun CameraScreen () {
                             modifier = Modifier.fillMaxSize(),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
-                        ){}
+                        ){
+                            AuxButton(
+                                modifier = Modifier
+                                    .size(50.dp)
+                                    .zIndex(2f),
+                                painter = painterResource(id = R.drawable.ic_settings),
+                                onClick = {
+                                    leftTeamGoals++
+                                    drawOverlay(
+                                        context = context,
+                                        leftLogoBitmap = leftLogoBitmap,
+                                        rightLogoBitmap = rightLogoBitmap,
+                                        leftTeamGoals = leftTeamGoals,
+                                        rightTeamGoals = rightTeamGoals,
+                                        backgroundColor = selectedBackgroundColor,
+                                        imageObjectFilterRender = imageObjectFilterRender,
+                                        isOnPreview = genericStream.isOnPreview
+                                    )
+                                }
+                            )
+                        }
                     }
                 }
             }
