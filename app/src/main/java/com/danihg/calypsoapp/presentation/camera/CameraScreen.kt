@@ -22,10 +22,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -33,8 +35,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Divider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -147,6 +155,8 @@ fun CameraScreen () {
     val imageObjectFilterRender = ImageObjectFilterRender()
 
     var overlayDrawn by remember { mutableStateOf(false) }
+    var showApplyButton by remember { mutableStateOf(false) }
+    var showScoreboardOverlay by remember { mutableStateOf(false) }
 
     val genericStream = remember {
         GenericStream(context, object : ConnectChecker {
@@ -238,6 +248,7 @@ fun CameraScreen () {
                                 .zIndex(2f),
                             painter = painterResource(id = R.drawable.ic_rocket),
                             onClick = {
+                                showApplyButton = !showApplyButton
                                 if (!overlayDrawn) {
                                     genericStream.getGlInterface()
                                         .addFilter(imageObjectFilterRender)
@@ -298,6 +309,25 @@ fun CameraScreen () {
                         )
                     }
                 }
+
+//                // Fullscreen Scoreboard Menu
+//                AnimatedVisibility(
+//                    visible = showApplyButton,
+//                    enter = fadeIn(tween(500)) + slideInVertically(initialOffsetY = { it }),
+//                    exit = fadeOut(tween(500)) + slideOutVertically(targetOffsetY = { it })
+//                ) {
+//                    Box(
+//                        modifier = Modifier
+//                            .fillMaxSize()
+//                            .background(Color.Black.copy(alpha = 0.9f))
+//                    ) {
+//                        Column(
+//                            modifier = Modifier.fillMaxSize(),
+//                            horizontalAlignment = Alignment.CenterHorizontally,
+//                            verticalArrangement = Arrangement.Center
+//                        ){}
+//                    }
+//                }
 
                 // Fullscreen Settings Menu
                 AnimatedVisibility(
@@ -361,4 +391,3 @@ fun AuxButton(modifier: Modifier = Modifier, painter: Painter, onClick: () -> Un
         )
     }
 }
-
