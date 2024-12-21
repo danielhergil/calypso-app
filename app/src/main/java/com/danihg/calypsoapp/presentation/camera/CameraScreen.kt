@@ -33,6 +33,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Divider
@@ -42,6 +44,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -57,7 +60,10 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import com.danihg.calypsoapp.R
@@ -66,6 +72,9 @@ import com.pedro.common.ConnectChecker
 import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
 import com.pedro.library.generic.GenericStream
 import com.danihg.calypsoapp.overlays.drawOverlay
+import com.danihg.calypsoapp.ui.theme.CalypsoRed
+import com.danihg.calypsoapp.ui.theme.Gray
+import com.danihg.calypsoapp.ui.theme.UnselectedField
 
 
 @Composable
@@ -149,6 +158,8 @@ fun CameraScreen () {
         R.drawable.alcorcon_50,
         options
     )
+    var selectedTeam1 by remember { mutableStateOf("Rivas") }
+    var selectedTeam2 by remember { mutableStateOf("Rivas") }
     val selectedBackgroundColor: Int = Color.Transparent.toArgb()
     var leftTeamGoals = 0
     var rightTeamGoals = 0
@@ -310,6 +321,163 @@ fun CameraScreen () {
                     }
                 }
 
+                AnimatedVisibility(
+                    visible = showApplyButton,
+                    enter = fadeIn(tween(500)) + slideInVertically(initialOffsetY = { it }),
+                    exit = fadeOut(tween(500)) + slideOutVertically(targetOffsetY = { it })
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.95f))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.Top,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            // Sections Row
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                                horizontalArrangement = Arrangement.Start,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Section 1
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .background(Color.Gray.copy(alpha = 0.2f))
+                                        .padding(8.dp),
+                                    contentAlignment = Alignment.TopCenter
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(12.dp),
+                                        verticalArrangement = Arrangement.Top,
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                modifier = Modifier.padding(start = 5.dp),
+                                                text = "Scoreboard",
+                                                fontSize = 20.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.White
+                                            )
+                                            Switch(
+                                                checked = showScoreboardOverlay,
+                                                onCheckedChange = { showScoreboardOverlay = it },
+                                                colors = SwitchDefaults.colors(
+                                                    checkedThumbColor = CalypsoRed,
+                                                    uncheckedThumbColor = Color.Gray
+                                                )
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(15.dp))
+
+//                                        // On/Off Switch
+//                                        Row(
+//                                            modifier = Modifier.fillMaxWidth(),
+//                                            horizontalArrangement = Arrangement.SpaceBetween,
+//                                            verticalAlignment = Alignment.CenterVertically
+//                                        ) {
+//                                            SectionSubtitle("On/Off")
+//                                            Switch(
+//                                                checked = showScoreboardOverlay,
+//                                                onCheckedChange = { showScoreboardOverlay = it },
+//                                                colors = SwitchDefaults.colors(
+//                                                    checkedThumbColor = CalypsoRed,
+//                                                    uncheckedThumbColor = Color.Gray
+//                                                )
+//                                            )
+//                                        }
+//                                        Spacer(modifier = Modifier.height(15.dp))
+
+                                        SectionSubtitle("Select Team 1")
+                                        ModernDropdown(
+                                            items = listOf("Rivas", "Alcorcón"),
+                                            selectedValue = selectedTeam1,
+                                            displayMapper = { it },
+                                            onValueChange = {
+                                                selectedTeam1 = it
+                                            }
+                                        )
+                                        Spacer(modifier = Modifier.height(25.dp))
+                                        SectionSubtitle("Select Team 2")
+                                        ModernDropdown(
+                                            items = listOf("Rivas", "Alcorcón"),
+                                            selectedValue = selectedTeam2,
+                                            displayMapper = { it },
+                                            onValueChange = {
+                                                selectedTeam2 = it
+                                            }
+                                        )
+                                        Spacer(modifier = Modifier.height(25.dp))
+                                        // Apply Button
+                                        Button(
+                                            onClick = {
+                                            },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(4.dp)
+                                                .height(40.dp),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = CalypsoRed,
+                                                contentColor = Color.White
+                                            ),
+                                            shape = CircleShape
+                                        ) {
+                                            Text("Apply", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+
+                                // Section 2
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .background(Color.Gray.copy(alpha = 0.3f))
+                                        .padding(8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "Section 2",
+                                        fontSize = 18.sp,
+                                        color = Color.White
+                                    )
+                                }
+
+                                // Section 3
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .background(Color.Gray.copy(alpha = 0.4f))
+                                        .padding(8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "Section 3",
+                                        fontSize = 18.sp,
+                                        color = Color.White
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
 //                // Fullscreen Scoreboard Menu
 //                AnimatedVisibility(
 //                    visible = showApplyButton,
@@ -390,4 +558,63 @@ fun AuxButton(modifier: Modifier = Modifier, painter: Painter, onClick: () -> Un
             modifier = Modifier.size(30.dp)
         )
     }
+}
+
+@Composable
+fun <T> ModernDropdown(
+    items: List<T>,
+    selectedValue: T,
+    displayMapper: (T) -> String,
+    onValueChange: (T) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Box(modifier = Modifier.fillMaxWidth().background(UnselectedField, CircleShape).padding(4.dp)) {
+        Row(
+            modifier = Modifier
+                .clickable { expanded = true }
+                .padding(4.dp)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = displayMapper(selectedValue),
+                color = Color.White,
+                fontSize = 16.sp,
+                modifier = Modifier.padding(start = 4.dp)
+            )
+            Icon(
+                imageVector = Icons.Default.ArrowDropDown,
+                contentDescription = null,
+                tint = Color.White
+            )
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(Gray)
+        ) {
+            items.forEach { item ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = displayMapper(item),
+                            color = if (item == selectedValue) CalypsoRed else Color.White,
+                            fontSize = 16.sp
+                        )
+                    },
+                    onClick = {
+                        onValueChange(item)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+@Composable
+fun SectionSubtitle(title: String) {
+    Text(title, style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Medium, color = Color.LightGray), modifier = Modifier.padding(vertical = 4.dp))
 }
