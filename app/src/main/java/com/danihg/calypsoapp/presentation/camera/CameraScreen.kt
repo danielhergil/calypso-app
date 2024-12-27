@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.pm.ActivityInfo
 import android.graphics.BitmapFactory
 import android.os.PowerManager
+import android.util.Log
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.ViewGroup
@@ -37,11 +38,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -67,14 +66,19 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import com.danihg.calypsoapp.R
-import com.danihg.calypsoapp.ui.theme.GreyTransparent
-import com.pedro.common.ConnectChecker
-import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
-import com.pedro.library.generic.GenericStream
 import com.danihg.calypsoapp.overlays.drawOverlay
 import com.danihg.calypsoapp.ui.theme.CalypsoRed
 import com.danihg.calypsoapp.ui.theme.Gray
+import com.danihg.calypsoapp.ui.theme.GreyTransparent
 import com.danihg.calypsoapp.ui.theme.UnselectedField
+import com.pedro.common.ConnectChecker
+import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
+import com.pedro.encoder.input.sources.video.Camera1Source
+import com.pedro.encoder.input.sources.video.Camera2Source
+import com.pedro.extrasources.CameraUvcSource
+import com.pedro.extrasources.CameraXSource
+import com.pedro.library.generic.GenericStream
+import com.pedro.library.util.FpsListener
 
 
 @Composable
@@ -143,6 +147,14 @@ fun CameraScreen () {
     val audioIsStereo = sharedPreferences.getBoolean("audioIsStereo", true)
     val audioBitrate = sharedPreferences.getInt("audioBitrate", 128 * 1000)
 
+    Log.d("CameraSettings", "videoWidth: $videoWidth")
+    Log.d("CameraSettings", "videoHeight: $videoHeight")
+    Log.d("CameraSettings", "videoBitrate: $videoBitrate")
+    Log.d("CameraSettings", "videoFPS: $videoFPS")
+    Log.d("CameraSettings", "audioSampleRate: $audioSampleRate")
+    Log.d("CameraSettings", "audioIsStereo: $audioIsStereo")
+    Log.d("CameraSettings", "audioBitrate: $audioBitrate")
+
 
     // Scoreboard variables
     val options = BitmapFactory.Options()
@@ -168,6 +180,7 @@ fun CameraScreen () {
     var overlayDrawn by remember { mutableStateOf(false) }
     var showApplyButton by remember { mutableStateOf(false) }
     var showScoreboardOverlay by remember { mutableStateOf(false) }
+    var selectedCamera by remember { mutableStateOf("Camera2") }
 
     val genericStream = remember {
         GenericStream(context, object : ConnectChecker {
@@ -199,6 +212,7 @@ fun CameraScreen () {
 //            setOrientation(180)
         }
     }
+    genericStream.setFpsListener{ fps -> println("FPS: $fps") }
 
     var isStreaming by remember { mutableStateOf(false) }
     var isSettingsMenuVisible by remember { mutableStateOf(false) }
@@ -237,6 +251,69 @@ fun CameraScreen () {
                     modifier = Modifier.fillMaxSize() // Fills the screen
                 )
 
+                // Scoreboard Draw
+                if (showScoreboardOverlay && genericStream.isOnPreview && !showApplyButton) {
+                    genericStream.getGlInterface().addFilter(imageObjectFilterRender)
+                    drawOverlay(
+                        context = context,
+                        leftLogoBitmap = leftLogoBitmap,
+                        rightLogoBitmap = rightLogoBitmap,
+                        leftTeamGoals = leftTeamGoals,
+                        rightTeamGoals = rightTeamGoals,
+                        backgroundColor = selectedBackgroundColor,
+                        imageObjectFilterRender = imageObjectFilterRender,
+                        isOnPreview = genericStream.isOnPreview
+                    )
+                    ScoreboardActionButtons(
+                        onLeftButtonClick = {
+                            // Handle left button click
+                            leftTeamGoals++
+                            drawOverlay(
+                                context = context,
+                                leftLogoBitmap = leftLogoBitmap,
+                                rightLogoBitmap = rightLogoBitmap,
+                                leftTeamGoals = leftTeamGoals,
+                                rightTeamGoals = rightTeamGoals,
+                                backgroundColor = selectedBackgroundColor,
+                                imageObjectFilterRender = imageObjectFilterRender,
+                                isOnPreview = genericStream.isOnPreview
+                            )
+                        },
+                        onRightButtonClick = {
+                            // Handle right button click
+                            rightTeamGoals++
+                            drawOverlay(
+                                context = context,
+                                leftLogoBitmap = leftLogoBitmap,
+                                rightLogoBitmap = rightLogoBitmap,
+                                leftTeamGoals = leftTeamGoals,
+                                rightTeamGoals = rightTeamGoals,
+                                backgroundColor = selectedBackgroundColor,
+                                imageObjectFilterRender = imageObjectFilterRender,
+                                isOnPreview = genericStream.isOnPreview
+                            )
+                        }
+                    )
+                }
+                else {
+                    if (!showScoreboardOverlay && !showApplyButton) {
+                        genericStream.getGlInterface().removeFilter(imageObjectFilterRender)
+                        leftTeamGoals = 0
+                        rightTeamGoals = 0
+                    }
+                }
+
+                // Camera Switch
+                if (selectedCamera == "Camera2" && !showApplyButton) {
+                    genericStream.changeVideoSource(Camera2Source(context))
+                }
+                else if (selectedCamera == "CameraX" && !showApplyButton) {
+                    genericStream.changeVideoSource(Camera1Source(context))
+                }
+                else if (selectedCamera == "USBCamera" && !showApplyButton) {
+                    genericStream.changeVideoSource(CameraUvcSource())
+                }
+
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
@@ -260,27 +337,28 @@ fun CameraScreen () {
                             painter = painterResource(id = R.drawable.ic_rocket),
                             onClick = {
                                 showApplyButton = !showApplyButton
-                                if (!overlayDrawn) {
-                                    genericStream.getGlInterface()
-                                        .addFilter(imageObjectFilterRender)
-                                    drawOverlay(
-                                        context = context,
-                                        leftLogoBitmap = leftLogoBitmap,
-                                        rightLogoBitmap = rightLogoBitmap,
-                                        leftTeamGoals = leftTeamGoals,
-                                        rightTeamGoals = rightTeamGoals,
-                                        backgroundColor = selectedBackgroundColor,
-                                        imageObjectFilterRender = imageObjectFilterRender,
-                                        isOnPreview = genericStream.isOnPreview
-                                    )
-                                    overlayDrawn = true
-                                }
-                                else {
-                                    genericStream.getGlInterface().removeFilter(imageObjectFilterRender)
-                                    leftTeamGoals = 0
-                                    rightTeamGoals = 0
-                                    overlayDrawn = false
-                                }
+                                Log.i("Rocket", genericStream.videoSource.toString())
+//                                if (!overlayDrawn) {
+//                                    genericStream.getGlInterface()
+//                                        .addFilter(imageObjectFilterRender)
+//                                    drawOverlay(
+//                                        context = context,
+//                                        leftLogoBitmap = leftLogoBitmap,
+//                                        rightLogoBitmap = rightLogoBitmap,
+//                                        leftTeamGoals = leftTeamGoals,
+//                                        rightTeamGoals = rightTeamGoals,
+//                                        backgroundColor = selectedBackgroundColor,
+//                                        imageObjectFilterRender = imageObjectFilterRender,
+//                                        isOnPreview = genericStream.isOnPreview
+//                                    )
+//                                    overlayDrawn = true
+//                                }
+//                                else {
+//                                    genericStream.getGlInterface().removeFilter(imageObjectFilterRender)
+//                                    leftTeamGoals = 0
+//                                    rightTeamGoals = 0
+//                                    overlayDrawn = false
+//                                }
                             }
                         )
 
@@ -385,24 +463,6 @@ fun CameraScreen () {
                                         }
                                         Spacer(modifier = Modifier.height(15.dp))
 
-//                                        // On/Off Switch
-//                                        Row(
-//                                            modifier = Modifier.fillMaxWidth(),
-//                                            horizontalArrangement = Arrangement.SpaceBetween,
-//                                            verticalAlignment = Alignment.CenterVertically
-//                                        ) {
-//                                            SectionSubtitle("On/Off")
-//                                            Switch(
-//                                                checked = showScoreboardOverlay,
-//                                                onCheckedChange = { showScoreboardOverlay = it },
-//                                                colors = SwitchDefaults.colors(
-//                                                    checkedThumbColor = CalypsoRed,
-//                                                    uncheckedThumbColor = Color.Gray
-//                                                )
-//                                            )
-//                                        }
-//                                        Spacer(modifier = Modifier.height(15.dp))
-
                                         SectionSubtitle("Select Team 1")
                                         ModernDropdown(
                                             items = listOf("Rivas", "Alcorcón"),
@@ -451,10 +511,14 @@ fun CameraScreen () {
                                         .padding(8.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(
-                                        text = "Section 2",
-                                        fontSize = 18.sp,
-                                        color = Color.White
+                                    SectionSubtitle("Camera Selection")
+                                    ModernDropdown(
+                                        items = listOf("Camera2", "Camera1", "USBCamera"),
+                                        selectedValue = selectedCamera,
+                                        displayMapper = { it },
+                                        onValueChange = {
+                                            selectedCamera = it
+                                        }
                                     )
                                 }
 
@@ -478,9 +542,11 @@ fun CameraScreen () {
                     }
                 }
 
-//                // Fullscreen Scoreboard Menu
+                
+
+                // Fullscreen Settings Menu
 //                AnimatedVisibility(
-//                    visible = showApplyButton,
+//                    visible = isSettingsMenuVisible,
 //                    enter = fadeIn(tween(500)) + slideInVertically(initialOffsetY = { it }),
 //                    exit = fadeOut(tween(500)) + slideOutVertically(targetOffsetY = { it })
 //                ) {
@@ -493,48 +559,29 @@ fun CameraScreen () {
 //                            modifier = Modifier.fillMaxSize(),
 //                            horizontalAlignment = Alignment.CenterHorizontally,
 //                            verticalArrangement = Arrangement.Center
-//                        ){}
+//                        ){
+//                            AuxButton(
+//                                modifier = Modifier
+//                                    .size(50.dp)
+//                                    .zIndex(2f),
+//                                painter = painterResource(id = R.drawable.ic_settings),
+//                                onClick = {
+//                                    leftTeamGoals++
+//                                    drawOverlay(
+//                                        context = context,
+//                                        leftLogoBitmap = leftLogoBitmap,
+//                                        rightLogoBitmap = rightLogoBitmap,
+//                                        leftTeamGoals = leftTeamGoals,
+//                                        rightTeamGoals = rightTeamGoals,
+//                                        backgroundColor = selectedBackgroundColor,
+//                                        imageObjectFilterRender = imageObjectFilterRender,
+//                                        isOnPreview = genericStream.isOnPreview
+//                                    )
+//                                }
+//                            )
+//                        }
 //                    }
 //                }
-
-                // Fullscreen Settings Menu
-                AnimatedVisibility(
-                    visible = isSettingsMenuVisible,
-                    enter = fadeIn(tween(500)) + slideInVertically(initialOffsetY = { it }),
-                    exit = fadeOut(tween(500)) + slideOutVertically(targetOffsetY = { it })
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.9f))
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxSize(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ){
-                            AuxButton(
-                                modifier = Modifier
-                                    .size(50.dp)
-                                    .zIndex(2f),
-                                painter = painterResource(id = R.drawable.ic_settings),
-                                onClick = {
-                                    leftTeamGoals++
-                                    drawOverlay(
-                                        context = context,
-                                        leftLogoBitmap = leftLogoBitmap,
-                                        rightLogoBitmap = rightLogoBitmap,
-                                        leftTeamGoals = leftTeamGoals,
-                                        rightTeamGoals = rightTeamGoals,
-                                        backgroundColor = selectedBackgroundColor,
-                                        imageObjectFilterRender = imageObjectFilterRender,
-                                        isOnPreview = genericStream.isOnPreview
-                                    )
-                                }
-                            )
-                        }
-                    }
-                }
             }
         }
     )
@@ -542,9 +589,9 @@ fun CameraScreen () {
 
 
 @Composable
-fun AuxButton(modifier: Modifier = Modifier, painter: Painter, onClick: () -> Unit) {
+fun AuxButton(modifier: Modifier = Modifier.size(50.dp), painter: Painter, onClick: () -> Unit) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .size(50.dp)
             .clip(CircleShape)
             .background(GreyTransparent)
@@ -569,7 +616,10 @@ fun <T> ModernDropdown(
 ) {
     var expanded by remember { mutableStateOf(false) }
 
-    Box(modifier = Modifier.fillMaxWidth().background(UnselectedField, CircleShape).padding(4.dp)) {
+    Box(modifier = Modifier
+        .fillMaxWidth()
+        .background(UnselectedField, CircleShape)
+        .padding(4.dp)) {
         Row(
             modifier = Modifier
                 .clickable { expanded = true }
@@ -617,4 +667,35 @@ fun <T> ModernDropdown(
 @Composable
 fun SectionSubtitle(title: String) {
     Text(title, style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Medium, color = Color.LightGray), modifier = Modifier.padding(vertical = 4.dp))
+}
+
+@Composable
+fun ScoreboardActionButtons(
+    onLeftButtonClick: () -> Unit,
+    onRightButtonClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+    ) {
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = 153.dp, top = 50.dp), // Padding from the top and left of the screen
+            horizontalArrangement = Arrangement.spacedBy(55.dp), // Spacing between the buttons
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AuxButton(
+                modifier = Modifier.size(30.dp), // Smaller size than ic_rocket
+                painter = painterResource(id = R.drawable.ic_add), // Replace with actual drawable
+                onClick = onLeftButtonClick
+            )
+
+            AuxButton(
+                modifier = Modifier.size(30.dp), // Smaller size than ic_rocket
+                painter = painterResource(id = R.drawable.ic_add), // Replace with actual drawable
+                onClick = onRightButtonClick
+            )
+        }
+    }
 }

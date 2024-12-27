@@ -104,7 +104,7 @@ fun SettingsScreen() {
 
             SectionSubtitle("Bitrate")
             ModernDropdown(
-                items = listOf(3000 * 1000, 5000 * 1000, 7000 * 1000, 10000 * 1000),
+                items = listOf(3000 * 1000, 5000 * 1000, 7000 * 1000, 10000 * 1000, 12000 * 1000),
                 selectedValue = selectedBitrate,
                 displayMapper = { "${it / 1000 / 1000} Mbps" },
                 onValueChange = {
