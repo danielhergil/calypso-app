@@ -2,9 +2,12 @@ package com.danihg.calypsoapp.presentation.camera
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.graphics.BitmapFactory
+import android.os.Build
 import android.os.PowerManager
 import android.util.Log
 import android.view.SurfaceHolder
@@ -50,6 +53,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,6 +69,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
+import androidx.core.app.NotificationCompat
 import com.danihg.calypsoapp.R
 import com.danihg.calypsoapp.overlays.drawOverlay
 import com.danihg.calypsoapp.ui.theme.CalypsoRed
@@ -76,9 +81,8 @@ import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRende
 import com.pedro.encoder.input.sources.video.Camera1Source
 import com.pedro.encoder.input.sources.video.Camera2Source
 import com.pedro.extrasources.CameraUvcSource
-import com.pedro.extrasources.CameraXSource
 import com.pedro.library.generic.GenericStream
-import com.pedro.library.util.FpsListener
+import com.pedro.library.util.BitrateAdapter
 
 
 @Composable
@@ -155,6 +159,19 @@ fun CameraScreen () {
     Log.d("CameraSettings", "audioIsStereo: $audioIsStereo")
     Log.d("CameraSettings", "audioBitrate: $audioBitrate")
 
+    var isStreaming by rememberSaveable { mutableStateOf(false) }
+    var isSettingsMenuVisible by rememberSaveable { mutableStateOf(false) }
+
+    // Setup notification channel for foreground service
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val channel = NotificationChannel(
+            "CameraStreamChannel",
+            "Camera Stream",
+            NotificationManager.IMPORTANCE_LOW
+        )
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.createNotificationChannel(channel)
+    }
 
     // Scoreboard variables
     val options = BitmapFactory.Options()
@@ -178,9 +195,9 @@ fun CameraScreen () {
     val imageObjectFilterRender = ImageObjectFilterRender()
 
     var overlayDrawn by remember { mutableStateOf(false) }
-    var showApplyButton by remember { mutableStateOf(false) }
-    var showScoreboardOverlay by remember { mutableStateOf(false) }
-    var selectedCamera by remember { mutableStateOf("Camera2") }
+    var showApplyButton by rememberSaveable { mutableStateOf(false) }
+    var showScoreboardOverlay by rememberSaveable { mutableStateOf(false) }
+    var selectedCamera by rememberSaveable { mutableStateOf("Camera2") }
 
     val genericStream = remember {
         GenericStream(context, object : ConnectChecker {
@@ -193,7 +210,8 @@ fun CameraScreen () {
                 showToast("Connection failed: $reason")
             }
 
-            override fun onNewBitrate(bitrate: Long) {}
+            override fun onNewBitrate(bitrate: Long) {
+            }
             override fun onDisconnect() {
                 showToast("Disconnected")
             }
@@ -205,6 +223,7 @@ fun CameraScreen () {
             override fun onAuthSuccess() {
                 showToast("Authentication success")
             }
+
         }).apply {
             prepareVideo(videoWidth, videoHeight, videoBitrate, videoFPS)
             prepareAudio(audioSampleRate, audioIsStereo, audioBitrate)
@@ -214,8 +233,32 @@ fun CameraScreen () {
     }
     genericStream.setFpsListener{ fps -> println("FPS: $fps") }
 
-    var isStreaming by remember { mutableStateOf(false) }
-    var isSettingsMenuVisible by remember { mutableStateOf(false) }
+
+    fun startForegroundService() {
+        val notification = NotificationCompat.Builder(context, "CameraStreamChannel")
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("Streaming Active")
+            .setContentText("Streaming in progress")
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
+
+        (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).notify(1001, notification)
+
+        if (!isStreaming) {
+            genericStream.startStream("rtmp://192.168.1.109:1935/live/streamname")
+//            genericStream.startStream("rtmp://a.rtmp.youtube.com/live2/j2sh-690b-fg9y-2fah-7444")
+//            ffmpeg -f flv -i rtmp://127.0.0.1:1935/live/streamname -filter_complex "[0:v]fps=fps=60:round=near[v]" -map "[v]" -map 0:a -c:v libx264 -preset veryfast -tune zerolatency -b:v 6000k -maxrate 6000k -bufsize 12000k -g 120 -keyint_min 60 -c:a aac -b:a 160k -ar 44100 -f flv rtmp://a.rtmp.youtube.com/live2/j2sh-690b-fg9y-2fah-7444
+            isStreaming = true
+        }
+    }
+
+    fun stopForegroundService() {
+        if (isStreaming) {
+            genericStream.stopStream()
+            (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(1001)
+            isStreaming = false
+        }
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(), // Fills the entire screen
@@ -368,11 +411,9 @@ fun CameraScreen () {
                         Button(
                             onClick = {
                                 if (isStreaming) {
-                                    genericStream.stopStream()
-                                    isStreaming = false
+                                    stopForegroundService()
                                 } else {
-                                    genericStream.startStream("rtmp://a.rtmp.youtube.com/live2/j2sh-690b-fg9y-2fah-7444")
-                                    isStreaming = true
+                                    startForegroundService()
                                 }
                             },
                             modifier = Modifier
