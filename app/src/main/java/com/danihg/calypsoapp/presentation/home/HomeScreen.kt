@@ -1,18 +1,25 @@
 package com.danihg.calypsoapp.presentation.home
 
+import android.annotation.SuppressLint
+import android.app.Activity
+import android.content.pm.ActivityInfo
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color.Companion.White
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -22,6 +29,7 @@ import com.danihg.calypsoapp.R
 import com.danihg.calypsoapp.ui.theme.Black
 import com.danihg.calypsoapp.ui.theme.CalypsoRed
 
+@SuppressLint("SourceLockedOrientationActivity")
 @Preview
 @Composable
 fun HomeScreen(
@@ -31,10 +39,12 @@ fun HomeScreen(
     navigateToSettings: () -> Unit = {},
     navigateToOverlay: () -> Unit = {}
 ) {
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Black)
+            .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -42,36 +52,32 @@ fun HomeScreen(
         Spacer(modifier = Modifier.weight(1f))
         ModernCard(
             title = "Camera",
-            icon = R.drawable.ic_camera, // Replace with actual drawable
-            onClick = { navigateToCamera() },
+            icon = R.drawable.ic_camera,
+            onClick = navigateToCamera,
             modifier = Modifier.fillMaxWidth()
         )
-        Spacer(modifier = Modifier.weight(1f))
         ModernCard(
             title = "Add Team",
-            icon = R.drawable.ic_add_2, // Replace with actual drawable
-            onClick = { navigateToAddTeam() },
+            icon = R.drawable.ic_add_2,
+            onClick = navigateToAddTeam,
             modifier = Modifier.fillMaxWidth()
         )
-        Spacer(modifier = Modifier.weight(1f))
         ModernCard(
             title = "Library",
-            icon = R.drawable.ic_library, // Replace with actual drawable
-            onClick = { navigateToLibrary() },
+            icon = R.drawable.ic_library,
+            onClick = navigateToLibrary,
             modifier = Modifier.fillMaxWidth()
         )
-        Spacer(modifier = Modifier.weight(1f))
         ModernCard(
             title = "Settings",
-            icon = R.drawable.ic_settings, // Replace with actual drawable
-            onClick = { navigateToSettings() },
+            icon = R.drawable.ic_settings,
+            onClick = navigateToSettings,
             modifier = Modifier.fillMaxWidth()
         )
-        Spacer(modifier = Modifier.weight(1f))
         ModernCard(
             title = "Overlay",
-            icon = R.drawable.ic_overlay, // Replace with actual drawable
-            onClick = { navigateToOverlay() },
+            icon = R.drawable.ic_overlay,
+            onClick = navigateToOverlay,
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.weight(1f))

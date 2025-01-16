@@ -52,6 +52,9 @@ dependencies {
     implementation(libs.androidx.core.ktx.v1120)
     implementation(libs.opengl.api)
 
+    implementation(libs.uvcandroid)
+    implementation(libs.play.services.auth)
+
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

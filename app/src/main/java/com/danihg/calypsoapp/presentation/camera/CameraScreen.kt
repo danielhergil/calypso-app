@@ -72,6 +72,7 @@ import androidx.compose.ui.zIndex
 import androidx.core.app.NotificationCompat
 import com.danihg.calypsoapp.R
 import com.danihg.calypsoapp.overlays.drawOverlay
+import com.danihg.calypsoapp.sources.CameraUSBSource
 import com.danihg.calypsoapp.ui.theme.CalypsoRed
 import com.danihg.calypsoapp.ui.theme.Gray
 import com.danihg.calypsoapp.ui.theme.GreyTransparent
@@ -83,6 +84,10 @@ import com.pedro.encoder.input.sources.video.Camera2Source
 import com.pedro.extrasources.CameraUvcSource
 import com.pedro.library.generic.GenericStream
 import com.pedro.library.util.BitrateAdapter
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 
 @Composable
