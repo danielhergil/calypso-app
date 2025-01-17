@@ -1,9 +1,15 @@
 package com.danihg.calypsoapp.data
 
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.tasks.await
+import java.io.ByteArrayOutputStream
 
 data class Team(
     val id: String = "",          // Firestore document ID
@@ -17,6 +23,7 @@ data class Team(
 class FirestoreManager {
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
+    private val storage = FirebaseStorage.getInstance()
 
     suspend fun initializeUserData() {
         val user = auth.currentUser ?: return
@@ -82,4 +89,48 @@ class FirestoreManager {
     }
 
     // Add more functions for editing and removing teams as needed
+
+
+    /**
+     * Uploads a logo to Firebase Storage, resizes it to 50x50 pixels, and returns the URL.
+     */
+    suspend fun uploadTeamLogo(context: Context, uri: Uri, teamName: String): String? {
+        val user = auth.currentUser ?: return null
+        val storageRef = storage.reference
+        val logoRef = storageRef.child("${user.uid}/${teamName}.png")
+
+        return try {
+            // Open InputStream using the provided Context
+            val inputStream = context.contentResolver.openInputStream(uri)
+            val originalBitmap = BitmapFactory.decodeStream(inputStream)
+            val resizedBitmap = Bitmap.createScaledBitmap(originalBitmap, 50, 50, true)
+
+            // Convert the resized bitmap to bytes
+            val baos = ByteArrayOutputStream()
+            resizedBitmap.compress(Bitmap.CompressFormat.PNG, 100, baos)
+            val data = baos.toByteArray()
+
+            // Upload the bytes to Firebase Storage
+            logoRef.putBytes(data).await()
+            logoRef.downloadUrl.await().toString() // Return the download URL
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    /**
+     * Adds a new team with the provided details and uploads the logo.
+     */
+    suspend fun addTeamWithLogo(
+        context: Context,
+        teamName: String,
+        teamAlias: String,
+        players: List<String>,
+        logoUri: Uri
+    ): Boolean {
+        val logoUrl = uploadTeamLogo(context, logoUri, teamName) ?: return false
+        addTeam(teamName, teamAlias, players, logoUrl)
+        return true
+    }
 }

@@ -1,5 +1,8 @@
 package com.danihg.calypsoapp.presentation.addteam
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
@@ -16,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -88,12 +92,11 @@ fun AddTeamScreen(
 
     if (viewModel.showAddTeamDialog) {
         AddTeamDialog(
+            firestoreManager = firestoreManager,
             onDismiss = { viewModel.showAddTeamDialog = false },
-            onAddTeam = { name, alias, players, logo ->
+            onTeamAdded = {
                 coroutineScope.launch {
-                    firestoreManager.addTeam(name, alias, players, logo)
                     viewModel.loadTeams(firestoreManager)
-                    viewModel.showAddTeamDialog = false
                 }
             }
         )
@@ -142,7 +145,7 @@ fun TeamItem(team: Team) {
                         Text(player, color = Color.White)
                     }
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text("Logo URL: ${team.logo}", color = Color.LightGray)
+//                    Text("Logo URL: ${team.logo}", color = Color.LightGray)
                 }
             }
         }
@@ -152,14 +155,26 @@ fun TeamItem(team: Team) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddTeamDialog(
+    firestoreManager: FirestoreManager,
     onDismiss: () -> Unit,
-    onAddTeam: (name: String, alias: String, players: List<String>, logo: String) -> Unit
+    onTeamAdded: () -> Unit // Notify parent when a team is added
 ) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
     var name by remember { mutableStateOf("") }
     var alias by remember { mutableStateOf("") }
     var playerInput by remember { mutableStateOf("") }
     var players by remember { mutableStateOf(listOf<String>()) }
-    var logo by remember { mutableStateOf("") }
+    var logoUri by remember { mutableStateOf<Uri?>(null) }
+    var isUploading by remember { mutableStateOf(false) }
+
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent(),
+        onResult = { uri ->
+            logoUri = uri
+        }
+    )
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -238,29 +253,37 @@ fun AddTeamDialog(
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = logo,
-                    onValueChange = { logo = it },
-                    label = { Text("Logo URL") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                Button(
+                    onClick = { launcher.launch("image/*") },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = CalypsoRed,
-                        unfocusedBorderColor = Color.Gray,
-                        focusedLabelColor = CalypsoRed,
-                        unfocusedLabelColor = Color.Gray
-                    )
-                )
+                    colors = ButtonDefaults.buttonColors(containerColor = CalypsoRed)
+                ) {
+                    Text("Upload Logo")
+                }
+                logoUri?.let {
+                    Text("Logo selected: ${it.lastPathSegment}", color = Color.White)
+                }
+                if (isUploading) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    CircularProgressIndicator(color = CalypsoRed)
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    if (name.isNotBlank() && alias.isNotBlank()) {
-                        onAddTeam(name, alias, players, logo)
+                    if (name.isNotBlank() && alias.isNotBlank() && logoUri != null) {
+                        coroutineScope.launch {
+                            isUploading = true
+                            val success = firestoreManager.addTeamWithLogo(context, name, alias, players, logoUri!!)
+                            isUploading = false
+                            if (success) {
+                                onTeamAdded()
+                                onDismiss()
+                            } else {
+                                // Handle upload failure (e.g., show a toast)
+                            }
+                        }
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = CalypsoRed)
