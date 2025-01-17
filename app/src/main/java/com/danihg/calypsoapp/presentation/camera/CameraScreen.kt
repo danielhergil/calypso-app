@@ -50,6 +50,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -99,22 +100,6 @@ fun rememberToast(): (String) -> Unit {
     } }
 }
 
-@Composable
-fun LockScreenOrientation(orientation: Int) {
-    val context = LocalContext.current
-    val activity = context as? Activity
-
-    DisposableEffect(Unit) {
-        // Lock orientation when the composable is active
-        activity?.requestedOrientation = orientation
-
-        onDispose {
-            // Restore default orientation when leaving the composable
-            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        }
-    }
-}
-
 @SuppressLint("Wakelock", "WakelockTimeout")
 @Composable
 fun PreventScreenLock() {
@@ -122,7 +107,7 @@ fun PreventScreenLock() {
     DisposableEffect(Unit) {
         val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
         val wakeLock = powerManager.newWakeLock(
-            PowerManager.SCREEN_DIM_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
+            PowerManager.FULL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
             "CameraScreen::WakeLock"
         )
         wakeLock.acquire()
@@ -139,12 +124,51 @@ fun PreventScreenLock() {
 @Composable
 fun CameraScreen () {
 
-    // Lock the screen to portrait mode
-    LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
-    PreventScreenLock()
-
-    val showToast = rememberToast()
     val context = LocalContext.current
+
+    var showContent by remember { mutableStateOf(false) }
+    var isOrientationSet by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        // Set the orientation immediately
+        (context as? Activity)?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        delay(300) // Delay to allow for orientation change
+        isOrientationSet = true
+        delay(100) // Additional short delay before showing content
+        showContent = true
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            // Reset orientation when leaving the screen
+            (context as? Activity)?.requestedOrientation =
+                ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        AnimatedVisibility(
+            visible = showContent,
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
+            if (isOrientationSet) {
+                CameraScreenContent()
+            }
+        }
+    }
+}
+
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
+@Composable
+fun CameraScreenContent() {
+
+
+    // Lock the screen to portrait mode
+//    LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
+    val context = LocalContext.current
+    PreventScreenLock()
+    val showToast = rememberToast()
 
     // Retrieve video/audio settings from SharedPreferences with default values
     val sharedPreferences = context.getSharedPreferences("CameraSettings", Context.MODE_PRIVATE)
@@ -587,47 +611,6 @@ fun CameraScreen () {
                         }
                     }
                 }
-
-                
-
-                // Fullscreen Settings Menu
-//                AnimatedVisibility(
-//                    visible = isSettingsMenuVisible,
-//                    enter = fadeIn(tween(500)) + slideInVertically(initialOffsetY = { it }),
-//                    exit = fadeOut(tween(500)) + slideOutVertically(targetOffsetY = { it })
-//                ) {
-//                    Box(
-//                        modifier = Modifier
-//                            .fillMaxSize()
-//                            .background(Color.Black.copy(alpha = 0.9f))
-//                    ) {
-//                        Column(
-//                            modifier = Modifier.fillMaxSize(),
-//                            horizontalAlignment = Alignment.CenterHorizontally,
-//                            verticalArrangement = Arrangement.Center
-//                        ){
-//                            AuxButton(
-//                                modifier = Modifier
-//                                    .size(50.dp)
-//                                    .zIndex(2f),
-//                                painter = painterResource(id = R.drawable.ic_settings),
-//                                onClick = {
-//                                    leftTeamGoals++
-//                                    drawOverlay(
-//                                        context = context,
-//                                        leftLogoBitmap = leftLogoBitmap,
-//                                        rightLogoBitmap = rightLogoBitmap,
-//                                        leftTeamGoals = leftTeamGoals,
-//                                        rightTeamGoals = rightTeamGoals,
-//                                        backgroundColor = selectedBackgroundColor,
-//                                        imageObjectFilterRender = imageObjectFilterRender,
-//                                        isOnPreview = genericStream.isOnPreview
-//                                    )
-//                                }
-//                            )
-//                        }
-//                    }
-//                }
             }
         }
     )

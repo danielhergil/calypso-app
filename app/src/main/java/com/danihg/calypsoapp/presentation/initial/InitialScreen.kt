@@ -49,6 +49,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.danihg.calypsoapp.R
+import com.danihg.calypsoapp.data.FirestoreManager
 import com.danihg.calypsoapp.ui.theme.BackgroundButton
 import com.danihg.calypsoapp.ui.theme.Black
 import com.danihg.calypsoapp.ui.theme.CalypsoRed
@@ -84,6 +85,7 @@ fun InitialScreen(
     var loginError by remember { mutableStateOf("") }
 
     var googleSignInClient by remember { mutableStateOf<GoogleSignInClient?>(null) }
+    val firestoreManager = remember { FirestoreManager() }
 
     LaunchedEffect(Unit) {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -104,6 +106,7 @@ fun InitialScreen(
                 val credential = GoogleAuthProvider.getCredential(account.idToken, null)
                 auth.signInWithCredential(credential).await()
                 Log.d("GoogleSignIn", "Firebase auth succeeded")
+                firestoreManager.initializeUserData()
                 navigateToHome()
             } catch (e: ApiException) {
                 Log.e("GoogleSignIn", "Google sign in failed", e)
@@ -232,7 +235,10 @@ fun InitialScreen(
                                     // Clear saved credentials if "Remember me" is unchecked
                                     sharedPreferences.edit().clear().apply()
                                 }
-                                navigateToHome()
+                                coroutineScope.launch {
+                                    firestoreManager.initializeUserData()
+                                    navigateToHome()
+                                }
                             } else {
                                 loginError = "Invalid email or password. Please try again."
                             }

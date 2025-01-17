@@ -15,6 +15,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -28,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import com.danihg.calypsoapp.R
 import com.danihg.calypsoapp.ui.theme.Black
 import com.danihg.calypsoapp.ui.theme.CalypsoRed
+import kotlinx.coroutines.delay
 
 @SuppressLint("SourceLockedOrientationActivity")
 @Preview
@@ -39,6 +45,16 @@ fun HomeScreen(
     navigateToSettings: () -> Unit = {},
     navigateToOverlay: () -> Unit = {}
 ) {
+
+    var isNavigatingToCamera by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isNavigatingToCamera) {
+        if (isNavigatingToCamera) {
+            // Delay the actual navigation to allow for smooth transition
+            delay(100)
+            navigateToCamera()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -53,7 +69,9 @@ fun HomeScreen(
         ModernCard(
             title = "Camera",
             icon = R.drawable.ic_camera,
-            onClick = navigateToCamera,
+            onClick = {
+                isNavigatingToCamera = true
+            },
             modifier = Modifier.fillMaxWidth()
         )
         ModernCard(
