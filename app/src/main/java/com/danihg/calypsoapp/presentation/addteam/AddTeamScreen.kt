@@ -6,10 +6,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -19,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -27,6 +30,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.danihg.calypsoapp.data.FirestoreManager
 import com.danihg.calypsoapp.data.Team
 import com.danihg.calypsoapp.model.AddTeamViewModel
@@ -58,7 +63,7 @@ fun AddTeamScreen(
                         style = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Bold)
                     )
                 },
-                colors = TopAppBarDefaults.smallTopAppBarColors(containerColor = Black)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Black)
             )
         },
         floatingActionButton = {
@@ -84,7 +89,7 @@ fun AddTeamScreen(
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(teams) { team ->
-                    TeamItem(team)
+                    TeamItem(firestoreManager, team)
                 }
             }
         }
@@ -104,8 +109,24 @@ fun AddTeamScreen(
 }
 
 @Composable
-fun TeamItem(team: Team) {
+fun TeamItem(firestoreManager: FirestoreManager, team: Team) {
     var expanded by remember { mutableStateOf(false) }
+//    var logoUrl by remember { mutableStateOf<String?>(null) }
+//    var isLoading by remember { mutableStateOf(true) }
+//    val coroutineScope = rememberCoroutineScope()
+//
+//    LaunchedEffect(team.logo) {
+//        coroutineScope.launch {
+//            isLoading = true
+//            try {
+//                logoUrl = firestoreManager.getLogoDownloadUrl(team.logo)
+//            } catch (e: Exception) {
+//                // Handle error if needed
+//            } finally {
+//                isLoading = false
+//            }
+//        }
+//    }
 
     Card(
         modifier = Modifier
@@ -125,10 +146,29 @@ fun TeamItem(team: Team) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = team.name,
-                    style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Start
+                ) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(team.logo)
+                            .crossfade(true)
+                            .memoryCacheKey(team.logo)
+                            .diskCacheKey(team.logo)
+                            .build(),
+                        contentDescription = "Team Logo",
+                        modifier = Modifier
+                            .width(32.dp)
+                            .height(24.dp)
+                            .padding(end = 12.dp),
+                        contentScale = ContentScale.Fit
+                    )
+                    Text(
+                        text = team.name,
+                        style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    )
+                }
                 Text(
                     text = team.alias,
                     style = TextStyle(fontSize = 16.sp, color = CalypsoRed)
@@ -142,10 +182,29 @@ fun TeamItem(team: Team) {
                 Column(modifier = Modifier.padding(top = 8.dp)) {
                     Text("Players:", color = Color.LightGray, fontWeight = FontWeight.Medium)
                     team.players.forEach { player ->
-                        Text(player, color = Color.White)
+                        Row(
+                            modifier = Modifier
+                                .padding(start = 16.dp, top = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Bullet point
+                            Box(
+                                modifier = Modifier
+                                    .size(4.dp)
+                                    .background(
+                                        color = CalypsoRed,
+                                        shape = CircleShape
+                                    )
+                            )
+                            // Player name
+                            Text(
+                                text = player,
+                                color = Color.White,
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
+                        }
                     }
                     Spacer(modifier = Modifier.height(4.dp))
-//                    Text("Logo URL: ${team.logo}", color = Color.LightGray)
                 }
             }
         }
@@ -261,7 +320,15 @@ fun AddTeamDialog(
                     Text("Upload Logo")
                 }
                 logoUri?.let {
-                    Text("Logo selected: ${it.lastPathSegment}", color = Color.White)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    AsyncImage(
+                        model = it,
+                        contentDescription = "Logo Preview",
+                        modifier = Modifier
+                            .size(100.dp)
+                            .padding(8.dp),
+                        contentScale = ContentScale.Crop
+                    )
                 }
                 if (isUploading) {
                     Spacer(modifier = Modifier.height(8.dp))

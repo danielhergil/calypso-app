@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.util.Log
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -92,34 +93,6 @@ class FirestoreManager {
 
 
     /**
-     * Uploads a logo to Firebase Storage, resizes it to 50x50 pixels, and returns the URL.
-     */
-    suspend fun uploadTeamLogo(context: Context, uri: Uri, teamName: String): String? {
-        val user = auth.currentUser ?: return null
-        val storageRef = storage.reference
-        val logoRef = storageRef.child("${user.uid}/${teamName}.png")
-
-        return try {
-            // Open InputStream using the provided Context
-            val inputStream = context.contentResolver.openInputStream(uri)
-            val originalBitmap = BitmapFactory.decodeStream(inputStream)
-            val resizedBitmap = Bitmap.createScaledBitmap(originalBitmap, 50, 50, true)
-
-            // Convert the resized bitmap to bytes
-            val baos = ByteArrayOutputStream()
-            resizedBitmap.compress(Bitmap.CompressFormat.PNG, 100, baos)
-            val data = baos.toByteArray()
-
-            // Upload the bytes to Firebase Storage
-            logoRef.putBytes(data).await()
-            logoRef.downloadUrl.await().toString() // Return the download URL
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        }
-    }
-
-    /**
      * Adds a new team with the provided details and uploads the logo.
      */
     suspend fun addTeamWithLogo(
@@ -129,8 +102,49 @@ class FirestoreManager {
         players: List<String>,
         logoUri: Uri
     ): Boolean {
-        val logoUrl = uploadTeamLogo(context, logoUri, teamName) ?: return false
-        addTeam(teamName, teamAlias, players, logoUrl)
-        return true
+        val user = auth.currentUser ?: return false
+        val userId = user.uid
+
+        // Extract the file extension, fallback to "png" if missing
+        val extension = context.contentResolver.getType(logoUri)?.split("/")?.last() ?: "png"
+        val logoPath = "$userId/$teamName.$extension"
+        val storageRef = storage.reference.child(logoPath)
+
+        return try {
+            // Upload the logo to Firebase Storage
+            val inputStream = context.contentResolver.openInputStream(logoUri)
+            val bitmap = BitmapFactory.decodeStream(inputStream)
+            val resizedBitmap = Bitmap.createScaledBitmap(bitmap, 50, 50, true)
+
+            val baos = ByteArrayOutputStream()
+            resizedBitmap.compress(Bitmap.CompressFormat.PNG, 100, baos)
+            val data = baos.toByteArray()
+
+            storageRef.putBytes(data).await() // Upload the resized image
+
+            val downloadUrl = storageRef.downloadUrl.await().toString()
+
+            // Add team with the logo path
+            addTeam(teamName, teamAlias, players, downloadUrl)
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
     }
+
+    fun getLogoDownloadUrl(logoPath: String): String? {
+        return logoPath // Just return the URL since we're now storing the full URL
+    }
+
+//    suspend fun getLogoDownloadUrl(logoPath: String): String? {
+//        Log.d("FirestoreManager", "Fetching logo at path: $logoPath")
+//        return try {
+//            val storageRef = storage.reference.child(logoPath)
+//            storageRef.downloadUrl.await().toString()
+//        } catch (e: Exception) {
+//            Log.e("FirestoreManager", "Error fetching logo: ${e.message}")
+//            null
+//        }
+//    }
 }

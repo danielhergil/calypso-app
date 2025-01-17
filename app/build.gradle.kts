@@ -55,6 +55,8 @@ dependencies {
     implementation(libs.uvcandroid)
     implementation(libs.play.services.auth)
 
+    implementation(libs.coil.kt.coil.compose)
+
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
