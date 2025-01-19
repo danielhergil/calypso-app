@@ -1,0 +1,299 @@
+2025-01-19 17:33:17.260  8079-8079  ViewRootIm...nActivity] com.danihg.calypsoapp                I  ViewPostIme pointer 0
+2025-01-19 17:33:17.351  8079-8079  ViewRootIm...nActivity] com.danihg.calypsoapp                I  ViewPostIme pointer 1
+2025-01-19 17:33:17.352  8079-8079  Rocket                  com.danihg.calypsoapp                I  com.pedro.encoder.input.sources.video.Camera2Source@ae63ca2
+2025-01-19 17:33:17.463  8079-8143  CameraManagerGlobal     com.danihg.calypsoapp                I  Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_IDLE for client com.danihg.calypsoapp API Level 2 User Id 0
+2025-01-19 17:33:17.670  8079-8143  CameraManagerGlobal     com.danihg.calypsoapp                I  Camera 0 facing CAMERA_FACING_BACK state now CAMERA_STATE_CLOSED for client com.danihg.calypsoapp API Level 2 User Id 0
+2025-01-19 17:33:17.673  8079-8513  nihg.calypsoapp         com.danihg.calypsoapp                W  Long monitor contention with owner main (8079) at void android.hardware.camera2.impl.CameraDeviceImpl.close()(CameraDeviceImpl.java:1492) waiters=0 in void android.hardware.camera2.impl.CameraDeviceImpl$CameraDeviceCallbacks.onCaptureStarted(android.hardware.camera2.impl.CaptureResultExtras, long) for 307ms
+2025-01-19 17:33:17.691  8079-8079  ImageStreamObject       com.danihg.calypsoapp                I  finish load image
+2025-01-19 17:33:17.699  8079-8079  ViewRootIm...nActivity] com.danihg.calypsoapp                I  onDisplayChanged oldDisplayState=2 newDisplayState=2
+2025-01-19 17:33:17.838  8079-10000 CameraConnectionService com.danihg.calypsoapp                I  request permission
+2025-01-19 17:33:17.845  8079-10000 UsbDeviceConnectionJNI  com.danihg.calypsoapp                D  close
+2025-01-19 17:33:17.845  8079-10000 CameraConnectionService com.danihg.calypsoapp                I  wait for getting permission
+2025-01-19 17:33:17.846  8079-10003 libEGL                  com.danihg.calypsoapp                D  dlopen (libGLESv2_samsung.so) success at 0x7572fbad28118dcf
+2025-01-19 17:33:17.847  8079-10003 EGLBase14               com.danihg.calypsoapp                D  EGLContext created, client version 3
+2025-01-19 17:33:17.850  8079-10000 CameraConnectionService com.danihg.calypsoapp                I  check CameraInternal again
+2025-01-19 17:33:17.850  8079-10000 CameraConnectionService com.danihg.calypsoapp                I  success to get service:serviceId=3002
+2025-01-19 17:33:17.853  8079-10007 libEGL                  com.danihg.calypsoapp                D  dlopen (libGLESv2_samsung.so) success at 0x7572fbad28118dcf
+2025-01-19 17:33:17.854  8079-10007 EGLBase14               com.danihg.calypsoapp                D  EGLContext created, client version 3
+2025-01-19 17:33:17.865  8079-10000 UsbDeviceConnectionJNI  com.danihg.calypsoapp                D  close
+2025-01-19 17:33:17.907  8079-10000 MediaCodecList          com.danihg.calypsoapp                D  codecHandlesFormat: no format, so no extra checks
+2025-01-19 17:33:17.907  8079-10000 MediaCodecList          com.danihg.calypsoapp                D  codecHandlesFormat: no format, so no extra checks
+2025-01-19 17:33:17.908  8079-10012 CCodec                  com.danihg.calypsoapp                I  state->set(ALLOCATING)
+2025-01-19 17:33:17.908  8079-10013 CCodec                  com.danihg.calypsoapp                I  allocate(c2.exynos.h264.encoder)
+2025-01-19 17:33:17.911  8079-10013 CCodec                  com.danihg.calypsoapp                I  setting up 'default' as default (vendor) store
+2025-01-19 17:33:17.914  8079-10013 CCodec                  com.danihg.calypsoapp                I  Created component [c2.exynos.h264.encoder]
+2025-01-19 17:33:17.914  8079-10013 CCodec                  com.danihg.calypsoapp                I  [c2.exynos.h264.encoder] state->set(ALLOCATED)
+2025-01-19 17:33:17.914  8079-10013 CCodecConfig            com.danihg.calypsoapp                D  read media type: video/avc
+2025-01-19 17:33:17.916  8079-10013 ReflectedParamUpdater   com.danihg.calypsoapp                D  extent() != 1 for single value type: output.subscribed-indices.values
+2025-01-19 17:33:17.917  8079-10013 ReflectedParamUpdater   com.danihg.calypsoapp                D  extent() != 1 for single value type: input.buffers.allocator-ids.values
+2025-01-19 17:33:17.917  8079-10013 ReflectedParamUpdater   com.danihg.calypsoapp                D  extent() != 1 for single value type: output.buffers.allocator-ids.values
+2025-01-19 17:33:17.917  8079-10013 ReflectedParamUpdater   com.danihg.calypsoapp                D  extent() != 1 for single value type: output.buffers.pool-ids.values
+2025-01-19 17:33:17.919  8079-10013 ReflectedParamUpdater   com.danihg.calypsoapp                D  ignored struct field coding.qp.values
+2025-01-19 17:33:17.921  8079-10013 ReflectedParamUpdater   com.danihg.calypsoapp                D  ignored struct field coding.gop.values
+2025-01-19 17:33:17.922  8079-10013 CCodecConfig            com.danihg.calypsoapp                D  ignoring local param raw.color (0xc2001809) as it is already supported
+2025-01-19 17:33:17.923  8079-10013 CCodecConfig            com.danihg.calypsoapp                I  query failed after returning 20 values (BAD_INDEX)
+2025-01-19 17:33:17.923  8079-10013 CCodecConfig            com.danihg.calypsoapp                D  c2 config diff is Dict {
+                                                                                                      c2::u32 algo.bitrate-mode.value = 3
+                                                                                                      c2::u32 algo.encoding-quality-level.value = 0
+                                                                                                      c2::i32 algo.priority.value = 0
+                                                                                                      c2::float algo.rate.value = 0
+                                                                                                      c2::i32 coded.average-qp.value = 0
+                                                                                                      c2::u32 coded.bitrate-mode.value = 1
+                                                                                                      c2::u32 coded.bitrate.value = 64000
+                                                                                                      c2::float coded.frame-rate.value = 15
+                                                                                                      c2::u32 coded.pl.level = 20480
+                                                                                                      c2::u32 coded.pl.profile = 20484
+                                                                                                      c2::u32 coding.intra-refresh.mode = 0
+                                                                                                      c2::float coding.intra-refresh.period = 0
+                                                                                                      c2::u32 coding.request-sync-frame.value = 0
+                                                                                                      c2::i64 coding.sync-frame-interval.value = 1000000
+                                                                                                      Buffer coding.temporal-layering = {
+                                                                                                        00000000:  10 00 00 00 07 20 01 52  00 00 00 00 00 00 00 00  ..... .R........
+                                                                                                      }
+                                                                                                      c2::u32 input.delay.value = 0
+                                                                                                      string input.media-type.value = "video/raw"
+                                                                                                      c2::u32 output.buffers.prepend-header.value = 0
+                                                                                                      string output.media-type.value = "video/avc"
+                                                                                                      c2::u32 raw.color.matrix = 0
+                                                                                                      c2::u32 raw.color.primaries = 0
+                                                                                                      c2::u32 raw.color.range = 0
+                                                                                                      c2::u32 raw.color.transfer = 0
+                                                                                                      c2::u32 raw.
+2025-01-19 17:33:17.926  8079-10000 MediaCodecList          com.danihg.calypsoapp                D  codecHandlesFormat: no format, so no extra checks
+2025-01-19 17:33:17.926  8079-10000 MediaCodecList          com.danihg.calypsoapp                D  codecHandlesFormat: no format, so no extra checks
+2025-01-19 17:33:17.928  8079-10019 CCodec                  com.danihg.calypsoapp                I  state->set(ALLOCATING)
+2025-01-19 17:33:17.928  8079-10019 CCodec                  com.danihg.calypsoapp                I  allocate(c2.android.aac.encoder)
+2025-01-19 17:33:17.931  8079-10019 CCodec                  com.danihg.calypsoapp                I  setting up 'default' as default (vendor) store
+2025-01-19 17:33:17.938  8079-10019 CCodec                  com.danihg.calypsoapp                I  Created component [c2.android.aac.encoder]
+2025-01-19 17:33:17.938  8079-10019 CCodec                  com.danihg.calypsoapp                I  [c2.android.aac.encoder] state->set(ALLOCATED)
+2025-01-19 17:33:17.938  8079-10019 CCodecConfig            com.danihg.calypsoapp                D  read media type: audio/mp4a-latm
+2025-01-19 17:33:17.941  8079-10019 ReflectedParamUpdater   com.danihg.calypsoapp                D  extent() != 1 for single value type: algo.buffers.max-count.values
+2025-01-19 17:33:17.941  8079-10019 ReflectedParamUpdater   com.danihg.calypsoapp                D  extent() != 1 for single value type: output.subscribed-indices.values
+2025-01-19 17:33:17.941  8079-10019 ReflectedParamUpdater   com.danihg.calypsoapp                D  extent() != 1 for single value type: input.buffers.allocator-ids.values
+2025-01-19 17:33:17.941  8079-10019 ReflectedParamUpdater   com.danihg.calypsoapp                D  extent() != 1 for single value type: output.buffers.allocator-ids.values
+2025-01-19 17:33:17.941  8079-10019 ReflectedParamUpdater   com.danihg.calypsoapp                D  extent() != 1 for single value type: algo.buffers.allocator-ids.values
+2025-01-19 17:33:17.942  8079-10019 ReflectedParamUpdater   com.danihg.calypsoapp                D  extent() != 1 for single value type: output.buffers.pool-ids.values
+2025-01-19 17:33:17.942  8079-10019 ReflectedParamUpdater   com.danihg.calypsoapp                D  extent() != 1 for single value type: algo.buffers.pool-ids.values
+2025-01-19 17:33:17.944  8079-10019 CCodecConfig            com.danihg.calypsoapp                I  query failed after returning 9 values (BAD_INDEX)
+2025-01-19 17:33:17.944  8079-10019 CCodecConfig            com.danihg.calypsoapp                D  c2 config diff is Dict {
+                                                                                                      c2::u32 coded.bitrate.value = 64000
+                                                                                                      c2::u32 coded.pl.level = 0
+                                                                                                      c2::u32 coded.pl.profile = 8192
+                                                                                                      c2::u32 coding.aac-sbr-mode.value = 3
+                                                                                                      c2::u32 input.buffers.max-size.value = 2048
+                                                                                                      c2::u32 input.delay.value = 0
+                                                                                                      string input.media-type.value = "audio/raw"
+                                                                                                      string output.media-type.value = "audio/mp4a-latm"
+                                                                                                      c2::u32 raw.channel-count.value = 1
+                                                                                                      c2::u32 raw.sample-rate.value = 44100
+                                                                                                    }
+2025-01-19 17:33:17.947  8079-10012 CCodec                  com.danihg.calypsoapp                I  [c2.exynos.h264.encoder] state->set(RELEASING)
+2025-01-19 17:33:17.947  8079-10021 CCodec                  com.danihg.calypsoapp                W  release order: surface --> comp
+2025-01-19 17:33:17.950  8079-10021 CCodec                  com.danihg.calypsoapp                I  [c2.exynos.h264.encoder] state->set(RELEASED)
+2025-01-19 17:33:17.951  8079-10012 MediaCodec              com.danihg.calypsoapp                I  Codec shutdown complete
+2025-01-19 17:33:17.951  8079-10013 hw-BpHwBinder           com.danihg.calypsoapp                I  onLastStrongRef automatically unlinking death recipients
+2025-01-19 17:33:17.954  8079-10012 CCodec                  com.danihg.calypsoapp                I  state->set(ALLOCATING)
+2025-01-19 17:33:17.955  8079-10013 CCodec                  com.danihg.calypsoapp                I  allocate(c2.exynos.h264.encoder)
+2025-01-19 17:33:17.958  8079-10013 CCodec                  com.danihg.calypsoapp                I  setting up 'default' as default (vendor) store
+2025-01-19 17:33:17.965  8079-10013 CCodec                  com.danihg.calypsoapp                I  Created component [c2.exynos.h264.encoder]
+2025-01-19 17:33:17.965  8079-10013 CCodec                  com.danihg.calypsoapp                I  [c2.exynos.h264.encoder] state->set(ALLOCATED)
+2025-01-19 17:33:17.966  8079-10013 CCodecConfig            com.danihg.calypsoapp                D  read media type: video/avc
+2025-01-19 17:33:17.968  8079-10013 ReflectedParamUpdater   com.danihg.calypsoapp                D  extent() != 1 for single value type: output.subscribed-indices.values
+2025-01-19 17:33:17.968  8079-10013 ReflectedParamUpdater   com.danihg.calypsoapp                D  extent() != 1 for single value type: input.buffers.allocator-ids.values
+2025-01-19 17:33:17.969  8079-10013 ReflectedParamUpdater   com.danihg.calypsoapp                D  extent() != 1 for single value type: output.buffers.allocator-ids.values
+2025-01-19 17:33:17.969  8079-10013 ReflectedParamUpdater   com.danihg.calypsoapp                D  extent() != 1 for single value type: output.buffers.pool-ids.values
+2025-01-19 17:33:17.971  8079-10013 ReflectedParamUpdater   com.danihg.calypsoapp                D  ignored struct field coding.qp.values
+2025-01-19 17:33:17.975  8079-10013 ReflectedParamUpdater   com.danihg.calypsoapp                D  ignored struct field coding.gop.values
+2025-01-19 17:33:17.976  8079-10013 CCodecConfig            com.danihg.calypsoapp                D  ignoring local param raw.color (0xc2001809) as it is already supported
+2025-01-19 17:33:17.977  8079-8085  nihg.calypsoapp         com.danihg.calypsoapp                I  Background concurrent mark compact GC freed 9784KB AllocSpace bytes, 0(0B) LOS objects, 49% free, 10MB/20MB, paused 548us,6.665ms total 72.226ms
+2025-01-19 17:33:17.977  8079-10013 CCodecConfig            com.danihg.calypsoapp                I  query failed after returning 20 values (BAD_INDEX)
+2025-01-19 17:33:17.978  8079-10013 CCodecConfig            com.danihg.calypsoapp                D  c2 config diff is Dict {
+                                                                                                      c2::u32 algo.bitrate-mode.value = 3
+                                                                                                      c2::u32 algo.encoding-quality-level.value = 0
+                                                                                                      c2::i32 algo.priority.value = 0
+                                                                                                      c2::float algo.rate.value = 0
+                                                                                                      c2::i32 coded.average-qp.value = 0
+                                                                                                      c2::u32 coded.bitrate-mode.value = 1
+                                                                                                      c2::u32 coded.bitrate.value = 64000
+                                                                                                      c2::float coded.frame-rate.value = 15
+                                                                                                      c2::u32 coded.pl.level = 20480
+                                                                                                      c2::u32 coded.pl.profile = 20484
+                                                                                                      c2::u32 coding.intra-refresh.mode = 0
+                                                                                                      c2::float coding.intra-refresh.period = 0
+                                                                                                      c2::u32 coding.request-sync-frame.value = 0
+                                                                                                      c2::i64 coding.sync-frame-interval.value = 1000000
+                                                                                                      Buffer coding.temporal-layering = {
+                                                                                                        00000000:  10 00 00 00 07 20 01 52  00 00 00 00 00 00 00 00  ..... .R........
+                                                                                                      }
+                                                                                                      c2::u32 input.delay.value = 0
+                                                                                                      string input.media-type.value = "video/raw"
+                                                                                                      c2::u32 output.buffers.prepend-header.value = 0
+                                                                                                      string output.media-type.value = "video/avc"
+                                                                                                      c2::u32 raw.color.matrix = 0
+                                                                                                      c2::u32 raw.color.primaries = 0
+                                                                                                      c2::u32 raw.color.range = 0
+                                                                                                      c2::u32 raw.color.transfer = 0
+                                                                                                      c2::u32 raw.
+2025-01-19 17:33:17.982  8079-8086  InputTransport          com.danihg.calypsoapp                D  Input channel destroyed: 'ClientS', fd=239
+2025-01-19 17:33:17.982  8079-8086  InputTransport          com.danihg.calypsoapp                D  Input channel destroyed: 'ClientS', fd=150
+2025-01-19 17:33:17.983  8079-10000 VQApply                 com.danihg.calypsoapp                D  minquality: 2560x1440 outside of shaping range
+2025-01-19 17:33:17.983  8079-10000 MediaCodec              com.danihg.calypsoapp                D  shapeMediaFormat: deltas(1): AMessage(what = 0x00000000) = {
+                                                                                                        int32_t android._encoding-quality-level = 0
+                                                                                                      }
+2025-01-19 17:33:17.983  8079-10012 MediaCodec              com.danihg.calypsoapp                D  flushMediametrics
+2025-01-19 17:33:17.984  8079-8086  InputTransport          com.danihg.calypsoapp                D  Input channel destroyed: 'ClientS', fd=215
+2025-01-19 17:33:17.984  8079-8086  InputTransport          com.danihg.calypsoapp                D  Input channel destroyed: 'ClientS', fd=194
+2025-01-19 17:33:17.984  8079-10013 CCodec                  com.danihg.calypsoapp                D  [c2.exynos.h264.encoder] buffers are bound to CCodec for this session
+2025-01-19 17:33:17.986  8079-10013 CCodec                  com.danihg.calypsoapp                I  appPid(8079) width(2560) height(1440)
+2025-01-19 17:33:17.986  8079-10013 CCodecConfig            com.danihg.calypsoapp                D  no c2 equivalents for color-format
+2025-01-19 17:33:17.986  8079-10013 CCodecConfig            com.danihg.calypsoapp                D  no c2 equivalents for flags
+2025-01-19 17:33:17.986  8079-10013 CCodecConfig            com.danihg.calypsoapp                D  no c2 equivalents for encoder
+2025-01-19 17:33:17.986  8079-10013 CCodecConfig            com.danihg.calypsoapp                D  no c2 equivalents for color-standard
+2025-01-19 17:33:17.987  8079-8086  InputTransport          com.danihg.calypsoapp                D  Input channel destroyed: 'ClientS', fd=207
+2025-01-19 17:33:17.987  8079-8086  InputTransport          com.danihg.calypsoapp                D  Input channel destroyed: 'ClientS', fd=176
+2025-01-19 17:33:17.989  8079-10013 CCodecConfig            com.danihg.calypsoapp                D  c2 config diff is   c2::u32 coded.bitrate.value = 29491200
+                                                                                                      c2::float coded.frame-rate.value = 30
+                                                                                                      c2::u32 raw.color.matrix = 1
+                                                                                                      c2::u32 raw.color.primaries = 1
+                                                                                                      c2::u32 raw.color.range = 2
+                                                                                                      c2::u32 raw.color.transfer = 3
+                                                                                                      c2::u32 raw.size.height = 1440
+                                                                                                      c2::u32 raw.size.width = 2560
+2025-01-19 17:33:17.990  8079-10013 Codec2Client            com.danihg.calypsoapp                W  query -- param skipped: index = 3254781982.
+2025-01-19 17:33:17.990  8079-10013 CCodec                  com.danihg.calypsoapp                D  Setting encoder options for disabling wrapping
+2025-01-19 17:33:17.990  8079-10013 CCodec                  com.danihg.calypsoapp                D  encoding statistics level = 0
+2025-01-19 17:33:17.990  8079-10013 CCodec                  com.danihg.calypsoapp                D  setup formats input: AMessage(what = 0x00000000) = {
+                                                                                                      int32_t android._color-format = 2130708361
+                                                                                                      int32_t android._dataspace = 0
+                                                                                                      int32_t bitrate-mode = 1
+                                                                                                      int32_t frame-rate = 30
+                                                                                                      int32_t height = 1440
+                                                                                                      int32_t intra-refresh-period = 0
+                                                                                                      string mime = "video/raw"
+                                                                                                      int32_t prepend-sps-pps-to-idr-frames = 0
+                                                                                                      int32_t priority = 0
+                                                                                                      int32_t video-qp-average = 0
+                                                                                                      int32_t width = 2560
+                                                                                                      Rect crop(0, 0, 2559, 1439)
+                                                                                                      int64_t android._C2MemoryUsage = 65536
+                                                                                                      int32_t color-format = 2130708361
+                                                                                                      int32_t bytebuffer-wrapping-disable = 1
+                                                                                                    }
+2025-01-19 17:33:17.990  8079-10013 CCodec                  com.danihg.calypsoapp                D  setup formats output: AMessage(what = 0x00000000) = {
+                                                                                                      int32_t bitrate = 29491200
+                                                                                                      int32_t bitrate-mode = 1
+                                                                                                      Rect crop(0, 0, 2559, 1439)
+                                                                                                      int32_t width = 2560
+                                                                                                      int32_t color-standard = 1
+                                                                                                      int32_t color-range = 2
+                                                                                                      int32_t color-transfer = 3
+                                                                                                      int32_t frame-rate = 30
+                                                                                                      int32_t height = 1440
+                                                                                                      int32_t intra-refresh-period = 0
+                                                                                                      int32_t level = 1
+                                                                                                      int32_t max-bitrate = 29491200
+                                                                                                      string mime = "video/avc"
+                                                                                                      int32_t prepend-sps-pps-to-idr-frames = 0
+                                                                                                      int32_t priority = 0
+                                                                                                      int32_t profile = 8
+                                                                                                      int32_t video-qp-average = 0
+                                                                                                    }
+2025-01-19 17:33:17.990  8079-10013 CCodecConfig            com.danihg.calypsoapp                I  query failed after returning 21 values (BAD_INDEX)
+2025-01-19 17:33:17.990  8079-10013 CCodecConfig            com.danihg.calypsoapp                D  c2 config diff is   c2::u32 coded.pl.level = 20494
+2025-01-19 17:33:17.991  8079-8086  InputTransport          com.danihg.calypsoapp                D  Input channel destroyed: 'ClientS', fd=251
+2025-01-19 17:33:17.991  8079-8086  InputTransport          com.danihg.calypsoapp                D  Input channel destroyed: 'ClientS', fd=128
+2025-01-19 17:33:17.992  8079-8087  System                  com.danihg.calypsoapp                W  A resource failed to call Surface.release.
+2025-01-19 17:33:17.994  8079-10013 CCodec                  com.danihg.calypsoapp                D  [CreateInputSurface] surface in app process
+2025-01-19 17:33:17.994  8079-10013 CCodec                  com.danihg.calypsoapp                D  input format changed to AMessage(what = 0x00000000) = {
+                                                                                                      int32_t android._color-format = 2130708361
+                                                                                                      int32_t android._dataspace = 260
+                                                                                                      int32_t bitrate-mode = 1
+                                                                                                      int32_t frame-rate = 30
+                                                                                                      int32_t height = 1440
+                                                                                                      int32_t intra-refresh-period = 0
+                                                                                                      string mime = "video/raw"
+                                                                                                      int32_t prepend-sps-pps-to-idr-frames = 0
+                                                                                                      int32_t priority = 0
+                                                                                                      int32_t video-qp-average = 0
+                                                                                                      int32_t width = 2560
+                                                                                                      Rect crop(0, 0, 2559, 1439)
+                                                                                                      int64_t android._C2MemoryUsage = 65536
+                                                                                                      int32_t color-format = 2130708361
+                                                                                                      int32_t bytebuffer-wrapping-disable = 1
+                                                                                                      int32_t color-range = 2
+                                                                                                      int32_t color-standard = 1
+                                                                                                      int32_t color-transfer = 3
+                                                                                                    }
+2025-01-19 17:33:17.995  8079-10013 Codec2Client            com.danihg.calypsoapp                W  query -- param skipped: index = 1610614798.
+2025-01-19 17:33:17.995  8079-10013 C2OMXNode               com.danihg.calypsoapp                D  actual buffer count(16), input delay(0), pipeline delay(0)
+2025-01-19 17:33:17.995  8079-10013 GraphicBufferSource     com.danihg.calypsoapp                D  setting dataspace: 0x104, acquired=0
+2025-01-19 17:33:17.995  8079-10013 CCodec                  com.danihg.calypsoapp                D  ISConfig not changed
+2025-01-19 17:33:17.995  8079-10019 CCodec                  com.danihg.calypsoapp                I  [c2.android.aac.encoder] state->set(RELEASING)
+2025-01-19 17:33:17.996  8079-10031 CCodec                  com.danihg.calypsoapp                W  release order: surface --> comp
+2025-01-19 17:33:17.998  8079-8087  System                  com.danihg.calypsoapp                W  A resource failed to call UsbDeviceConnection.close.
+2025-01-19 17:33:17.998  8079-8087  System                  com.danihg.calypsoapp                W  A resource failed to call UsbDeviceConnection.close.
+2025-01-19 17:33:17.999  8079-10031 CCodec                  com.danihg.calypsoapp                I  [c2.android.aac.encoder] state->set(RELEASED)
+2025-01-19 17:33:17.999  8079-10019 MediaCodec              com.danihg.calypsoapp                I  Codec shutdown complete
+2025-01-19 17:33:17.999  8079-8087  System                  com.danihg.calypsoapp                W  A resource failed to call Surface.release.
+2025-01-19 17:33:17.999  8079-10031 hw-BpHwBinder           com.danihg.calypsoapp                I  onLastStrongRef automatically unlinking death recipients
+2025-01-19 17:33:18.001  8079-10019 CCodec                  com.danihg.calypsoapp                I  state->set(ALLOCATING)
+2025-01-19 17:33:18.001  8079-10019 CCodec                  com.danihg.calypsoapp                I  allocate(c2.android.aac.encoder)
+2025-01-19 17:33:18.006  8079-10019 CCodec                  com.danihg.calypsoapp                I  setting up 'default' as default (vendor) store
+2025-01-19 17:33:18.013  8079-10019 CCodec                  com.danihg.calypsoapp                I  Created component [c2.android.aac.encoder]
+2025-01-19 17:33:18.013  8079-10019 CCodec                  com.danihg.calypsoapp                I  [c2.android.aac.encoder] state->set(ALLOCATED)
+2025-01-19 17:33:18.014  8079-10019 CCodecConfig            com.danihg.calypsoapp                D  read media type: audio/mp4a-latm
+2025-01-19 17:33:18.018  8079-10019 ReflectedParamUpdater   com.danihg.calypsoapp                D  extent() != 1 for single value type: algo.buffers.max-count.values
+2025-01-19 17:33:18.019  8079-10019 ReflectedParamUpdater   com.danihg.calypsoapp                D  extent() != 1 for single value type: output.subscribed-indices.values
+2025-01-19 17:33:18.020  8079-10019 ReflectedParamUpdater   com.danihg.calypsoapp                D  extent() != 1 for single value type: input.buffers.allocator-ids.values
+2025-01-19 17:33:18.020  8079-10019 ReflectedParamUpdater   com.danihg.calypsoapp                D  extent() != 1 for single value type: output.buffers.allocator-ids.values
+2025-01-19 17:33:18.020  8079-10019 ReflectedParamUpdater   com.danihg.calypsoapp                D  extent() != 1 for single value type: algo.buffers.allocator-ids.values
+2025-01-19 17:33:18.020  8079-10019 ReflectedParamUpdater   com.danihg.calypsoapp                D  extent() != 1 for single value type: output.buffers.pool-ids.values
+2025-01-19 17:33:18.020  8079-10019 ReflectedParamUpdater   com.danihg.calypsoapp                D  extent() != 1 for single value type: algo.buffers.pool-ids.values
+2025-01-19 17:33:18.025  8079-10019 CCodecConfig            com.danihg.calypsoapp                I  query failed after returning 9 values (BAD_INDEX)
+2025-01-19 17:33:18.025  8079-10019 CCodecConfig            com.danihg.calypsoapp                D  c2 config diff is Dict {
+                                                                                                      c2::u32 coded.bitrate.value = 64000
+                                                                                                      c2::u32 coded.pl.level = 0
+                                                                                                      c2::u32 coded.pl.profile = 8192
+                                                                                                      c2::u32 coding.aac-sbr-mode.value = 3
+                                                                                                      c2::u32 input.buffers.max-size.value = 2048
+                                                                                                      c2::u32 input.delay.value = 0
+                                                                                                      string input.media-type.value = "audio/raw"
+                                                                                                      string output.media-type.value = "audio/mp4a-latm"
+                                                                                                      c2::u32 raw.channel-count.value = 1
+                                                                                                      c2::u32 raw.sample-rate.value = 44100
+                                                                                                    }
+2025-01-19 17:33:18.028  8079-10000 MediaCodec              com.danihg.calypsoapp                D  shapeMediaFormat: deltas(0): AMessage(what = 0x00000000) = {
+                                                                                                      }
+2025-01-19 17:33:18.028  8079-10019 MediaCodec              com.danihg.calypsoapp                D  flushMediametrics
+2025-01-19 17:33:18.028  8079-10019 CCodec                  com.danihg.calypsoapp                D  [c2.android.aac.encoder] buffers are bound to CCodec for this session
+2025-01-19 17:33:18.028  8079-10019 CCodec                  com.danihg.calypsoapp                I  appPid(8079) width(0) height(0)
+2025-01-19 17:33:18.028  8079-10019 CCodecConfig            com.danihg.calypsoapp                D  no c2 equivalents for flags
+2025-01-19 17:33:18.028  8079-10019 CCodecConfig            com.danihg.calypsoapp                D  no c2 equivalents for encoder
+2025-01-19 17:33:18.029  8079-10019 CCodecConfig            com.danihg.calypsoapp                D  c2 config diff is   c2::u32 raw.sample-rate.value = 8000
+2025-01-19 17:33:18.030  8079-10019 Codec2Client            com.danihg.calypsoapp                W  query -- param skipped: index = 1107298332.
+2025-01-19 17:33:18.030  8079-10019 CCodec                  com.danihg.calypsoapp                D  Setting encoder options for disabling wrapping
+2025-01-19 17:33:18.030  8079-10019 CCodec                  com.danihg.calypsoapp                D  encoding statistics level = 0
+2025-01-19 17:33:18.030  8079-10019 CCodec                  com.danihg.calypsoapp                D  setup formats input: AMessage(what = 0x00000000) = {
+                                                                                                      int32_t sample-rate = 8000
+                                                                                                      int32_t channel-count = 1
+                                                                                                      int32_t max-input-size = 2048
+                                                                                                      string mime = "audio/raw"
+                                                                                                      int32_t android._config-pcm-encoding = 2
+                                                                                                      int32_t bytebuffer-wrapping-disable = 1
+                                                                                                    }
+2025-01-19 17:33:18.030  8079-10019 CCodec                  com.danihg.calypsoapp                D  setup formats output: AMessage(what = 0x00000000) = {
+                                                                                                      int32_t sample-rate = 8000
+                                                                                                      int32_t bitrate = 64000
+                                                                                                      int32_t channel-count = 1
+                                                                                                      int32_t level = 0
+                                                                                                      int32_t max-bitrate = 64000
+                                                                                                      string mime = "audio/mp4a-latm"
+                                                                                                      int32_t profile = 2
+                                                                                                    }
+2025-01-19 17:33:18.030  8079-10019 CCodecConfig            com.danihg.calypsoapp                I  query failed after returning 9 values (BAD_INDEX)
+2025-01-19 17:33:18.081  8079-10000 VideoCapture            com.danihg.calypsoapp                I  source: 5 audioSampleRate: 8000 channelConfig: 16 audioFormat: 2 bufferSize: 640
+2025-01-19 17:33:18.085  8079-10007 libEGL                  com.danihg.calypsoapp                D  dlopen (libGLESv2_samsung.so) success at 0x7572fbad28118dcf
+2025-01-19 17:33:18.086  8079-10007 EGLBase14               com.danihg.calypsoapp                D  EGLContext created, client version 3
+2025-01-19 17:33:18.099  8079-10007 vulkan                  com.danihg.calypsoapp                W  CreateSwapchainKHR(VkSwapchainCreateInfoKHR.imageColorSpace = 1000104013) failed: Unsupported color space, but assume as Success for ANGLE.
+2025-01-19 17:33:18.101  8079-10037 libUVCCamera            com.danihg.calypsoapp                I  [10037*UVCPreview.cpp:532:prepare_preview]:frameSize=(2560,1440)@MJPEG
+2025-01-19 17:33:18.106  8079-10039 libUVCCamera            com.danihg.calypsoapp                I  [10039*UVCPreview.cpp:280:callbackPixelFormatChanged]:PIXEL_FORMAT_RAW:
