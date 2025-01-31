@@ -1,3 +1,4 @@
+// CameraScreen.kt
 package com.danihg.calypsoapp.presentation.camera
 
 import android.annotation.SuppressLint
@@ -8,63 +9,26 @@ import android.content.Context
 import android.content.pm.ActivityInfo
 import android.graphics.BitmapFactory
 import android.os.Build
-import android.os.PowerManager
-import android.util.Log
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.ViewGroup
-import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -73,76 +37,40 @@ import androidx.compose.ui.zIndex
 import androidx.core.app.NotificationCompat
 import com.danihg.calypsoapp.R
 import com.danihg.calypsoapp.overlays.drawOverlay
-import com.danihg.calypsoapp.sources.CameraUSBSource
 import com.danihg.calypsoapp.ui.theme.CalypsoRed
-import com.danihg.calypsoapp.ui.theme.Gray
-import com.danihg.calypsoapp.ui.theme.GreyTransparent
-import com.danihg.calypsoapp.ui.theme.UnselectedField
+import com.danihg.calypsoapp.utils.AuxButton
+import com.danihg.calypsoapp.utils.ModernDropdown
+import com.danihg.calypsoapp.utils.PreventScreenLock
+import com.danihg.calypsoapp.utils.ScoreboardActionButtons
+import com.danihg.calypsoapp.utils.SectionSubtitle
+import com.danihg.calypsoapp.utils.getSupportedAudioCodecs
+import com.danihg.calypsoapp.utils.getSupportedVideoCodecs
+import com.danihg.calypsoapp.utils.rememberToast
 import com.pedro.common.ConnectChecker
 import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
 import com.pedro.encoder.input.sources.video.Camera1Source
 import com.pedro.encoder.input.sources.video.Camera2Source
 import com.pedro.extrasources.CameraUvcSource
 import com.pedro.library.generic.GenericStream
-import com.pedro.library.util.BitrateAdapter
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-
 
 @Composable
-fun rememberToast(): (String) -> Unit {
-
+fun CameraScreen() {
     val context = LocalContext.current
-    return remember { { message: String ->
-        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-    } }
-}
-
-@SuppressLint("Wakelock", "WakelockTimeout")
-@Composable
-fun PreventScreenLock() {
-    val context = LocalContext.current
-    DisposableEffect(Unit) {
-        val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-        val wakeLock = powerManager.newWakeLock(
-            PowerManager.FULL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
-            "CameraScreen::WakeLock"
-        )
-        wakeLock.acquire()
-
-        onDispose {
-            if (wakeLock.isHeld) {
-                wakeLock.release()
-            }
-        }
-    }
-}
-
-@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
-@Composable
-fun CameraScreen () {
-
-    val context = LocalContext.current
-
     var showContent by remember { mutableStateOf(false) }
     var isOrientationSet by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        // Set the orientation immediately
         (context as? Activity)?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-        delay(300) // Delay to allow for orientation change
+        delay(300)
         isOrientationSet = true
-        delay(100) // Additional short delay before showing content
+        delay(100)
         showContent = true
     }
 
     DisposableEffect(Unit) {
         onDispose {
-            // Reset orientation when leaving the screen
-            (context as? Activity)?.requestedOrientation =
-                ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            (context as? Activity)?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         }
     }
 
@@ -162,15 +90,11 @@ fun CameraScreen () {
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
 fun CameraScreenContent() {
-
-
-    // Lock the screen to portrait mode
-//    LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE)
     val context = LocalContext.current
     PreventScreenLock()
     val showToast = rememberToast()
 
-    // Retrieve video/audio settings from SharedPreferences with default values
+    // Retrieve video/audio settings from SharedPreferences
     val sharedPreferences = context.getSharedPreferences("CameraSettings", Context.MODE_PRIVATE)
     val videoWidth = sharedPreferences.getInt("videoWidth", 1920)
     val videoHeight = sharedPreferences.getInt("videoHeight", 1080)
@@ -180,13 +104,12 @@ fun CameraScreenContent() {
     val audioIsStereo = sharedPreferences.getBoolean("audioIsStereo", true)
     val audioBitrate = sharedPreferences.getInt("audioBitrate", 128 * 1000)
 
-    Log.d("CameraSettings", "videoWidth: $videoWidth")
-    Log.d("CameraSettings", "videoHeight: $videoHeight")
-    Log.d("CameraSettings", "videoBitrate: $videoBitrate")
-    Log.d("CameraSettings", "videoFPS: $videoFPS")
-    Log.d("CameraSettings", "audioSampleRate: $audioSampleRate")
-    Log.d("CameraSettings", "audioIsStereo: $audioIsStereo")
-    Log.d("CameraSettings", "audioBitrate: $audioBitrate")
+    var selectedCameraSource by remember { mutableStateOf("Device Camera") }
+    var selectedAudioSource by remember { mutableStateOf("Device Microphone") }
+    var selectedVideoEncoder by remember { mutableStateOf("H.264") }
+    var selectedAudioEncoder by remember { mutableStateOf("AAC") }
+    var selectedFPS by remember { mutableStateOf("30") }
+    var selectedResolution by remember { mutableStateOf("1080p") }
 
     var isStreaming by rememberSaveable { mutableStateOf(false) }
     var isSettingsMenuVisible by rememberSaveable { mutableStateOf(false) }
@@ -206,16 +129,8 @@ fun CameraScreenContent() {
     val options = BitmapFactory.Options()
     options.inScaled = false
 
-    val leftLogoBitmap = BitmapFactory.decodeResource(
-        context.resources,
-        R.drawable.rivas_50,
-        options
-    )
-    val rightLogoBitmap = BitmapFactory.decodeResource(
-        context.resources,
-        R.drawable.alcorcon_50,
-        options
-    )
+    val leftLogoBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.rivas_50, options)
+    val rightLogoBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.alcorcon_50, options)
     var selectedTeam1 by remember { mutableStateOf("Rivas") }
     var selectedTeam2 by remember { mutableStateOf("Rivas") }
     val selectedBackgroundColor: Int = Color.Transparent.toArgb()
@@ -239,8 +154,7 @@ fun CameraScreenContent() {
                 showToast("Connection failed: $reason")
             }
 
-            override fun onNewBitrate(bitrate: Long) {
-            }
+            override fun onNewBitrate(bitrate: Long) {}
             override fun onDisconnect() {
                 showToast("Disconnected")
             }
@@ -252,16 +166,12 @@ fun CameraScreenContent() {
             override fun onAuthSuccess() {
                 showToast("Authentication success")
             }
-
         }).apply {
             prepareVideo(videoWidth, videoHeight, videoBitrate, videoFPS)
             prepareAudio(audioSampleRate, audioIsStereo, audioBitrate)
             getGlInterface().autoHandleOrientation = true
-//            setOrientation(180)
         }
     }
-    genericStream.setFpsListener{ fps -> println("FPS: $fps") }
-
 
     fun startForegroundService() {
         val notification = NotificationCompat.Builder(context, "CameraStreamChannel")
@@ -275,8 +185,6 @@ fun CameraScreenContent() {
 
         if (!isStreaming) {
             genericStream.startStream("rtmp://192.168.1.109:1935/live/streamname")
-//            genericStream.startStream("rtmp://a.rtmp.youtube.com/live2/j2sh-690b-fg9y-2fah-7444")
-//            ffmpeg -f flv -i rtmp://127.0.0.1:1935/live/streamname -filter_complex "[0:v]fps=fps=60:round=near[v]" -map "[v]" -map 0:a -c:v libx264 -preset veryfast -tune zerolatency -b:v 6000k -maxrate 6000k -bufsize 12000k -g 120 -keyint_min 60 -c:a aac -b:a 160k -ar 44100 -f flv rtmp://a.rtmp.youtube.com/live2/j2sh-690b-fg9y-2fah-7444
             isStreaming = true
         }
     }
@@ -290,12 +198,10 @@ fun CameraScreenContent() {
     }
 
     Scaffold(
-        modifier = Modifier.fillMaxSize(), // Fills the entire screen
-        contentWindowInsets = WindowInsets(0, 0, 0, 0), // Removes insets added by Scaffold
+        modifier = Modifier.fillMaxSize(),
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         content = {
             Box(modifier = Modifier.fillMaxSize()) {
-                // SurfaceView for camera preview
-
                 AndroidView(
                     factory = { ctx ->
                         SurfaceView(ctx).apply {
@@ -320,10 +226,9 @@ fun CameraScreenContent() {
                             })
                         }
                     },
-                    modifier = Modifier.fillMaxSize() // Fills the screen
+                    modifier = Modifier.fillMaxSize()
                 )
 
-                // Scoreboard Draw
                 if (showScoreboardOverlay && genericStream.isOnPreview && !showApplyButton) {
                     genericStream.getGlInterface().addFilter(imageObjectFilterRender)
                     drawOverlay(
@@ -338,7 +243,6 @@ fun CameraScreenContent() {
                     )
                     ScoreboardActionButtons(
                         onLeftButtonClick = {
-                            // Handle left button click
                             leftTeamGoals++
                             drawOverlay(
                                 context = context,
@@ -352,7 +256,6 @@ fun CameraScreenContent() {
                             )
                         },
                         onRightButtonClick = {
-                            // Handle right button click
                             rightTeamGoals++
                             drawOverlay(
                                 context = context,
@@ -366,8 +269,7 @@ fun CameraScreenContent() {
                             )
                         }
                     )
-                }
-                else {
+                } else {
                     if (!showScoreboardOverlay && !showApplyButton) {
                         genericStream.getGlInterface().removeFilter(imageObjectFilterRender)
                         leftTeamGoals = 0
@@ -375,14 +277,11 @@ fun CameraScreenContent() {
                     }
                 }
 
-                // Camera Switch
                 if (selectedCamera == "Camera2" && !showApplyButton) {
                     genericStream.changeVideoSource(Camera2Source(context))
-                }
-                else if (selectedCamera == "CameraX" && !showApplyButton) {
+                } else if (selectedCamera == "CameraX" && !showApplyButton) {
                     genericStream.changeVideoSource(Camera1Source(context))
-                }
-                else if (selectedCamera == "USBCamera" && !showApplyButton) {
+                } else if (selectedCamera == "USBCamera" && !showApplyButton) {
                     genericStream.changeVideoSource(CameraUvcSource())
                 }
 
@@ -401,42 +300,16 @@ fun CameraScreenContent() {
                         verticalArrangement = Arrangement.SpaceEvenly,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // Top button (Left Button in previous version)
                         AuxButton(
                             modifier = Modifier
                                 .size(50.dp)
                                 .zIndex(2f),
                             painter = painterResource(id = R.drawable.ic_rocket),
-                            onClick = {
-                                showApplyButton = !showApplyButton
-                                Log.i("Rocket", genericStream.videoSource.toString())
-//                                if (!overlayDrawn) {
-//                                    genericStream.getGlInterface()
-//                                        .addFilter(imageObjectFilterRender)
-//                                    drawOverlay(
-//                                        context = context,
-//                                        leftLogoBitmap = leftLogoBitmap,
-//                                        rightLogoBitmap = rightLogoBitmap,
-//                                        leftTeamGoals = leftTeamGoals,
-//                                        rightTeamGoals = rightTeamGoals,
-//                                        backgroundColor = selectedBackgroundColor,
-//                                        imageObjectFilterRender = imageObjectFilterRender,
-//                                        isOnPreview = genericStream.isOnPreview
-//                                    )
-//                                    overlayDrawn = true
-//                                }
-//                                else {
-//                                    genericStream.getGlInterface().removeFilter(imageObjectFilterRender)
-//                                    leftTeamGoals = 0
-//                                    rightTeamGoals = 0
-//                                    overlayDrawn = false
-//                                }
-                            }
+                            onClick = { showApplyButton = !showApplyButton }
                         )
 
                         Spacer(modifier = Modifier.height(5.dp))
 
-                        // Red circular button (Center Button)
                         Button(
                             onClick = {
                                 if (isStreaming) {
@@ -448,24 +321,171 @@ fun CameraScreenContent() {
                             modifier = Modifier
                                 .size(70.dp)
                                 .border(3.dp, Color.White, CircleShape),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.Red
-                            ),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
                             shape = CircleShape
                         ) {}
 
                         Spacer(modifier = Modifier.height(5.dp))
 
-                        // Bottom button (Right Button in previous version)
                         AuxButton(
                             modifier = Modifier
                                 .size(50.dp)
                                 .zIndex(2f),
                             painter = painterResource(id = R.drawable.ic_settings),
-                            onClick = {
-                                isSettingsMenuVisible = !isSettingsMenuVisible
-                            }
+                            onClick = { isSettingsMenuVisible = !isSettingsMenuVisible }
                         )
+                    }
+                }
+
+                AnimatedVisibility(
+                    visible = isSettingsMenuVisible,
+                    enter = fadeIn(tween(300)) + slideInVertically(initialOffsetY = { it / 2 }),
+                    exit = fadeOut(tween(300)) + slideOutVertically(targetOffsetY = { it / 2 })
+                ) {
+                    val screenHeight = LocalContext.current.resources.displayMetrics.heightPixels.dp
+                    val screenWidth = LocalContext.current.resources.displayMetrics.widthPixels.dp
+
+                    // Calculate the width of the camera preview (assuming 16:9 aspect ratio)
+                    val cameraPreviewHeight = screenHeight // Full height in landscape
+                    val cameraPreviewWidth = cameraPreviewHeight * (16f / 9f) // 16:9 aspect ratio
+
+                    // Calculate the horizontal padding to center the settings menu
+                    val horizontalPadding = (screenWidth - cameraPreviewWidth) / 2
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize() // Fill the entire screen
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(cameraPreviewWidth) // Match the width of the camera preview
+                                .fillMaxHeight() // Take up full height
+                                .padding(horizontal = horizontalPadding) // Add padding to match the camera preview
+                                .background(Color.Black.copy(alpha = 0.95f))
+                                .align(Alignment.BottomCenter) // Align at the bottom
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(16.dp)
+                                    .verticalScroll(rememberScrollState()) // Make the content scrollable
+                            ) {
+                                // Close Button
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.End
+                                ) {
+                                    IconButton(
+                                        onClick = { isSettingsMenuVisible = false } // Close the settings menu
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.ic_close), // Replace with your close icon
+                                            contentDescription = "Close",
+                                            tint = Color.White
+                                        )
+                                    }
+                                }
+
+                                // Camera Settings Section
+                                Text(
+                                    text = "Camera Settings",
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+                                Divider(color = Color.White.copy(alpha = 0.3f), thickness = 1.dp)
+
+                                // Camera Source Dropdown
+                                SectionSubtitle("Camera Source")
+                                ModernDropdown(
+                                    items = listOf("Device Camera", "USB Camera"),
+                                    selectedValue = selectedCameraSource,
+                                    displayMapper = { it },
+                                    onValueChange = { selectedCameraSource = it }
+                                )
+
+                                // Audio Source Dropdown
+                                SectionSubtitle("Audio Source")
+                                ModernDropdown(
+                                    items = listOf("Device Microphone", "External Microphone"),
+                                    selectedValue = selectedAudioSource,
+                                    displayMapper = { it },
+                                    onValueChange = { selectedAudioSource = it }
+                                )
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                // Streaming Settings Section
+                                Text(
+                                    text = "Streaming Settings",
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+                                Divider(color = Color.White.copy(alpha = 0.3f), thickness = 1.dp)
+
+                                // Video Encoder Dropdown
+                                SectionSubtitle("Video Encoder")
+                                ModernDropdown(
+                                    items = listOf("H.264", "H.265"),
+                                    selectedValue = selectedVideoEncoder,
+                                    displayMapper = { it },
+                                    onValueChange = { selectedVideoEncoder = it }
+                                )
+
+                                // Audio Encoder Dropdown
+                                SectionSubtitle("Audio Encoder")
+                                ModernDropdown(
+                                    items = listOf("AAC", "PCM"),
+                                    selectedValue = selectedAudioEncoder,
+                                    displayMapper = { it },
+                                    onValueChange = { selectedAudioEncoder = it }
+                                )
+
+                                // Stream FPS Dropdown
+                                SectionSubtitle("Stream FPS")
+                                ModernDropdown(
+                                    items = if (selectedCameraSource == "USB Camera") listOf("30", "60") else listOf("30"),
+                                    selectedValue = selectedFPS,
+                                    displayMapper = { it },
+                                    onValueChange = { selectedFPS = it }
+                                )
+
+                                // Resolution Dropdown
+                                SectionSubtitle("Resolution")
+                                ModernDropdown(
+                                    items = listOf("1080p", "720p"),
+                                    selectedValue = selectedResolution,
+                                    displayMapper = { it },
+                                    onValueChange = { selectedResolution = it }
+                                )
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                // Apply Button
+                                Button(
+                                    onClick = {
+                                        // Save settings and apply changes
+//                                        saveSettings()
+                                        getSupportedVideoCodecs()
+                                        getSupportedAudioCodecs()
+                                        isSettingsMenuVisible = false // Close the settings menu after applying
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(40.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = CalypsoRed,
+                                        contentColor = Color.White
+                                    ),
+                                    shape = CircleShape
+                                ) {
+                                    Text("Apply", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -486,7 +506,6 @@ fun CameraScreenContent() {
                             verticalArrangement = Arrangement.Top,
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            // Sections Row
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -494,7 +513,6 @@ fun CameraScreenContent() {
                                 horizontalArrangement = Arrangement.Start,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                // Section 1
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
@@ -538,9 +556,7 @@ fun CameraScreenContent() {
                                             items = listOf("Rivas", "Alcorcón"),
                                             selectedValue = selectedTeam1,
                                             displayMapper = { it },
-                                            onValueChange = {
-                                                selectedTeam1 = it
-                                            }
+                                            onValueChange = { selectedTeam1 = it }
                                         )
                                         Spacer(modifier = Modifier.height(25.dp))
                                         SectionSubtitle("Select Team 2")
@@ -548,15 +564,11 @@ fun CameraScreenContent() {
                                             items = listOf("Rivas", "Alcorcón"),
                                             selectedValue = selectedTeam2,
                                             displayMapper = { it },
-                                            onValueChange = {
-                                                selectedTeam2 = it
-                                            }
+                                            onValueChange = { selectedTeam2 = it }
                                         )
                                         Spacer(modifier = Modifier.height(25.dp))
-                                        // Apply Button
                                         Button(
-                                            onClick = {
-                                            },
+                                            onClick = {},
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .padding(4.dp)
@@ -572,7 +584,6 @@ fun CameraScreenContent() {
                                     }
                                 }
 
-                                // Section 2
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
@@ -586,13 +597,10 @@ fun CameraScreenContent() {
                                         items = listOf("Camera2", "Camera1", "USBCamera"),
                                         selectedValue = selectedCamera,
                                         displayMapper = { it },
-                                        onValueChange = {
-                                            selectedCamera = it
-                                        }
+                                        onValueChange = { selectedCamera = it }
                                     )
                                 }
 
-                                // Section 3
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
@@ -614,117 +622,4 @@ fun CameraScreenContent() {
             }
         }
     )
-}
-
-
-@Composable
-fun AuxButton(modifier: Modifier = Modifier.size(50.dp), painter: Painter, onClick: () -> Unit) {
-    Box(
-        modifier = modifier
-            .size(50.dp)
-            .clip(CircleShape)
-            .background(GreyTransparent)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            painter,
-            contentDescription = "Right Button Icon",
-            tint = Color.White,
-            modifier = Modifier.size(30.dp)
-        )
-    }
-}
-
-@Composable
-fun <T> ModernDropdown(
-    items: List<T>,
-    selectedValue: T,
-    displayMapper: (T) -> String,
-    onValueChange: (T) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Box(modifier = Modifier
-        .fillMaxWidth()
-        .background(UnselectedField, CircleShape)
-        .padding(4.dp)) {
-        Row(
-            modifier = Modifier
-                .clickable { expanded = true }
-                .padding(4.dp)
-                .fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = displayMapper(selectedValue),
-                color = Color.White,
-                fontSize = 16.sp,
-                modifier = Modifier.padding(start = 4.dp)
-            )
-            Icon(
-                imageVector = Icons.Default.ArrowDropDown,
-                contentDescription = null,
-                tint = Color.White
-            )
-        }
-
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            modifier = Modifier.background(Gray)
-        ) {
-            items.forEach { item ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = displayMapper(item),
-                            color = if (item == selectedValue) CalypsoRed else Color.White,
-                            fontSize = 16.sp
-                        )
-                    },
-                    onClick = {
-                        onValueChange(item)
-                        expanded = false
-                    }
-                )
-            }
-        }
-    }
-}
-@Composable
-fun SectionSubtitle(title: String) {
-    Text(title, style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Medium, color = Color.LightGray), modifier = Modifier.padding(vertical = 4.dp))
-}
-
-@Composable
-fun ScoreboardActionButtons(
-    onLeftButtonClick: () -> Unit,
-    onRightButtonClick: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-    ) {
-        Row(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(start = 153.dp, top = 50.dp), // Padding from the top and left of the screen
-            horizontalArrangement = Arrangement.spacedBy(55.dp), // Spacing between the buttons
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            AuxButton(
-                modifier = Modifier.size(30.dp), // Smaller size than ic_rocket
-                painter = painterResource(id = R.drawable.ic_add), // Replace with actual drawable
-                onClick = onLeftButtonClick
-            )
-
-            AuxButton(
-                modifier = Modifier.size(30.dp), // Smaller size than ic_rocket
-                painter = painterResource(id = R.drawable.ic_add), // Replace with actual drawable
-                onClick = onRightButtonClick
-            )
-        }
-    }
 }
