@@ -7,7 +7,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.ActivityInfo
-import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Build
 import android.util.Log
@@ -26,6 +25,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -63,6 +63,7 @@ import com.danihg.calypsoapp.overlays.drawOverlay
 import com.danihg.calypsoapp.ui.theme.CalypsoRed
 import com.danihg.calypsoapp.utils.AuxButton
 import com.danihg.calypsoapp.utils.ModernDropdown
+import com.danihg.calypsoapp.utils.PathUtils
 import com.danihg.calypsoapp.utils.PreventScreenLock
 import com.danihg.calypsoapp.utils.ScoreboardActionButtons
 import com.danihg.calypsoapp.utils.SectionSubtitle
@@ -73,11 +74,14 @@ import com.pedro.common.AudioCodec
 import com.pedro.common.ConnectChecker
 import com.pedro.common.VideoCodec
 import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
-import com.pedro.encoder.input.sources.video.Camera1Source
+import java.util.Date
 import com.pedro.encoder.input.sources.video.Camera2Source
 import com.pedro.extrasources.CameraUvcSource
+import com.pedro.library.base.recording.RecordController
 import com.pedro.library.generic.GenericStream
 import kotlinx.coroutines.delay
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 @Composable
 fun CameraScreen() {
@@ -156,21 +160,35 @@ fun CameraScreenContent() {
 
     // UI state variables.
     var isStreaming by rememberSaveable { mutableStateOf(false) }
+    var isRecording by rememberSaveable { mutableStateOf(false) }
     var isSettingsMenuVisible by rememberSaveable { mutableStateOf(false) }
     var showApplyButton by rememberSaveable { mutableStateOf(false) }
     var showScoreboardOverlay by rememberSaveable { mutableStateOf(false) }
     var selectedCamera by rememberSaveable { mutableStateOf("Camera2") }
 
     // State for recording timer (in seconds).
-    var recordingSeconds by remember { mutableStateOf(0L) }
+    var streamingTimerSeconds by remember { mutableStateOf(0L) }
     LaunchedEffect(isStreaming) {
         if (isStreaming) {
             while (true) {
                 delay(1000)
-                recordingSeconds++
+                streamingTimerSeconds++
             }
         } else {
-            recordingSeconds = 0L
+            streamingTimerSeconds = 0L
+        }
+    }
+
+    // Timer for recording (when record button is active)
+    var recordingTimerSeconds by remember { mutableStateOf(0L) }
+    LaunchedEffect(isRecording) {
+        if (isRecording) {
+            while (true) {
+                delay(1000)
+                recordingTimerSeconds++
+            }
+        } else {
+            recordingTimerSeconds = 0L
         }
     }
 
@@ -241,6 +259,7 @@ fun CameraScreenContent() {
             isStreaming = false
         }
     }
+
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -343,11 +362,21 @@ fun CameraScreenContent() {
                                     .size(50.dp)
                                     .clip(CircleShape)
                                     .background(Color.Red.copy(alpha = 0.5f))
-                                    .clickable(onClick = { }),
+                                    .clickable {
+                                        if (!isRecording) {
+                                            // Start recording: call recordVideoStreaming and update state.
+                                            recordVideoStreaming(context, genericStream) { }
+                                            isRecording = true
+                                        } else {
+                                            // Stop recording.
+                                            recordVideoStreaming(context, genericStream) { }
+                                            isRecording = false
+                                        }
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    painterResource(id = R.drawable.ic_record),
+                                    painterResource(id = if (isRecording) R.drawable.ic_stop else R.drawable.ic_record),
                                     contentDescription = "Button Icon",
                                     tint = Color.White,
                                     modifier = Modifier.size(30.dp)
@@ -453,7 +482,15 @@ fun CameraScreenContent() {
                             .zIndex(10f), // Ensures the timer is drawn above all other UI elements.
                         contentAlignment = Alignment.TopCenter
                     ) {
-                        RecordingTimer(recordingSeconds = recordingSeconds)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            // Streaming timer
+                            RecordingTimer(recordingSeconds = streamingTimerSeconds)
+                            // If recording, show recording timer just below
+                            if (isRecording) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                RecordingTimer(recordingSeconds = recordingTimerSeconds)
+                            }
+                        }
                     }
                 }
             }
@@ -817,10 +854,31 @@ fun RecordingTimer(recordingSeconds: Long) {
     val formattedTime = String.format("%02d:%02d:%02d", hours, minutes, seconds)
     Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 16.dp),
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color.Red.copy(alpha = 0.5f))
+            .padding(top = 2.dp, bottom = 2.dp, start = 8.dp, end = 8.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(text = formattedTime, color = Color.White, fontSize = 20.sp)
+    }
+}
+
+fun recordVideoStreaming(context: Context, genericStream: GenericStream, state: (RecordController.Status) -> Unit) {
+    var recordPath = ""
+    if (!genericStream.isRecording) {
+        val folder = PathUtils.getRecordPath()
+        if (!folder.exists()) folder.mkdir()
+        val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
+        recordPath = "${folder.absolutePath}/${sdf.format(Date())}.mp4"
+        genericStream.startRecord(recordPath) { status ->
+            if (status == RecordController.Status.RECORDING) {
+                state(RecordController.Status.RECORDING)
+            }
+        }
+        state(RecordController.Status.STARTED)
+    } else {
+        genericStream.stopRecord()
+        state(RecordController.Status.STOPPED)
+        PathUtils.updateGallery(context, recordPath)
     }
 }
