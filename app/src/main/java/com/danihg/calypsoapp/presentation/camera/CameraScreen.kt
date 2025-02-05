@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.pm.ActivityInfo
 import android.graphics.BitmapFactory
 import android.os.Build
+import android.util.Log
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.ViewGroup
@@ -43,11 +44,16 @@ import com.danihg.calypsoapp.utils.ModernDropdown
 import com.danihg.calypsoapp.utils.PreventScreenLock
 import com.danihg.calypsoapp.utils.ScoreboardActionButtons
 import com.danihg.calypsoapp.utils.SectionSubtitle
+import com.danihg.calypsoapp.utils.getAvailableAudioCodecs
+import com.danihg.calypsoapp.utils.getAvailableVideoCodecs
 import com.danihg.calypsoapp.utils.getSupportedAudioCodecs
 import com.danihg.calypsoapp.utils.getSupportedVideoCodecs
 import com.danihg.calypsoapp.utils.rememberToast
+import com.pedro.common.AudioCodec
 import com.pedro.common.ConnectChecker
+import com.pedro.common.VideoCodec
 import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
+import com.pedro.encoder.input.sources.audio.AudioSource
 import com.pedro.encoder.input.sources.video.Camera1Source
 import com.pedro.encoder.input.sources.video.Camera2Source
 import com.pedro.extrasources.CameraUvcSource
@@ -96,8 +102,8 @@ fun CameraScreenContent() {
 
     // Retrieve video/audio settings from SharedPreferences
     val sharedPreferences = context.getSharedPreferences("CameraSettings", Context.MODE_PRIVATE)
-    val videoWidth = sharedPreferences.getInt("videoWidth", 1920)
-    val videoHeight = sharedPreferences.getInt("videoHeight", 1080)
+    var videoWidth by remember { mutableIntStateOf(sharedPreferences.getInt("videoWidth", 1920)) }
+    var videoHeight by remember { mutableIntStateOf(sharedPreferences.getInt("videoHeight", 1080)) }
     val videoBitrate = sharedPreferences.getInt("videoBitrate", 5000 * 1000)
     val videoFPS = sharedPreferences.getInt("videoFPS", 30)
     val audioSampleRate = sharedPreferences.getInt("audioSampleRate", 32000)
@@ -110,6 +116,18 @@ fun CameraScreenContent() {
     var selectedAudioEncoder by remember { mutableStateOf("AAC") }
     var selectedFPS by remember { mutableStateOf("30") }
     var selectedResolution by remember { mutableStateOf("1080p") }
+
+    val enumAudioMapping = mapOf(
+        "AAC" to AudioCodec.AAC,
+        "OPUS" to AudioCodec.OPUS,
+        "G711" to AudioCodec.G711
+    )
+
+    val enumVideoMapping = mapOf(
+        "H264" to VideoCodec.H264,
+        "H265" to VideoCodec.H265,
+        "AV1" to VideoCodec.AV1
+    )
 
     var isStreaming by rememberSaveable { mutableStateOf(false) }
     var isSettingsMenuVisible by rememberSaveable { mutableStateOf(false) }
@@ -143,6 +161,10 @@ fun CameraScreenContent() {
     var showScoreboardOverlay by rememberSaveable { mutableStateOf(false) }
     var selectedCamera by rememberSaveable { mutableStateOf("Camera2") }
 
+    val availableVideoCodecs = remember { getAvailableVideoCodecs() }
+    val availableAudioCodecs = remember { getAvailableAudioCodecs() }
+
+    val surfaceViewRef = remember { mutableStateOf<SurfaceView?>(null) }
     val genericStream = remember {
         GenericStream(context, object : ConnectChecker {
             override fun onConnectionStarted(url: String) {}
@@ -209,6 +231,7 @@ fun CameraScreenContent() {
                                 ViewGroup.LayoutParams.MATCH_PARENT,
                                 ViewGroup.LayoutParams.MATCH_PARENT
                             )
+                            surfaceViewRef.value = this
                             holder.addCallback(object : SurfaceHolder.Callback {
                                 override fun surfaceCreated(holder: SurfaceHolder) {
                                     if (!genericStream.isOnPreview) {
@@ -404,16 +427,6 @@ fun CameraScreenContent() {
                                     displayMapper = { it },
                                     onValueChange = { selectedCameraSource = it }
                                 )
-
-                                // Audio Source Dropdown
-                                SectionSubtitle("Audio Source")
-                                ModernDropdown(
-                                    items = listOf("Device Microphone", "External Microphone"),
-                                    selectedValue = selectedAudioSource,
-                                    displayMapper = { it },
-                                    onValueChange = { selectedAudioSource = it }
-                                )
-
                                 Spacer(modifier = Modifier.height(16.dp))
 
                                 // Streaming Settings Section
@@ -429,7 +442,7 @@ fun CameraScreenContent() {
                                 // Video Encoder Dropdown
                                 SectionSubtitle("Video Encoder")
                                 ModernDropdown(
-                                    items = listOf("H.264", "H.265"),
+                                    items = availableVideoCodecs,
                                     selectedValue = selectedVideoEncoder,
                                     displayMapper = { it },
                                     onValueChange = { selectedVideoEncoder = it }
@@ -438,7 +451,7 @@ fun CameraScreenContent() {
                                 // Audio Encoder Dropdown
                                 SectionSubtitle("Audio Encoder")
                                 ModernDropdown(
-                                    items = listOf("AAC", "PCM"),
+                                    items = availableAudioCodecs,
                                     selectedValue = selectedAudioEncoder,
                                     displayMapper = { it },
                                     onValueChange = { selectedAudioEncoder = it }
@@ -468,9 +481,44 @@ fun CameraScreenContent() {
                                 Button(
                                     onClick = {
                                         // Save settings and apply changes
-//                                        saveSettings()
-                                        getSupportedVideoCodecs()
-                                        getSupportedAudioCodecs()
+                                        genericStream.stopPreview()
+                                        when (selectedResolution) {
+                                            "1080p" -> {
+                                                videoWidth = 1920
+                                                videoHeight = 1080
+                                            }
+                                            "720p" -> {
+                                                videoWidth = 1280
+                                                videoHeight = 720
+                                            }
+                                        }
+                                        sharedPreferences.edit().apply {
+                                            putInt("videoWidth", videoWidth)
+                                            putInt("videoHeight", videoHeight)
+                                            apply()
+                                        }
+                                        genericStream.prepareVideo(videoWidth, videoHeight, videoBitrate, videoFPS)
+                                        genericStream.prepareAudio(audioSampleRate, audioIsStereo, audioBitrate)
+                                        enumAudioMapping[selectedAudioEncoder]?.let { audioCodec ->
+                                            genericStream.setAudioCodec(audioCodec)
+                                            Log.d("CodecCheck", "Set audio codec to: $audioCodec")
+                                        }
+                                        enumVideoMapping[selectedVideoEncoder]?.let { videoCodec ->
+                                            genericStream.setVideoCodec(videoCodec)
+                                            Log.d("CodecCheck", "Set audio codec to: $videoCodec")
+                                        }
+                                        // Restart the preview using the stored SurfaceView reference
+                                        surfaceViewRef.value?.let { surfaceView ->
+                                            genericStream.startPreview(surfaceView)
+                                        } ?: run {
+                                            // Optionally handle the error if the SurfaceView is not available
+                                            showToast("Error: SurfaceView not available")
+                                        }
+                                        if(selectedCameraSource == "USB Camera") {
+                                            genericStream.changeVideoSource(CameraUvcSource())
+                                        } else {
+                                            genericStream.changeVideoSource(Camera2Source(context))
+                                        }
                                         isSettingsMenuVisible = false // Close the settings menu after applying
                                     },
                                     modifier = Modifier

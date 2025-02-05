@@ -102,3 +102,44 @@ fun getSupportedAudioCodecs(): List<String> {
     Log.d("CodecCheck", "Supported Audio Codecs: $supportedCodecs")
     return supportedCodecs
 }
+
+/**
+ * Returns a list of video codecs that are supported both by the device and the streaming library.
+ */
+fun getAvailableVideoCodecs(): List<String> {
+    val supportedVideoCodecs = getSupportedVideoCodecs()
+
+    val codecMapping = mapOf(
+        "video/avc" to "H264",
+        "video/hevc" to "H265",
+        "video/av1" to "AV1"
+    )
+
+    val availableCodecs = codecMapping.filter { (deviceCodec, _) ->
+        supportedVideoCodecs.contains(deviceCodec)
+    }.values.toList()
+
+    Log.d("CodecCheck", "Available Video Codecs: $availableCodecs")
+    return availableCodecs
+}
+
+/**
+ * Returns a list of audio codecs that are supported both by the device and the streaming library.
+ */
+fun getAvailableAudioCodecs(): List<String> {
+    val supportedAudioCodecs = getSupportedAudioCodecs()
+
+    val codecMapping = mapOf(
+        "audio/mp4a-latm" to "AAC",
+        "audio/opus" to "OPUS",
+        "audio/g711-alaw" to "G711",
+        "audio/g711-ulaw" to "G711"
+    )
+
+    val availableCodecs = codecMapping.filter { (deviceCodec, _) ->
+        supportedAudioCodecs.contains(deviceCodec)
+    }.values.toSet().toList() // Using a Set to avoid duplicate "G711"
+
+    Log.d("CodecCheck", "Available Audio Codecs: $availableCodecs")
+    return availableCodecs
+}
