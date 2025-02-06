@@ -7,7 +7,9 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.ActivityInfo
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.drawable.BitmapDrawable
 import android.os.Build
 import android.util.Log
 import android.view.SurfaceHolder
@@ -58,7 +60,11 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import androidx.core.app.NotificationCompat
+import coil.ImageLoader
+import coil.request.ImageRequest
 import com.danihg.calypsoapp.R
+import com.danihg.calypsoapp.data.FirestoreManager
+import com.danihg.calypsoapp.data.Team
 import com.danihg.calypsoapp.overlays.drawOverlay
 import com.danihg.calypsoapp.ui.theme.CalypsoRed
 import com.danihg.calypsoapp.utils.AuxButton
@@ -205,10 +211,10 @@ fun CameraScreenContent() {
 
     // Scoreboard settings.
     val options = BitmapFactory.Options().apply { inScaled = false }
-    val leftLogoBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.rivas_50, options)
-    val rightLogoBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.alcorcon_50, options)
-    var selectedTeam1 by remember { mutableStateOf("Rivas") }
-    var selectedTeam2 by remember { mutableStateOf("Rivas") }
+//    val leftLogoBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.rivas_50, options)
+//    val rightLogoBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.alcorcon_50, options)
+//    var selectedTeam1 by remember { mutableStateOf("Rivas") }
+//    var selectedTeam2 by remember { mutableStateOf("Rivas") }
     val selectedBackgroundColor = Color.Transparent.toArgb()
     var leftTeamGoals by remember { mutableStateOf(0) }
     var rightTeamGoals by remember { mutableStateOf(0) }
@@ -216,6 +222,32 @@ fun CameraScreenContent() {
 
     // Reference for the SurfaceView.
     val surfaceViewRef = remember { mutableStateOf<SurfaceView?>(null) }
+
+    // Retrieve teams from Firestore.
+    // (Make sure FirestoreManager is properly initialized in your app.)
+    var teams by remember { mutableStateOf<List<Team>>(emptyList()) }
+    LaunchedEffect(Unit) {
+        teams = FirestoreManager().getTeams()
+    }
+
+    // For default logos in case no team is selected or loading fails.
+    val defaultOptions = BitmapFactory.Options().apply { inScaled = false }
+    val defaultLeftLogo = BitmapFactory.decodeResource(context.resources, R.drawable.rivas_50, defaultOptions)
+    val defaultRightLogo = BitmapFactory.decodeResource(context.resources, R.drawable.alcorcon_50, defaultOptions)
+
+    // The selected team names for scoreboard overlay.
+    var selectedTeam1 by remember { mutableStateOf(if (teams.isNotEmpty()) teams.first().name else "Rivas") }
+    var selectedTeam2 by remember { mutableStateOf(if (teams.size > 1) teams[1].name else "Alcorcón") }
+
+    // Look up the teams based on the selected names.
+    val team1 = teams.find { it.name == selectedTeam1 }
+    val team2 = teams.find { it.name == selectedTeam2 }
+    // Load team logos from URL (if available) using a helper composable.
+    val leftLogoBitmap: Bitmap? = team1?.logo?.takeIf { it.isNotEmpty() }?.let { rememberBitmapFromUrl(it) }
+    val rightLogoBitmap: Bitmap? = team2?.logo?.takeIf { it.isNotEmpty() }?.let { rememberBitmapFromUrl(it) }
+    // Fallback to default logos.
+    val finalLeftLogo = leftLogoBitmap ?: defaultLeftLogo
+    val finalRightLogo = rightLogoBitmap ?: defaultRightLogo
 
     // Initialize the streaming library.
     val genericStream = remember {
@@ -275,12 +307,12 @@ fun CameraScreenContent() {
                     context = context
                 )
 
-                // Scoreboard overlay (if enabled).
+                // Scoreboard overlay.
                 ScoreboardOverlay(
                     visible = showScoreboardOverlay && genericStream.isOnPreview && !showApplyButton,
                     genericStream = genericStream,
-                    leftLogo = leftLogoBitmap,
-                    rightLogo = rightLogoBitmap,
+                    leftLogo = finalLeftLogo,
+                    rightLogo = finalRightLogo,
                     leftTeamGoals = leftTeamGoals,
                     rightTeamGoals = rightTeamGoals,
                     backgroundColor = selectedBackgroundColor,
@@ -289,8 +321,8 @@ fun CameraScreenContent() {
                         leftTeamGoals++
                         drawOverlay(
                             context = context,
-                            leftLogoBitmap = leftLogoBitmap,
-                            rightLogoBitmap = rightLogoBitmap,
+                            leftLogoBitmap = finalLeftLogo,
+                            rightLogoBitmap = finalRightLogo,
                             leftTeamGoals = leftTeamGoals,
                             rightTeamGoals = rightTeamGoals,
                             backgroundColor = selectedBackgroundColor,
@@ -302,8 +334,8 @@ fun CameraScreenContent() {
                         rightTeamGoals++
                         drawOverlay(
                             context = context,
-                            leftLogoBitmap = leftLogoBitmap,
-                            rightLogoBitmap = rightLogoBitmap,
+                            leftLogoBitmap = finalLeftLogo,
+                            rightLogoBitmap = finalRightLogo,
                             leftTeamGoals = leftTeamGoals,
                             rightTeamGoals = rightTeamGoals,
                             backgroundColor = selectedBackgroundColor,
@@ -463,6 +495,7 @@ fun CameraScreenContent() {
                 // Auxiliary overlay menu.
                 OverlayMenu(
                     visible = showApplyButton,
+                    teams = teams,  // Pass the list of teams from Firestore.
                     selectedTeam1 = selectedTeam1,
                     onTeam1Change = { selectedTeam1 = it },
                     selectedTeam2 = selectedTeam2,
@@ -672,6 +705,7 @@ fun SettingsMenu(
 @Composable
 fun OverlayMenu(
     visible: Boolean,
+    teams: List<Team>,
     selectedTeam1: String,
     onTeam1Change: (String) -> Unit,
     selectedTeam2: String,
@@ -706,7 +740,7 @@ fun OverlayMenu(
                     horizontalArrangement = Arrangement.Start,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Left Section: Scoreboard.
+                    // Left Section: Team selection for Scoreboard.
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -744,9 +778,10 @@ fun OverlayMenu(
                                 )
                             }
                             Spacer(modifier = Modifier.height(15.dp))
+                            // Use team names retrieved from Firestore.
                             SectionSubtitle("Select Team 1")
                             ModernDropdown(
-                                items = listOf("Rivas", "Alcorcón"),
+                                items = teams.map { it.name },
                                 selectedValue = selectedTeam1,
                                 displayMapper = { it },
                                 onValueChange = onTeam1Change
@@ -754,7 +789,7 @@ fun OverlayMenu(
                             Spacer(modifier = Modifier.height(25.dp))
                             SectionSubtitle("Select Team 2")
                             ModernDropdown(
-                                items = listOf("Rivas", "Alcorcón"),
+                                items = teams.map { it.name },
                                 selectedValue = selectedTeam2,
                                 displayMapper = { it },
                                 onValueChange = onTeam2Change
@@ -776,7 +811,7 @@ fun OverlayMenu(
                             }
                         }
                     }
-                    // Center Section: Camera Selection.
+                    // Center Section: (Optional Camera Selection UI)
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -784,7 +819,9 @@ fun OverlayMenu(
                             .background(Color.Gray.copy(alpha = 0.3f))
                             .padding(8.dp),
                         contentAlignment = Alignment.Center
-                    ) {}
+                    ) {
+                        // You can add camera selection here if needed.
+                    }
                     // Right Section: Placeholder.
                     Box(
                         modifier = Modifier
@@ -861,6 +898,27 @@ fun RecordingTimer(recordingSeconds: Long) {
     ) {
         Text(text = formattedTime, color = Color.White, fontSize = 20.sp)
     }
+}
+
+// Helper composable to load a Bitmap from a URL using Coil.
+@Composable
+fun rememberBitmapFromUrl(url: String): Bitmap? {
+    var bitmap by remember { mutableStateOf<Bitmap?>(null) }
+    val context = LocalContext.current
+    LaunchedEffect(url) {
+        bitmap = loadBitmapFromUrl(context, url)
+    }
+    return bitmap
+}
+
+suspend fun loadBitmapFromUrl(context: Context, url: String): Bitmap? {
+    val loader = ImageLoader(context)
+    val request = ImageRequest.Builder(context)
+        .data(url)
+        .allowHardware(false)
+        .build()
+    val result = loader.execute(request)
+    return (result.drawable as? BitmapDrawable)?.bitmap
 }
 
 fun recordVideoStreaming(context: Context, genericStream: GenericStream, state: (RecordController.Status) -> Unit) {
