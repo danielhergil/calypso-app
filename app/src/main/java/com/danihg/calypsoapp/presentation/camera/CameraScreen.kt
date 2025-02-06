@@ -62,6 +62,7 @@ import androidx.compose.ui.zIndex
 import androidx.core.app.NotificationCompat
 import coil.ImageLoader
 import coil.request.ImageRequest
+import coil.request.SuccessResult
 import com.danihg.calypsoapp.R
 import com.danihg.calypsoapp.data.FirestoreManager
 import com.danihg.calypsoapp.data.Team
@@ -71,6 +72,8 @@ import com.danihg.calypsoapp.utils.AuxButton
 import com.danihg.calypsoapp.utils.ModernDropdown
 import com.danihg.calypsoapp.utils.PathUtils
 import com.danihg.calypsoapp.utils.PreventScreenLock
+import com.danihg.calypsoapp.utils.RemoveBorderWhiteTransformation
+import com.danihg.calypsoapp.utils.RemoveWhiteBackgroundTransformation
 import com.danihg.calypsoapp.utils.ScoreboardActionButtons
 import com.danihg.calypsoapp.utils.SectionSubtitle
 import com.danihg.calypsoapp.utils.getAvailableAudioCodecs
@@ -916,7 +919,9 @@ suspend fun loadBitmapFromUrl(context: Context, url: String): Bitmap? {
     val request = ImageRequest.Builder(context)
         .data(url)
         .allowHardware(false)
+        .transformations(RemoveBorderWhiteTransformation(borderSize = 10, tolerance = 15))
         .build()
+
     val result = loader.execute(request)
     return (result.drawable as? BitmapDrawable)?.bitmap
 }

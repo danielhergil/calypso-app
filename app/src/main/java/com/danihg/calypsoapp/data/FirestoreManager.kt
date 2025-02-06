@@ -133,18 +133,73 @@ class FirestoreManager {
         }
     }
 
+    suspend fun updateTeam(
+        context: Context,
+        team: Team,
+        newTeamName: String,
+        newTeamAlias: String,
+        newPlayers: List<String>,
+        newLogoUri: Uri? = null
+    ): Boolean {
+        val user = auth.currentUser ?: return false
+        val teamDocRef = db.collection("users").document(user.uid).collection("teams").document(team.id)
+        // Prepare the update data.
+        val updateData = hashMapOf<String, Any>(
+            "name" to newTeamName,
+            "alias" to newTeamAlias,
+            "players" to newPlayers
+        )
+        // If a new logo is provided, upload it and update the logo field.
+        if (newLogoUri != null) {
+            val extension = context.contentResolver.getType(newLogoUri)?.split("/")?.last() ?: "png"
+            val logoPath = "$user.uid/$newTeamName.$extension"
+            val storageRef = storage.reference.child(logoPath)
+            try {
+                val inputStream = context.contentResolver.openInputStream(newLogoUri)
+                val bitmap = BitmapFactory.decodeStream(inputStream)
+                val resizedBitmap = Bitmap.createScaledBitmap(bitmap, 50, 50, true)
+                val baos = ByteArrayOutputStream()
+                resizedBitmap.compress(Bitmap.CompressFormat.PNG, 100, baos)
+                val data = baos.toByteArray()
+                storageRef.putBytes(data).await() // Upload the new logo.
+                val downloadUrl = storageRef.downloadUrl.await().toString()
+                updateData["logo"] = downloadUrl
+            } catch (e: Exception) {
+                e.printStackTrace()
+                return false
+            }
+        }
+        return try {
+            teamDocRef.update(updateData).await()
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    suspend fun deleteTeam(team: Team): Boolean {
+        val user = auth.currentUser ?: return false
+        val teamDocRef = db.collection("users").document(user.uid).collection("teams").document(team.id)
+        // Delete the logo file from Firebase Storage.
+        try {
+            val storageRef = storage.getReferenceFromUrl(team.logo)
+            storageRef.delete().await()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            // Continue even if deletion of the image fails.
+        }
+        return try {
+            teamDocRef.delete().await()
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
     fun getLogoDownloadUrl(logoPath: String): String? {
         return logoPath // Just return the URL since we're now storing the full URL
     }
 
-//    suspend fun getLogoDownloadUrl(logoPath: String): String? {
-//        Log.d("FirestoreManager", "Fetching logo at path: $logoPath")
-//        return try {
-//            val storageRef = storage.reference.child(logoPath)
-//            storageRef.downloadUrl.await().toString()
-//        } catch (e: Exception) {
-//            Log.e("FirestoreManager", "Error fetching logo: ${e.message}")
-//            null
-//        }
-//    }
 }

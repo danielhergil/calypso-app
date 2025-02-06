@@ -89,7 +89,11 @@ fun AddTeamScreen(
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(teams) { team ->
-                    TeamItem(firestoreManager, team)
+                    TeamItem(
+                        firestoreManager = firestoreManager,
+                        team = team,
+                        onTeamChanged = { viewModel.loadTeams(firestoreManager) }
+                    )
                 }
             }
         }
@@ -109,24 +113,14 @@ fun AddTeamScreen(
 }
 
 @Composable
-fun TeamItem(firestoreManager: FirestoreManager, team: Team) {
+fun TeamItem(
+    firestoreManager: FirestoreManager,
+    team: Team,
+    onTeamChanged: () -> Unit // Callback to reload teams after edit or delete.
+) {
     var expanded by remember { mutableStateOf(false) }
-//    var logoUrl by remember { mutableStateOf<String?>(null) }
-//    var isLoading by remember { mutableStateOf(true) }
-//    val coroutineScope = rememberCoroutineScope()
-//
-//    LaunchedEffect(team.logo) {
-//        coroutineScope.launch {
-//            isLoading = true
-//            try {
-//                logoUrl = firestoreManager.getLogoDownloadUrl(team.logo)
-//            } catch (e: Exception) {
-//                // Handle error if needed
-//            } finally {
-//                isLoading = false
-//            }
-//        }
-//    }
+    var showEditDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier
@@ -151,12 +145,7 @@ fun TeamItem(firestoreManager: FirestoreManager, team: Team) {
                     horizontalArrangement = Arrangement.Start
                 ) {
                     AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(team.logo)
-                            .crossfade(true)
-                            .memoryCacheKey(team.logo)
-                            .diskCacheKey(team.logo)
-                            .build(),
+                        model = team.logo,
                         contentDescription = "Team Logo",
                         modifier = Modifier
                             .width(32.dp)
@@ -187,16 +176,11 @@ fun TeamItem(firestoreManager: FirestoreManager, team: Team) {
                                 .padding(start = 16.dp, top = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Bullet point
                             Box(
                                 modifier = Modifier
                                     .size(4.dp)
-                                    .background(
-                                        color = CalypsoRed,
-                                        shape = CircleShape
-                                    )
+                                    .background(color = CalypsoRed, shape = CircleShape)
                             )
-                            // Player name
                             Text(
                                 text = player,
                                 color = Color.White,
@@ -204,11 +188,254 @@ fun TeamItem(firestoreManager: FirestoreManager, team: Team) {
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    // Add Edit and Delete buttons.
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        Button(
+                            onClick = { showEditDialog = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = CalypsoRed)
+                        ) {
+                            Text("Edit", color = Color.White)
+                        }
+                        Button(
+                            onClick = { showDeleteDialog = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                        ) {
+                            Text("Delete", color = Color.White)
+                        }
+                    }
                 }
             }
         }
     }
+
+    if (showEditDialog) {
+        EditTeamDialog(
+            firestoreManager = firestoreManager,
+            team = team,
+            onDismiss = { showEditDialog = false },
+            onTeamUpdated = {
+                showEditDialog = false
+                onTeamChanged()
+            }
+        )
+    }
+    if (showDeleteDialog) {
+        DeleteTeamDialog(
+            firestoreManager = firestoreManager,
+            team = team,
+            onDismiss = { showDeleteDialog = false },
+            onTeamDeleted = {
+                showDeleteDialog = false
+                onTeamChanged()
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DeleteTeamDialog(
+    firestoreManager: FirestoreManager,
+    team: Team,
+    onDismiss: () -> Unit,
+    onTeamDeleted: () -> Unit
+) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Delete Team", color = Color.White) },
+        text = { Text("Are you sure you want to delete the team \"${team.name}\"?", color = Color.White) },
+        confirmButton = {
+            Button(
+                onClick = {
+                    coroutineScope.launch {
+                        val success = firestoreManager.deleteTeam(team)
+                        if (success) {
+                            onTeamDeleted()
+                        }
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+            ) {
+                Text("Delete", color = Color.White)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = Color.White)
+            }
+        },
+        containerColor = Gray,
+        titleContentColor = Color.White,
+        textContentColor = Color.White
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditTeamDialog(
+    firestoreManager: FirestoreManager,
+    team: Team,
+    onDismiss: () -> Unit,
+    onTeamUpdated: () -> Unit
+) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    var name by remember { mutableStateOf(team.name) }
+    var alias by remember { mutableStateOf(team.alias) }
+    var playerInput by remember { mutableStateOf("") }
+    var players by remember { mutableStateOf(team.players) }
+    var logoUri by remember { mutableStateOf<Uri?>(null) }
+    var isUploading by remember { mutableStateOf(false) }
+
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent(),
+        onResult = { uri -> logoUri = uri }
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Team", color = Color.White) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { if (it.length <= 20) name = it },
+                    label = { Text("Team Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = CalypsoRed,
+                        unfocusedBorderColor = Color.Gray,
+                        focusedLabelColor = CalypsoRed,
+                        unfocusedLabelColor = Color.Gray
+                    )
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = alias,
+                    onValueChange = { if (it.length <= 3) alias = it.uppercase() },
+                    label = { Text("Alias (3 characters)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = CalypsoRed,
+                        unfocusedBorderColor = Color.Gray,
+                        focusedLabelColor = CalypsoRed,
+                        unfocusedLabelColor = Color.Gray
+                    )
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = playerInput,
+                        onValueChange = { if (it.length <= 20) playerInput = it },
+                        label = { Text("Add Player") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = CalypsoRed,
+                            unfocusedBorderColor = Color.Gray,
+                            focusedLabelColor = CalypsoRed,
+                            unfocusedLabelColor = Color.Gray
+                        )
+                    )
+                    IconButton(
+                        onClick = {
+                            if (playerInput.isNotBlank()) {
+                                players = players + playerInput
+                                playerInput = ""
+                            }
+                        },
+                        modifier = Modifier.padding(start = 8.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Add Player", tint = CalypsoRed)
+                    }
+                }
+                LazyColumn(modifier = Modifier.height(100.dp)) {
+                    items(players) { player ->
+                        Text(player, color = Color.White)
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = { launcher.launch("image/*") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = CalypsoRed)
+                ) {
+                    Text("Change Logo")
+                }
+                logoUri?.let {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    AsyncImage(
+                        model = it,
+                        contentDescription = "Logo Preview",
+                        modifier = Modifier
+                            .size(100.dp)
+                            .padding(8.dp),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+                if (isUploading) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    CircularProgressIndicator(color = CalypsoRed)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (name.isNotBlank() && alias.isNotBlank()) {
+                        coroutineScope.launch {
+                            isUploading = true
+                            val success = firestoreManager.updateTeam(
+                                context = context,
+                                team = team,
+                                newTeamName = name,
+                                newTeamAlias = alias,
+                                newPlayers = players,
+                                newLogoUri = logoUri
+                            )
+                            isUploading = false
+                            if (success) {
+                                onTeamUpdated()
+                            } else {
+                                // Handle failure (e.g. show a toast)
+                            }
+                        }
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = CalypsoRed)
+            ) {
+                Text("Save Changes")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = Color.White)
+            }
+        },
+        containerColor = Gray,
+        titleContentColor = Color.White,
+        textContentColor = Color.White
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
