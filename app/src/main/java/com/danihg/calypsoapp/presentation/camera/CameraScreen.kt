@@ -91,6 +91,7 @@ import com.pedro.encoder.input.sources.audio.AudioSource
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
 import java.util.Date
 import com.pedro.encoder.input.sources.video.Camera2Source
+import com.pedro.encoder.input.sources.video.VideoFileSource
 import com.pedro.encoder.input.video.CameraHelper
 import com.pedro.extrasources.CameraUvcSource
 import com.pedro.library.base.recording.RecordController
@@ -483,8 +484,6 @@ fun CameraScreenContent() {
                             putString("streamUrl", streamUrl)
                             apply()
                         }
-                        genericStream.prepareVideo(videoWidth, videoHeight, videoBitrate, videoFPS)
-                        genericStream.prepareAudio(audioSampleRate, audioIsStereo, audioBitrate)
                         enumAudioMapping[selectedAudioEncoder]?.let { audioCodec ->
                             genericStream.setAudioCodec(audioCodec)
                             Log.d("CodecCheck", "Set audio codec to: $audioCodec")
@@ -493,6 +492,8 @@ fun CameraScreenContent() {
                             genericStream.setVideoCodec(videoCodec)
                             Log.d("CodecCheck", "Set video codec to: $videoCodec")
                         }
+                        genericStream.prepareVideo(videoWidth, videoHeight, videoBitrate, videoFPS)
+                        genericStream.prepareAudio(audioSampleRate, audioIsStereo, audioBitrate)
                         // Restart preview using the stored SurfaceView.
                         surfaceViewRef.value?.let { surfaceView ->
                             genericStream.startPreview(surfaceView)
