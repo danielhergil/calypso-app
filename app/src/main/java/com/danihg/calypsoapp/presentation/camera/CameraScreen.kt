@@ -12,6 +12,8 @@ import android.graphics.BitmapFactory
 import android.graphics.drawable.BitmapDrawable
 import android.os.Build
 import android.util.Log
+import android.view.MotionEvent
+import android.view.ScaleGestureDetector
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.ViewGroup
@@ -33,6 +35,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -83,14 +87,18 @@ import com.pedro.common.AudioCodec
 import com.pedro.common.ConnectChecker
 import com.pedro.common.VideoCodec
 import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
+import com.pedro.encoder.input.sources.audio.AudioSource
+import com.pedro.encoder.input.sources.audio.MicrophoneSource
 import java.util.Date
 import com.pedro.encoder.input.sources.video.Camera2Source
+import com.pedro.encoder.input.video.CameraHelper
 import com.pedro.extrasources.CameraUvcSource
 import com.pedro.library.base.recording.RecordController
 import com.pedro.library.generic.GenericStream
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Locale
+import kotlin.math.hypot
 
 @Composable
 fun CameraScreen() {
@@ -142,6 +150,11 @@ fun CameraScreenContent() {
     val sharedPreferences = context.getSharedPreferences("CameraSettings", Context.MODE_PRIVATE)
     var videoWidth by remember { mutableIntStateOf(sharedPreferences.getInt("videoWidth", 1920)) }
     var videoHeight by remember { mutableIntStateOf(sharedPreferences.getInt("videoHeight", 1080)) }
+    var streamUrl by remember {
+        mutableStateOf(
+            sharedPreferences.getString("streamUrl", "") ?: ""
+        )
+    }
     val videoBitrate = sharedPreferences.getInt("videoBitrate", 5000 * 1000)
     val videoFPS = sharedPreferences.getInt("videoFPS", 30)
     val audioSampleRate = sharedPreferences.getInt("audioSampleRate", 32000)
@@ -213,11 +226,6 @@ fun CameraScreenContent() {
     }
 
     // Scoreboard settings.
-    val options = BitmapFactory.Options().apply { inScaled = false }
-//    val leftLogoBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.rivas_50, options)
-//    val rightLogoBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.alcorcon_50, options)
-//    var selectedTeam1 by remember { mutableStateOf("Rivas") }
-//    var selectedTeam2 by remember { mutableStateOf("Rivas") }
     val selectedBackgroundColor = Color.Transparent.toArgb()
     var leftTeamGoals by remember { mutableStateOf(0) }
     var rightTeamGoals by remember { mutableStateOf(0) }
@@ -252,6 +260,9 @@ fun CameraScreenContent() {
     val finalLeftLogo = leftLogoBitmap ?: defaultLeftLogo
     val finalRightLogo = rightLogoBitmap ?: defaultRightLogo
 
+    val camera2: Camera2Source = remember { Camera2Source(context) }
+    val audio: AudioSource = remember { MicrophoneSource() }
+
     // Initialize the streaming library.
     val genericStream = remember {
         GenericStream(context, object : ConnectChecker {
@@ -262,7 +273,7 @@ fun CameraScreenContent() {
             override fun onDisconnect() { showToast("Disconnected") }
             override fun onAuthError() { showToast("Authentication error") }
             override fun onAuthSuccess() { showToast("Authentication success") }
-        }).apply {
+        }, camera2, audio).apply {
             prepareVideo(videoWidth, videoHeight, videoBitrate, videoFPS)
             prepareAudio(audioSampleRate, audioIsStereo, audioBitrate)
             getGlInterface().autoHandleOrientation = true
@@ -281,7 +292,7 @@ fun CameraScreenContent() {
         (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
             .notify(1001, notification)
         if (!isStreaming) {
-            genericStream.startStream("rtmp://a.rtmp.youtube.com/live2/j2sh-690b-fg9y-2fah-7444")
+            genericStream.startStream(streamUrl)
             isStreaming = true
         }
     }
@@ -307,7 +318,8 @@ fun CameraScreenContent() {
                 CameraPreview(
                     genericStream = genericStream,
                     surfaceViewRef = surfaceViewRef,
-                    context = context
+                    context = context,
+                    videoSource = camera2
                 )
 
                 // Scoreboard overlay.
@@ -448,6 +460,8 @@ fun CameraScreenContent() {
                     onFPSChange = { selectedFPS = it },
                     selectedResolution = selectedResolution,
                     onResolutionChange = { selectedResolution = it },
+                    streamUrl = streamUrl,
+                    onStreamUrlChange = { streamUrl = it },
                     availableVideoCodecs = getAvailableVideoCodecs(),
                     availableAudioCodecs = getAvailableAudioCodecs(),
                     onApply = {
@@ -466,6 +480,7 @@ fun CameraScreenContent() {
                         sharedPreferences.edit().apply {
                             putInt("videoWidth", videoWidth)
                             putInt("videoHeight", videoHeight)
+                            putString("streamUrl", streamUrl)
                             apply()
                         }
                         genericStream.prepareVideo(videoWidth, videoHeight, videoBitrate, videoFPS)
@@ -534,12 +549,36 @@ fun CameraScreenContent() {
     )
 }
 
+// Extension function to calculate the spacing between the first two pointers.
+fun MotionEvent.getPointerSpacing(): Float {
+    return if (pointerCount >= 2) {
+        val dx = getX(0) - getX(1)
+        val dy = getY(0) - getY(1)
+        hypot(dx, dy)
+    } else {
+        0f
+    }
+}
+
+@SuppressLint("ClickableViewAccessibility")
 @Composable
 fun CameraPreview(
     genericStream: GenericStream,
     surfaceViewRef: MutableState<SurfaceView?>,
-    context: Context
+    context: Context,
+    videoSource: Camera2Source
 ) {
+
+    // Cache the "fingerSpacing" field reference to avoid reflection overhead per event.
+    val fingerSpacingField = remember {
+        try {
+            videoSource.javaClass.getDeclaredField("fingerSpacing").apply { isAccessible = true }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
     AndroidView(
         factory = { ctx ->
             SurfaceView(ctx).apply {
@@ -548,6 +587,33 @@ fun CameraPreview(
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
                 surfaceViewRef.value = this
+
+                setOnTouchListener { _, event ->
+                    when (event.actionMasked) {
+                        MotionEvent.ACTION_POINTER_DOWN -> {
+                            if (event.pointerCount >= 2) {
+                                // Compute the current finger spacing.
+                                val currentSpacing = CameraHelper.getFingerSpacing(event)
+                                // Set the internal fingerSpacing field using the cached field.
+                                fingerSpacingField?.setFloat(videoSource, currentSpacing)
+                            }
+                        }
+                        MotionEvent.ACTION_MOVE -> {
+                            if (event.pointerCount >= 2) {
+                                // Call your setZoom method.
+                                videoSource.setZoom(event, 0.1f)
+                            }
+                        }
+                        MotionEvent.ACTION_UP -> {
+                            // Trigger tap-to-focus only for a single-finger tap.
+                            if (event.pointerCount == 1) {
+                                videoSource.tapToFocus(event)
+                            }
+                        }
+                    }
+                    true
+                }
+
                 holder.addCallback(object : SurfaceHolder.Callback {
                     override fun surfaceCreated(holder: SurfaceHolder) {
                         if (!genericStream.isOnPreview) {
@@ -584,6 +650,8 @@ fun SettingsMenu(
     onFPSChange: (String) -> Unit,
     selectedResolution: String,
     onResolutionChange: (String) -> Unit,
+    streamUrl: String,
+    onStreamUrlChange: (String) -> Unit,
     availableVideoCodecs: List<String>,
     availableAudioCodecs: List<String>,
     onApply: () -> Unit,
@@ -684,6 +752,24 @@ fun SettingsMenu(
                         selectedValue = selectedResolution,
                         displayMapper = { it },
                         onValueChange = onResolutionChange
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    // New field for the Stream URL.
+                    SectionSubtitle("Stream URL")
+                    OutlinedTextField(
+                        value = streamUrl,
+                        onValueChange = onStreamUrlChange,
+                        label = { Text("Stream URL") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = CalypsoRed,
+                            unfocusedBorderColor = Color.Gray,
+                            focusedLabelColor = CalypsoRed,
+                            unfocusedLabelColor = Color.Gray
+                        )
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(
