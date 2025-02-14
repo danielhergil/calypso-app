@@ -10,10 +10,9 @@ import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.drawable.BitmapDrawable
+import android.hardware.camera2.CaptureRequest
 import android.os.Build
 import android.util.Log
-import android.view.MotionEvent
-import android.view.ScaleGestureDetector
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.ViewGroup
@@ -21,9 +20,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -70,23 +67,25 @@ import androidx.compose.ui.zIndex
 import androidx.core.app.NotificationCompat
 import coil.ImageLoader
 import coil.request.ImageRequest
-import coil.request.SuccessResult
 import com.danihg.calypsoapp.R
 import com.danihg.calypsoapp.data.FirestoreManager
 import com.danihg.calypsoapp.data.Team
 import com.danihg.calypsoapp.overlays.drawOverlay
+import com.danihg.calypsoapp.sources.CameraCalypsoSource
 import com.danihg.calypsoapp.ui.theme.CalypsoRed
 import com.danihg.calypsoapp.ui.theme.Gray
 import com.danihg.calypsoapp.utils.AuxButton
 import com.danihg.calypsoapp.utils.ExposureModeSelector
 import com.danihg.calypsoapp.utils.ExposureSlider
+import com.danihg.calypsoapp.utils.ManualWhiteBalanceSlider
 import com.danihg.calypsoapp.utils.ModernDropdown
+import com.danihg.calypsoapp.utils.OpticalStabilizationModeSelector
 import com.danihg.calypsoapp.utils.PathUtils
 import com.danihg.calypsoapp.utils.PreventScreenLock
 import com.danihg.calypsoapp.utils.RemoveBorderWhiteTransformation
-import com.danihg.calypsoapp.utils.RemoveWhiteBackgroundTransformation
 import com.danihg.calypsoapp.utils.ScoreboardActionButtons
 import com.danihg.calypsoapp.utils.SectionSubtitle
+import com.danihg.calypsoapp.utils.WhiteBalanceModeSelector
 import com.danihg.calypsoapp.utils.ZoomSlider
 import com.danihg.calypsoapp.utils.getAvailableAudioCodecs
 import com.danihg.calypsoapp.utils.getAvailableVideoCodecs
@@ -99,8 +98,6 @@ import com.pedro.encoder.input.sources.audio.AudioSource
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
 import java.util.Date
 import com.pedro.encoder.input.sources.video.Camera2Source
-import com.pedro.encoder.input.sources.video.VideoFileSource
-import com.pedro.encoder.input.video.CameraHelper
 import com.pedro.extrasources.CameraUvcSource
 import com.pedro.library.base.recording.RecordController
 import com.pedro.library.generic.GenericStream
@@ -272,7 +269,7 @@ fun CameraScreenContent() {
     val finalLeftLogo = leftLogoBitmap ?: defaultLeftLogo
     val finalRightLogo = rightLogoBitmap ?: defaultRightLogo
 
-    val camera2: Camera2Source = remember { Camera2Source(context) }
+    var activeCameraSource by remember { mutableStateOf(CameraCalypsoSource(context)) }
     val audio: AudioSource = remember { MicrophoneSource() }
 
     // For showing/hiding the zoom slider overlay
@@ -284,6 +281,16 @@ fun CameraScreenContent() {
     var showExposureSlider by rememberSaveable { mutableStateOf(false) }
     var exposureLevel by remember { mutableStateOf(0f) }
     var exposureMode by remember { mutableStateOf("AUTO") } // "AUTO" or "MANUAL"
+    val defaultExposure by remember { mutableStateOf(activeCameraSource.getExposure()) }
+
+    // State variables for white balance
+    var showWhiteBalanceSlider by rememberSaveable { mutableStateOf(false) }
+    var whiteBalanceMode by remember { mutableStateOf("AUTO") } // "AUTO" or "MANUAL"
+    var manualWhiteBalanceTemperature by remember { mutableStateOf(5000f) } // in Kelvin
+
+    // State for Optical Video Stabilization
+    var showOpticalVideoStabilization by rememberSaveable { mutableStateOf(false) }
+    var opticalVideoStabilizationMode by remember { mutableStateOf("DISABLE") }
 
     // Initialize the streaming library.
     val genericStream = remember {
@@ -295,7 +302,7 @@ fun CameraScreenContent() {
             override fun onDisconnect() { showToast("Disconnected") }
             override fun onAuthError() { showToast("Authentication error") }
             override fun onAuthSuccess() { showToast("Authentication success") }
-        }, camera2, audio).apply {
+        }, activeCameraSource, audio).apply {
             prepareVideo(videoWidth, videoHeight, videoBitrate, videoFPS)
             prepareAudio(audioSampleRate, audioIsStereo, audioBitrate)
             getGlInterface().autoHandleOrientation = true
@@ -341,7 +348,7 @@ fun CameraScreenContent() {
                     genericStream = genericStream,
                     surfaceViewRef = surfaceViewRef,
                     context = context,
-                    videoSource = camera2
+                    videoSource = activeCameraSource
                 )
 
                 // Scoreboard overlay.
@@ -496,6 +503,10 @@ fun CameraScreenContent() {
                                     showSettingsSubMenu = !showSettingsSubMenu
                                     showCameraSubSettings = false
                                     isSettingsMenuVisible = false
+                                    showWhiteBalanceSlider = false
+                                    showOpticalVideoStabilization = false
+                                    showExposureSlider = false
+                                    showZoomSlider = false
                                 }
                             )
                             androidx.compose.animation.AnimatedVisibility(
@@ -536,31 +547,42 @@ fun CameraScreenContent() {
                                             onClick = {
                                                 // Toggle the zoom slider overlay
                                                 showZoomSlider = !showZoomSlider
+                                                showExposureSlider = false
+                                                showWhiteBalanceSlider = false
+                                                showOpticalVideoStabilization = false
                                             }
                                         )
                                         Spacer(modifier = Modifier.width(22.dp))
                                         AuxButton(
                                             modifier = Modifier.size(40.dp),
-                                            painter = painterResource(id = R.drawable.ic_exposure),
+                                            painter = painterResource(id = R.drawable.ic_iso),
                                             onClick = {
                                                 showZoomSlider = false
                                                 showExposureSlider = !showExposureSlider
+                                                showWhiteBalanceSlider = false
+                                                showOpticalVideoStabilization = false
                                             }
                                         )
                                         Spacer(modifier = Modifier.width(22.dp))
                                         AuxButton(
                                             modifier = Modifier.size(40.dp),
-                                            painter = painterResource(id = R.drawable.ic_add),
+                                            painter = painterResource(id = R.drawable.ic_wb),
                                             onClick = {
-
+                                                showWhiteBalanceSlider = !showWhiteBalanceSlider
+                                                showZoomSlider = false
+                                                showExposureSlider = false
+                                                showOpticalVideoStabilization = false
                                             }
                                         )
                                         Spacer(modifier = Modifier.width(22.dp))
                                         AuxButton(
                                             modifier = Modifier.size(40.dp),
-                                            painter = painterResource(id = R.drawable.ic_add),
+                                            painter = painterResource(id = R.drawable.ic_optical_stabilization),
                                             onClick = {
-
+                                                showOpticalVideoStabilization = !showOpticalVideoStabilization
+                                                showZoomSlider = false
+                                                showExposureSlider = false
+                                                showWhiteBalanceSlider = false
                                             }
                                         )
                                     }
@@ -577,7 +599,7 @@ fun CameraScreenContent() {
                                 onValueChange = { newZoom ->
                                     zoomLevel = newZoom
                                     // Update the camera zoom directly.
-                                    camera2.setZoom(newZoom)
+                                    activeCameraSource.setZoom(newZoom)
                                 },
                                 modifier = Modifier
                                     .padding(start = 16.dp, top = 50.dp) // adjust padding as needed
@@ -598,6 +620,31 @@ fun CameraScreenContent() {
                                     .padding(bottom = 100.dp) // Adjust so it sits above your ic_add buttons.
                                     .width(screenWidth * 0.7f) // 70% of the screen width.
                             ) {
+                                ExposureModeSelector(
+                                    selectedMode = exposureMode,
+                                    onModeChange = { newMode ->
+                                        exposureMode = newMode
+                                        if (newMode == "AUTO") {
+                                            activeCameraSource.enableAutoExposure()
+                                            val isAutoExposure = activeCameraSource.isAutoExposureEnabled()
+                                            activeCameraSource.setExposure(defaultExposure)
+                                            exposureLevel = defaultExposure.toFloat()
+                                            Log.d("ExposureCheck", "Auto exposure enabled? $isAutoExposure")
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                if (exposureMode == "MANUAL") {
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    ExposureSlider(
+                                        exposureLevel = exposureLevel,
+                                        onValueChange = { newExposure ->
+                                            exposureLevel = newExposure
+                                            activeCameraSource.setExposure(newExposure.toInt())
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
 //                                // Exposure mode selectors as chips.
 //                                ExposureModeSelector(
 //                                    selectedMode = exposureMode,
@@ -617,11 +664,74 @@ fun CameraScreenContent() {
 //                                )
 //                                Spacer(modifier = Modifier.height(16.dp))
 //                                // The horizontal exposure slider.
-                                ExposureSlider(
-                                    exposureLevel = exposureLevel,
-                                    onValueChange = { newExposure ->
-                                        exposureLevel = newExposure
-                                        camera2.setExposure(newExposure.toInt())
+                            }
+                        }
+                    }
+                    // White balance controls UI:
+                    if (showWhiteBalanceSlider) {
+                        val configuration = LocalConfiguration.current
+                        val screenWidth = configuration.screenWidthDp.dp
+
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(bottom = 100.dp)
+                                    .width(screenWidth * 0.7f)
+                            ) {
+                                // White Balance Mode Selector
+                                WhiteBalanceModeSelector(
+                                    selectedMode = whiteBalanceMode,
+                                    onModeChange = { newMode ->
+                                        whiteBalanceMode = newMode
+                                        if (newMode == "AUTO") {
+                                            // Update the camera immediately with auto mode.
+                                            activeCameraSource.setWhiteBalance(CaptureRequest.CONTROL_AWB_MODE_AUTO)
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                // Show the manual slider only in MANUAL mode.
+                                if (whiteBalanceMode == "MANUAL") {
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    ManualWhiteBalanceSlider(
+                                        temperature = manualWhiteBalanceTemperature,
+                                        onValueChange = { newTemperature ->
+                                            manualWhiteBalanceTemperature = newTemperature
+                                            // Update the camera with manual white balance settings.
+                                            activeCameraSource.setManualWhiteBalance(newTemperature)
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    if (showOpticalVideoStabilization) {
+                        val configuration = LocalConfiguration.current
+                        val screenWidth = configuration.screenWidthDp.dp
+
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(bottom = 100.dp)
+                                    .width(screenWidth * 0.7f)
+                            ) {
+                                OpticalStabilizationModeSelector(
+                                    selectedMode = opticalVideoStabilizationMode,
+                                    onModeChange = { newMode ->
+                                        opticalVideoStabilizationMode = newMode
+                                        when (newMode) {
+                                            "ENABLE" -> {
+                                                activeCameraSource.enableOpticalVideoStabilization()
+                                            }
+                                            "DISABLE" -> {
+                                                activeCameraSource.disableOpticalVideoStabilization()
+                                            }
+                                        }
                                     },
                                     modifier = Modifier.fillMaxWidth()
                                 )
@@ -641,6 +751,7 @@ fun CameraScreenContent() {
                     visible = isSettingsMenuVisible,
                     screenWidth = screenWidth,
                     screenHeight = screenHeight,
+                    isStreaming = isStreaming,
                     selectedCameraSource = selectedCameraSource,
                     onCameraSourceChange = { selectedCameraSource = it },
                     selectedVideoEncoder = selectedVideoEncoder,
@@ -658,48 +769,98 @@ fun CameraScreenContent() {
                     availableVideoCodecs = getAvailableVideoCodecs(),
                     availableAudioCodecs = getAvailableAudioCodecs(),
                     onApply = {
-                        // Apply settings: update resolution, prepare codecs, and restart preview.
-                        genericStream.stopPreview()
-                        when (selectedResolution) {
-                            "1080p" -> {
-                                videoWidth = 1920
-                                videoHeight = 1080
+                        if (!isStreaming) {
+                            // Apply settings: update resolution, prepare codecs, and restart preview.
+                            genericStream.stopPreview()
+                            when (selectedResolution) {
+                                "1080p" -> {
+                                    videoWidth = 1920
+                                    videoHeight = 1080
+                                }
+                                "720p" -> {
+                                    videoWidth = 1280
+                                    videoHeight = 720
+                                }
                             }
-                            "720p" -> {
-                                videoWidth = 1280
-                                videoHeight = 720
+                            videoBitrate = selectedBitrate
+                            sharedPreferences.edit().apply {
+                                putInt("videoWidth", videoWidth)
+                                putInt("videoHeight", videoHeight)
+                                putInt("videoBitrate", videoBitrate)
+                                putString("streamUrl", streamUrl)
+                                apply()
+                            }
+                            enumAudioMapping[selectedAudioEncoder]?.let { audioCodec ->
+                                genericStream.setAudioCodec(audioCodec)
+                                Log.d("CodecCheck", "Set audio codec to: $audioCodec")
+                            }
+                            enumVideoMapping[selectedVideoEncoder]?.let { videoCodec ->
+                                genericStream.setVideoCodec(videoCodec)
+                                Log.d("CodecCheck", "Set video codec to: $videoCodec")
+                            }
+                            genericStream.prepareVideo(videoWidth, videoHeight, videoBitrate, videoFPS)
+                            genericStream.prepareAudio(audioSampleRate, audioIsStereo, audioBitrate)
+                            // Restart preview using the stored SurfaceView.
+                            surfaceViewRef.value?.let { surfaceView ->
+                                genericStream.startPreview(surfaceView)
+                            } ?: run {
+                                showToast("Error: SurfaceView not available")
+                            }
+                            // Update video source based on camera source setting.
+                            if (selectedCameraSource == "USB Camera") {
+                                genericStream.changeVideoSource(CameraUvcSource())
+                            } else {
+                                val newCameraSource = CameraCalypsoSource(context)
+                                genericStream.changeVideoSource(newCameraSource)
+                                activeCameraSource = newCameraSource
                             }
                         }
-                        videoBitrate = selectedBitrate
-                        sharedPreferences.edit().apply {
-                            putInt("videoWidth", videoWidth)
-                            putInt("videoHeight", videoHeight)
-                            putInt("videoBitrate", videoBitrate)
-                            putString("streamUrl", streamUrl)
-                            apply()
+                        else {
+                            videoBitrate = selectedBitrate
+                            genericStream.setVideoBitrateOnFly(videoBitrate)
                         }
-                        enumAudioMapping[selectedAudioEncoder]?.let { audioCodec ->
-                            genericStream.setAudioCodec(audioCodec)
-                            Log.d("CodecCheck", "Set audio codec to: $audioCodec")
-                        }
-                        enumVideoMapping[selectedVideoEncoder]?.let { videoCodec ->
-                            genericStream.setVideoCodec(videoCodec)
-                            Log.d("CodecCheck", "Set video codec to: $videoCodec")
-                        }
-                        genericStream.prepareVideo(videoWidth, videoHeight, videoBitrate, videoFPS)
-                        genericStream.prepareAudio(audioSampleRate, audioIsStereo, audioBitrate)
-                        // Restart preview using the stored SurfaceView.
-                        surfaceViewRef.value?.let { surfaceView ->
-                            genericStream.startPreview(surfaceView)
-                        } ?: run {
-                            showToast("Error: SurfaceView not available")
-                        }
-                        // Update video source based on camera source setting.
-                        if (selectedCameraSource == "USB Camera") {
-                            genericStream.changeVideoSource(CameraUvcSource())
-                        } else {
-                            genericStream.changeVideoSource(Camera2Source(context))
-                        }
+//                        // Apply settings: update resolution, prepare codecs, and restart preview.
+//                        genericStream.stopPreview()
+//                        when (selectedResolution) {
+//                            "1080p" -> {
+//                                videoWidth = 1920
+//                                videoHeight = 1080
+//                            }
+//                            "720p" -> {
+//                                videoWidth = 1280
+//                                videoHeight = 720
+//                            }
+//                        }
+//                        videoBitrate = selectedBitrate
+//                        sharedPreferences.edit().apply {
+//                            putInt("videoWidth", videoWidth)
+//                            putInt("videoHeight", videoHeight)
+//                            putInt("videoBitrate", videoBitrate)
+//                            putString("streamUrl", streamUrl)
+//                            apply()
+//                        }
+//                        enumAudioMapping[selectedAudioEncoder]?.let { audioCodec ->
+//                            genericStream.setAudioCodec(audioCodec)
+//                            Log.d("CodecCheck", "Set audio codec to: $audioCodec")
+//                        }
+//                        enumVideoMapping[selectedVideoEncoder]?.let { videoCodec ->
+//                            genericStream.setVideoCodec(videoCodec)
+//                            Log.d("CodecCheck", "Set video codec to: $videoCodec")
+//                        }
+//                        genericStream.prepareVideo(videoWidth, videoHeight, videoBitrate, videoFPS)
+//                        genericStream.prepareAudio(audioSampleRate, audioIsStereo, audioBitrate)
+//                        // Restart preview using the stored SurfaceView.
+//                        surfaceViewRef.value?.let { surfaceView ->
+//                            genericStream.startPreview(surfaceView)
+//                        } ?: run {
+//                            showToast("Error: SurfaceView not available")
+//                        }
+//                        // Update video source based on camera source setting.
+//                        if (selectedCameraSource == "USB Camera") {
+//                            genericStream.changeVideoSource(CameraUvcSource())
+//                        } else {
+//                            genericStream.changeVideoSource(Camera2Source(context))
+//                        }
                         isSettingsMenuVisible = false
                     },
                     onClose = { isSettingsMenuVisible = false }
@@ -750,7 +911,7 @@ fun CameraPreview(
     genericStream: GenericStream,
     surfaceViewRef: MutableState<SurfaceView?>,
     context: Context,
-    videoSource: Camera2Source
+    videoSource: CameraCalypsoSource
 ) {
 
     // Cache the "fingerSpacing" field reference to avoid reflection overhead per event.
@@ -822,6 +983,7 @@ fun CameraPreview(
 @Composable
 fun SettingsMenu(
     visible: Boolean,
+    isStreaming: Boolean,
     screenWidth: Dp,
     screenHeight: Dp,
     selectedCameraSource: String,
@@ -897,7 +1059,8 @@ fun SettingsMenu(
                         items = listOf("Device Camera", "USB Camera"),
                         selectedValue = selectedCameraSource,
                         displayMapper = { it },
-                        onValueChange = onCameraSourceChange
+                        onValueChange = onCameraSourceChange,
+                        enabled = !isStreaming
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
@@ -916,14 +1079,16 @@ fun SettingsMenu(
                         items = availableVideoCodecs,
                         selectedValue = selectedVideoEncoder,
                         displayMapper = { it },
-                        onValueChange = onVideoEncoderChange
+                        onValueChange = onVideoEncoderChange,
+                        enabled = !isStreaming
                     )
                     SectionSubtitle("Audio Encoder")
                     ModernDropdown(
                         items = availableAudioCodecs,
                         selectedValue = selectedAudioEncoder,
                         displayMapper = { it },
-                        onValueChange = onAudioEncoderChange
+                        onValueChange = onAudioEncoderChange,
+                        enabled = !isStreaming
                     )
                     SectionSubtitle("Bitrate")
                     ModernDropdown(
@@ -937,14 +1102,16 @@ fun SettingsMenu(
                         items = if (selectedCameraSource == "USB Camera") listOf("30", "60") else listOf("30"),
                         selectedValue = selectedFPS,
                         displayMapper = { it },
-                        onValueChange = onFPSChange
+                        onValueChange = onFPSChange,
+                        enabled = !isStreaming
                     )
                     SectionSubtitle("Resolution")
                     ModernDropdown(
                         items = listOf("1080p", "720p"),
                         selectedValue = selectedResolution,
                         displayMapper = { it },
-                        onValueChange = onResolutionChange
+                        onValueChange = onResolutionChange,
+                        enabled = !isStreaming
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     // New field for the Stream URL.
@@ -955,6 +1122,7 @@ fun SettingsMenu(
                         label = { Text("Stream URL") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
+                        enabled = !isStreaming,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,

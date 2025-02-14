@@ -115,7 +115,7 @@ fun SettingsScreen() {
                     onValueChange = {
                         selectedBitrate = it
                         saveBitrate(sharedPreferences, it)
-                    }
+                    },
                 )
             }
 

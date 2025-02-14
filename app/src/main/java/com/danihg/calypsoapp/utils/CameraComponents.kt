@@ -22,6 +22,7 @@ import com.danihg.calypsoapp.R
 @Composable
 fun <T> ModernDropdown(
     items: List<T>,
+    enabled: Boolean = true,
     selectedValue: T,
     displayMapper: (T) -> String,
     onValueChange: (T) -> Unit
@@ -34,7 +35,10 @@ fun <T> ModernDropdown(
         .padding(4.dp)) {
         Row(
             modifier = Modifier
-                .clickable { expanded = true }
+                .then(
+                    if (enabled) Modifier.clickable { expanded = true }
+                    else Modifier // Prevent clicks when disabled
+                )
                 .padding(4.dp)
                 .fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -42,19 +46,19 @@ fun <T> ModernDropdown(
         ) {
             Text(
                 text = displayMapper(selectedValue),
-                color = Color.White,
+                color = if (enabled) Color.White else Color.Gray,
                 fontSize = 16.sp,
                 modifier = Modifier.padding(start = 4.dp)
             )
             Icon(
                 imageVector = Icons.Default.ArrowDropDown,
                 contentDescription = null,
-                tint = Color.White
+                tint = if (enabled) Color.White else Color.Gray
             )
         }
 
         DropdownMenu(
-            expanded = expanded,
+            expanded = enabled && expanded,
             onDismissRequest = { expanded = false },
             modifier = Modifier.background(Color.Gray)
         ) {

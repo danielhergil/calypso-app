@@ -231,3 +231,75 @@ fun ExposureModeSelector(
         )
     }
 }
+
+@Composable
+fun WhiteBalanceModeSelector(
+    selectedMode: String,
+    onModeChange: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        FilterChip(
+            selected = selectedMode == "AUTO",
+            onClick = { onModeChange("AUTO") },
+            label = { Text("AUTO") },
+            modifier = Modifier.weight(1f)
+        )
+        FilterChip(
+            selected = selectedMode == "MANUAL",
+            onClick = { onModeChange("MANUAL") },
+            label = { Text("MANUAL") },
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+fun ManualWhiteBalanceSlider(
+    temperature: Float,
+    onValueChange: (Float) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // Let’s assume a temperature range from 2000K to 8000K.
+    Slider(
+        value = temperature,
+        onValueChange = onValueChange,
+        valueRange = 2000f..8000f,
+        modifier = modifier,
+        colors = SliderDefaults.colors(
+            thumbColor = MaterialTheme.colorScheme.primary,
+            activeTrackColor = MaterialTheme.colorScheme.primary,
+            inactiveTrackColor = Color.LightGray
+        )
+    )
+}
+
+@Composable
+fun OpticalStabilizationModeSelector(
+    selectedMode: String,
+    onModeChange: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        FilterChip(
+            selected = selectedMode == "ENABLE",
+            onClick = { onModeChange("ENABLE") },
+            label = { Text("ENABLE") },
+            modifier = Modifier.weight(1f)
+        )
+        FilterChip(
+            selected = selectedMode == "DISABLE",
+            onClick = { onModeChange("DISABLE") },
+            label = { Text("DISABLE") },
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
