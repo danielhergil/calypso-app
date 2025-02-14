@@ -97,6 +97,16 @@ class CameraCalypsoSource(context: Context) : VideoSource() {
         return if (isRunning()) camera.exposure else 0
     }
 
+    fun setSensorExposureTime(time: Long) {
+        if (isRunning()) camera.setSensorExposureTime(time)
+    }
+
+    fun setExposureCompensation(compensation: Int) {
+        if (isRunning()) {
+            camera.exposureCompensation = compensation
+        }
+    }
+
     // --- NEW: White Balance support ---
     fun setWhiteBalance(mode: Int) {
         if (isRunning()) camera.whiteBalance = mode

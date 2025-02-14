@@ -75,6 +75,7 @@ import com.danihg.calypsoapp.sources.CameraCalypsoSource
 import com.danihg.calypsoapp.ui.theme.CalypsoRed
 import com.danihg.calypsoapp.ui.theme.Gray
 import com.danihg.calypsoapp.utils.AuxButton
+import com.danihg.calypsoapp.utils.ExposureCompensationSlider
 import com.danihg.calypsoapp.utils.ExposureModeSelector
 import com.danihg.calypsoapp.utils.ExposureSlider
 import com.danihg.calypsoapp.utils.ManualWhiteBalanceSlider
@@ -85,6 +86,8 @@ import com.danihg.calypsoapp.utils.PreventScreenLock
 import com.danihg.calypsoapp.utils.RemoveBorderWhiteTransformation
 import com.danihg.calypsoapp.utils.ScoreboardActionButtons
 import com.danihg.calypsoapp.utils.SectionSubtitle
+import com.danihg.calypsoapp.utils.SensorExposureTimeModeSelector
+import com.danihg.calypsoapp.utils.SensorExposureTimeSlider
 import com.danihg.calypsoapp.utils.WhiteBalanceModeSelector
 import com.danihg.calypsoapp.utils.ZoomSlider
 import com.danihg.calypsoapp.utils.getAvailableAudioCodecs
@@ -291,6 +294,25 @@ fun CameraScreenContent() {
     // State for Optical Video Stabilization
     var showOpticalVideoStabilization by rememberSaveable { mutableStateOf(false) }
     var opticalVideoStabilizationMode by remember { mutableStateOf("DISABLE") }
+
+    // States for exposure compensation and sensor exposure time
+    var showExposureCompensationSlider by rememberSaveable { mutableStateOf(false) }
+    var exposureCompensation by remember { mutableStateOf(0f) }
+    var showSensorExposureTimeSlider by rememberSaveable { mutableStateOf(false) }
+    var sensorExposureTimeIndex by remember { mutableStateOf<Float?>(null) }
+    val defaultSensorExposureIndex = 3f
+    var sensorExposureTimeMode by remember { mutableStateOf("AUTO") }
+
+    // Define your common sensor exposure options.
+    val sensorExposureTimeOptions = listOf(
+        "1/30" to 33333333L,
+        "1/40" to 25000000L,
+        "1/50" to 20000000L,
+        "1/60" to 16666667L, // We'll use this as the default.
+        "1/120" to 8333333L,
+        "1/250" to 4000000L,
+        "1/500" to 2000000L
+    )
 
     // Initialize the streaming library.
     val genericStream = remember {
@@ -550,6 +572,8 @@ fun CameraScreenContent() {
                                                 showExposureSlider = false
                                                 showWhiteBalanceSlider = false
                                                 showOpticalVideoStabilization = false
+                                                showExposureCompensationSlider = false
+                                                showSensorExposureTimeSlider = false
                                             }
                                         )
                                         Spacer(modifier = Modifier.width(22.dp))
@@ -561,6 +585,8 @@ fun CameraScreenContent() {
                                                 showExposureSlider = !showExposureSlider
                                                 showWhiteBalanceSlider = false
                                                 showOpticalVideoStabilization = false
+                                                showExposureCompensationSlider = false
+                                                showSensorExposureTimeSlider = false
                                             }
                                         )
                                         Spacer(modifier = Modifier.width(22.dp))
@@ -572,6 +598,8 @@ fun CameraScreenContent() {
                                                 showZoomSlider = false
                                                 showExposureSlider = false
                                                 showOpticalVideoStabilization = false
+                                                showExposureCompensationSlider = false
+                                                showSensorExposureTimeSlider = false
                                             }
                                         )
                                         Spacer(modifier = Modifier.width(22.dp))
@@ -583,6 +611,34 @@ fun CameraScreenContent() {
                                                 showZoomSlider = false
                                                 showExposureSlider = false
                                                 showWhiteBalanceSlider = false
+                                                showExposureCompensationSlider = false
+                                                showSensorExposureTimeSlider = false
+                                            }
+                                        )
+                                        Spacer(modifier = Modifier.width(22.dp))
+                                        AuxButton(
+                                            modifier = Modifier.size(40.dp),
+                                            painter = painterResource(id = R.drawable.ic_exposure_compensation),
+                                            onClick = {
+                                                showExposureCompensationSlider = !showExposureCompensationSlider
+                                                showZoomSlider = false
+                                                showExposureSlider = false
+                                                showWhiteBalanceSlider = false
+                                                showOpticalVideoStabilization = false
+                                                showSensorExposureTimeSlider = false
+                                            }
+                                        )
+                                        Spacer(modifier = Modifier.width(22.dp))
+                                        AuxButton(
+                                            modifier = Modifier.size(40.dp),
+                                            painter = painterResource(id = R.drawable.ic_exposure_time),
+                                            onClick = {
+                                                showSensorExposureTimeSlider = !showSensorExposureTimeSlider
+                                                showZoomSlider = false
+                                                showExposureSlider = false
+                                                showWhiteBalanceSlider = false
+                                                showOpticalVideoStabilization = false
+                                                showExposureCompensationSlider = false
                                             }
                                         )
                                     }
@@ -645,25 +701,6 @@ fun CameraScreenContent() {
                                         modifier = Modifier.fillMaxWidth()
                                     )
                                 }
-//                                // Exposure mode selectors as chips.
-//                                ExposureModeSelector(
-//                                    selectedMode = exposureMode,
-//                                    onModeChange = { newMode ->
-//                                        exposureMode = newMode
-//                                        when (exposureMode) {
-//                                            "AUTO" -> {
-//                                                camera2.enableAutoExposure()
-//                                            }
-//                                            "MANUAL" -> {
-//                                                camera2.disableAutoExposure()
-//                                            }
-//                                        }
-//                                        // Optionally update the camera's exposure mode here.
-//                                    },
-//                                    modifier = Modifier.fillMaxWidth()
-//                                )
-//                                Spacer(modifier = Modifier.height(16.dp))
-//                                // The horizontal exposure slider.
                             }
                         }
                     }
@@ -735,6 +772,89 @@ fun CameraScreenContent() {
                                     },
                                     modifier = Modifier.fillMaxWidth()
                                 )
+                            }
+                        }
+                    }
+                    // New overlay: Exposure Compensation Slider.
+                    if (showExposureCompensationSlider) {
+                        val configuration = LocalConfiguration.current
+                        val screenWidth = configuration.screenWidthDp.dp
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(bottom = 100.dp)
+                                    .width(screenWidth * 0.7f)
+                            ) {
+                                Text(
+                                    text = "Exposure Compensation",
+                                    color = Color.White,
+                                    fontSize = 16.sp
+                                )
+                                ExposureCompensationSlider(
+                                    compensation = exposureCompensation,
+                                    onValueChange = { newValue ->
+                                        exposureCompensation = newValue
+                                        activeCameraSource.setExposure(newValue.toInt())
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+                    }
+                    // New overlay: Sensor Exposure Time Slider.
+                    if (showSensorExposureTimeSlider) {
+                        val configuration = LocalConfiguration.current
+                        val screenWidth = configuration.screenWidthDp.dp
+
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(bottom = 100.dp)
+                                    .width(screenWidth * 0.7f)
+                            ) {
+                                // Sensor Exposure Time mode selector (Auto/Manual)
+                                SensorExposureTimeModeSelector(
+                                    selectedMode = sensorExposureTimeMode,
+                                    onModeChange = { newMode ->
+                                        sensorExposureTimeMode = newMode
+                                        if (newMode == "AUTO") {
+                                            sensorExposureTimeIndex = null
+                                            // Re-enable auto exposure (letting the camera decide the sensor exposure time)
+                                            activeCameraSource.enableAutoExposure()
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                if (sensorExposureTimeMode == "MANUAL") {
+                                    // Determine the slider value (if no manual change yet, use default)
+                                    val sliderValue = sensorExposureTimeIndex ?: defaultSensorExposureIndex
+                                    Text(
+                                        text = "Sensor Exposure Time: ${sensorExposureTimeOptions[sliderValue.toInt()].first}",
+                                        color = Color.White,
+                                        fontSize = 16.sp
+                                    )
+                                    SensorExposureTimeSlider(
+                                        index = sliderValue,
+                                        onValueChange = { newIndex ->
+                                            sensorExposureTimeIndex = newIndex  // User has chosen a manual value.
+                                            val idx = newIndex.toInt().coerceIn(0, sensorExposureTimeOptions.size - 1)
+                                            activeCameraSource.setSensorExposureTime(sensorExposureTimeOptions[idx].second)
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        exposureOptions = sensorExposureTimeOptions
+                                    )
+                                } else {
+                                    // In auto mode, display the auto label.
+                                    Text(
+                                        text = "Sensor Exposure Time: AUTO",
+                                        color = Color.White,
+                                        fontSize = 16.sp
+                                    )
+                                }
                             }
                         }
                     }

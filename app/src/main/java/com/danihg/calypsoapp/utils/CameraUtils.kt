@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -299,6 +300,101 @@ fun OpticalStabilizationModeSelector(
             selected = selectedMode == "DISABLE",
             onClick = { onModeChange("DISABLE") },
             label = { Text("DISABLE") },
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+fun ExposureCompensationSlider(
+    compensation: Float,
+    onValueChange: (Float) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Slider(
+        value = compensation,
+        onValueChange = onValueChange,
+        valueRange = -3f..3f,
+        steps = 6,
+        modifier = modifier,
+        colors = SliderDefaults.colors(
+            thumbColor = MaterialTheme.colorScheme.primary,
+            activeTrackColor = MaterialTheme.colorScheme.primary,
+            inactiveTrackColor = Color.LightGray
+        )
+    )
+}
+
+@Composable
+fun SensorExposureTimeSlider(
+    index: Float,
+    onValueChange: (Float) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val exposureTimeOptions = listOf(
+        "1/30" to 33333333L,
+        "1/40" to 25000000L,
+        "1/50" to 20000000L,
+        "1/60" to 16666667L,
+        "1/120" to 8333333L,
+        "1/250" to 4000000L,
+        "1/500" to 2000000L
+    )
+    Slider(
+        value = index,
+        onValueChange = onValueChange,
+        valueRange = 0f..(exposureTimeOptions.size - 1).toFloat(),
+        steps = exposureTimeOptions.size - 2,
+        modifier = modifier,
+        colors = SliderDefaults.colors(
+            thumbColor = MaterialTheme.colorScheme.primary,
+            activeTrackColor = MaterialTheme.colorScheme.primary,
+            inactiveTrackColor = Color.LightGray
+        )
+    )
+}
+
+@Composable
+fun SensorExposureTimeSlider(
+    index: Float,
+    onValueChange: (Float) -> Unit,
+    modifier: Modifier = Modifier,
+    exposureOptions: List<Pair<String, Long>>
+) {
+    Slider(
+        value = index,
+        onValueChange = onValueChange,
+        valueRange = 0f..(exposureOptions.size - 1).toFloat(),
+        steps = exposureOptions.size - 2,
+        colors = SliderDefaults.colors(
+            thumbColor = MaterialTheme.colorScheme.primary,
+            activeTrackColor = MaterialTheme.colorScheme.primary,
+            inactiveTrackColor = Color.LightGray
+        ),
+        modifier = modifier
+    )
+}
+
+@Composable
+fun SensorExposureTimeModeSelector(
+    selectedMode: String,
+    onModeChange: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        FilterChip(
+            selected = selectedMode == "AUTO",
+            onClick = { onModeChange("AUTO") },
+            label = { Text("Auto") },
+            modifier = Modifier.weight(1f)
+        )
+        FilterChip(
+            selected = selectedMode == "MANUAL",
+            onClick = { onModeChange("MANUAL") },
+            label = { Text("Manual") },
             modifier = Modifier.weight(1f)
         )
     }

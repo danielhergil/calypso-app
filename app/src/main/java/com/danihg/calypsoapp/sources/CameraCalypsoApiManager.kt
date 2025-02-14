@@ -433,6 +433,44 @@ class CameraCalypsoApiManager(context: Context) : CameraDevice.StateCallback() {
     }
     // ----------------------------------
 
+    fun setSensorExposureTime(time: Long) {
+        val builderInputSurface = this.builderInputSurface ?: return
+        val cameraCaptureSession = this.cameraCaptureSession ?: return
+        // Disable auto exposure so manual sensor exposure takes effect.
+        builderInputSurface.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
+        builderInputSurface.set(CaptureRequest.SENSOR_EXPOSURE_TIME, time)
+        try {
+            cameraCaptureSession.setRepeatingRequest(
+                builderInputSurface.build(),
+                if (faceDetectionEnabled) cb else null,
+                null
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting sensor exposure time", e)
+        }
+    }
+
+    var exposureCompensation: Int
+        get() {
+            val builder = builderInputSurface ?: return 0
+            return builder.secureGet(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION) ?: 0
+        }
+        set(value) {
+            val characteristics = cameraCharacteristics ?: return
+            val range = characteristics.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_RANGE) ?: return
+            // Ensure the new value is within the supported range.
+            val comp = value.coerceIn(range.lower, range.upper)
+            builderInputSurface?.set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, comp)
+            try {
+                cameraCaptureSession?.setRepeatingRequest(
+                    builderInputSurface!!.build(),
+                    if (faceDetectionEnabled) cb else null,
+                    null
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Error setting exposure compensation", e)
+            }
+        }
 
     val maxExposure: Int
         get() {
