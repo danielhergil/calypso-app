@@ -21,52 +21,76 @@ fun createScoreboardBitmap(
     rightTeamGoals: Int,
     backgroundColor: Int
 ): Bitmap {
-    val logoSize = 100
+    val logoSize = 80
     val logoPadding = 20 // Padding between logos and scoreboard
-    val scoreboardWidth = 500 // Reduced width of the scoreboard box
-    val scoreboardHeight = 150
-    val width = scoreboardWidth + 2 * logoSize + 4 * logoPadding // Extra space for logos and padding on both sides
+
+    // Make the scoreboard box narrower by reducing its width.
+    val scoreboardWidth = 300 // Was 500
+    val scoreboardHeight = 100
+
+    // Overall bitmap width accounts for logos and padding.
+    val width = scoreboardWidth + 2 * logoSize + 4 * logoPadding
     val height = scoreboardHeight
+
+    // The scoreboard box starts after the left logo plus some extra padding.
     val scoreboardLeft = logoSize + 2 * logoPadding.toFloat()
     val scoreboardRight = scoreboardLeft + scoreboardWidth
+
     val scoreboardBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(scoreboardBitmap)
     val paint = Paint().apply {
         isAntiAlias = true
-        typeface = ResourcesCompat.getFont(context, R.font.montserrat_medium) // Pass context to load font
+        typeface = ResourcesCompat.getFont(context, R.font.montserrat_medium)
     }
 
-    // Draw scoreboard box
+    // Draw scoreboard box background.
     paint.color = Color(0xFF222222).toArgb()
     paint.style = Paint.Style.FILL
     canvas.drawRoundRect(scoreboardLeft, 0f, scoreboardRight, height.toFloat(), 20f, 20f, paint)
 
-    // Add a rounded rectangle border for the scoreboard
+    // Draw rounded border for the scoreboard.
     paint.color = Color.White.toArgb()
     paint.style = Paint.Style.STROKE
     paint.strokeWidth = 8f
     canvas.drawRoundRect(scoreboardLeft + 4f, 4f, scoreboardRight - 4f, height - 4f, 20f, 20f, paint)
-    paint.style = Paint.Style.FILL // Reset paint style to fill
+    paint.style = Paint.Style.FILL
 
-    // Draw team scores separated by a horizontal dash
+    // Set up text for scores with a reduced size.
     paint.color = Color.White.toArgb()
-    paint.textSize = 80f
-    paint.typeface = ResourcesCompat.getFont(context, R.font.montserrat_bold) // Use a bolder font
-    val scoreLeftX = scoreboardLeft + scoreboardWidth / 4f - 35f
-    val scoreRightX = scoreboardLeft + 3 * scoreboardWidth / 4f - 35f
-    val scoreCenterY = height / 2f + 30f
-    canvas.drawText(leftTeamGoals.toString(), scoreLeftX, scoreCenterY, paint)
-    canvas.drawText("-", (scoreboardLeft + scoreboardRight) / 2f - 20f, scoreCenterY, paint)
-    canvas.drawText(rightTeamGoals.toString(), scoreRightX, scoreCenterY, paint)
+    paint.textSize = 50f  // Reduced from 80f
+    paint.textAlign = Paint.Align.CENTER  // Center the text horizontally.
+    paint.typeface = ResourcesCompat.getFont(context, R.font.montserrat_bold)
 
-    // Draw team logos on the sides of the scoreboard
+    // Calculate the vertical center so that text is vertically centered.
+    val textY = height / 2f - (paint.descent() + paint.ascent()) / 2f
+
+    // Compute the x positions for the left score, dash, and right score.
+    val leftScoreX = scoreboardLeft + scoreboardWidth / 4f
+    val dashX = scoreboardLeft + scoreboardWidth / 2f
+    val rightScoreX = scoreboardLeft + 3 * scoreboardWidth / 4f
+
+    canvas.drawText(leftTeamGoals.toString(), leftScoreX, textY, paint)
+    canvas.drawText("-", dashX, textY, paint)
+    canvas.drawText(rightTeamGoals.toString(), rightScoreX, textY, paint)
+
+    // Draw team logos on the sides (logo sizes remain unchanged).
     leftLogoBitmap?.let {
-        val destRect1 = Rect(logoPadding, (height - logoSize) / 2, logoPadding + logoSize, (height + logoSize) / 2)
+        val destRect1 = Rect(
+            logoPadding,
+            (height - logoSize) / 2,
+            logoPadding + logoSize,
+            (height + logoSize) / 2
+        )
         canvas.drawBitmap(it, null, destRect1, null)
     }
 
     rightLogoBitmap?.let {
-        val destRect2 = Rect(width - logoPadding - logoSize, (height - logoSize) / 2, width - logoPadding, (height + logoSize) / 2)
+        val destRect2 = Rect(
+            width - logoPadding - logoSize,
+            (height - logoSize) / 2,
+            width - logoPadding,
+            (height + logoSize) / 2
+        )
         canvas.drawBitmap(it, null, destRect2, null)
     }
 
@@ -100,7 +124,7 @@ fun updateOverlay(
 
         imageObjectFilterRender.setScale(scaleX, scaleY)
 
-        // Calculate new position for left-right alignment with padding
+        // Calculate new position for left-right alignment with padding.
         val paddingLeft = 3f
         val paddingTop = 3f
         imageObjectFilterRender.setPosition(paddingLeft, paddingTop)

@@ -21,7 +21,9 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -46,6 +48,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,6 +59,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
@@ -72,7 +76,10 @@ import com.danihg.calypsoapp.data.FirestoreManager
 import com.danihg.calypsoapp.data.Team
 import com.danihg.calypsoapp.overlays.drawOverlay
 import com.danihg.calypsoapp.ui.theme.CalypsoRed
+import com.danihg.calypsoapp.ui.theme.Gray
 import com.danihg.calypsoapp.utils.AuxButton
+import com.danihg.calypsoapp.utils.ExposureModeSelector
+import com.danihg.calypsoapp.utils.ExposureSlider
 import com.danihg.calypsoapp.utils.ModernDropdown
 import com.danihg.calypsoapp.utils.PathUtils
 import com.danihg.calypsoapp.utils.PreventScreenLock
@@ -80,6 +87,7 @@ import com.danihg.calypsoapp.utils.RemoveBorderWhiteTransformation
 import com.danihg.calypsoapp.utils.RemoveWhiteBackgroundTransformation
 import com.danihg.calypsoapp.utils.ScoreboardActionButtons
 import com.danihg.calypsoapp.utils.SectionSubtitle
+import com.danihg.calypsoapp.utils.ZoomSlider
 import com.danihg.calypsoapp.utils.getAvailableAudioCodecs
 import com.danihg.calypsoapp.utils.getAvailableVideoCodecs
 import com.danihg.calypsoapp.utils.rememberToast
@@ -156,7 +164,7 @@ fun CameraScreenContent() {
             sharedPreferences.getString("streamUrl", "") ?: ""
         )
     }
-    val videoBitrate = sharedPreferences.getInt("videoBitrate", 5000 * 1000)
+    var videoBitrate = sharedPreferences.getInt("videoBitrate", 5000 * 1000)
     val videoFPS = sharedPreferences.getInt("videoFPS", 30)
     val audioSampleRate = sharedPreferences.getInt("audioSampleRate", 32000)
     val audioIsStereo = sharedPreferences.getBoolean("audioIsStereo", true)
@@ -168,6 +176,7 @@ fun CameraScreenContent() {
     var selectedAudioEncoder by remember { mutableStateOf("AAC") }
     var selectedFPS by remember { mutableStateOf("30") }
     var selectedResolution by remember { mutableStateOf("1080p") }
+    var selectedBitrate by remember { mutableIntStateOf(5000 * 1000) }
 
     // Map string values to codec objects.
     val enumAudioMapping = mapOf(
@@ -188,6 +197,8 @@ fun CameraScreenContent() {
     var showApplyButton by rememberSaveable { mutableStateOf(false) }
     var showScoreboardOverlay by rememberSaveable { mutableStateOf(false) }
     var selectedCamera by rememberSaveable { mutableStateOf("Camera2") }
+    var showSettingsSubMenu  by rememberSaveable { mutableStateOf(false) }
+    var showCameraSubSettings  by rememberSaveable { mutableStateOf(false) }
 
     // State for recording timer (in seconds).
     var streamingTimerSeconds by remember { mutableStateOf(0L) }
@@ -263,6 +274,16 @@ fun CameraScreenContent() {
 
     val camera2: Camera2Source = remember { Camera2Source(context) }
     val audio: AudioSource = remember { MicrophoneSource() }
+
+    // For showing/hiding the zoom slider overlay
+    var showZoomSlider by rememberSaveable { mutableStateOf(false) }
+    // For holding the current zoom level (e.g., 1x to 5x)
+    var zoomLevel by remember { mutableFloatStateOf(1f) }
+
+    // For the exposure slider (horizontal, bottom center)
+    var showExposureSlider by rememberSaveable { mutableStateOf(false) }
+    var exposureLevel by remember { mutableStateOf(0f) }
+    var exposureMode by remember { mutableStateOf("AUTO") } // "AUTO" or "MANUAL"
 
     // Initialize the streaming library.
     val genericStream = remember {
@@ -358,6 +379,32 @@ fun CameraScreenContent() {
                             imageObjectFilterRender = imageObjectFilterRender,
                             isOnPreview = genericStream.isOnPreview
                         )
+                    },
+                    onLeftDecrement = {
+                        leftTeamGoals--
+                        drawOverlay(
+                            context = context,
+                            leftLogoBitmap = finalLeftLogo,
+                            rightLogoBitmap = finalRightLogo,
+                            leftTeamGoals = leftTeamGoals,
+                            rightTeamGoals = rightTeamGoals,
+                            backgroundColor = selectedBackgroundColor,
+                            imageObjectFilterRender = imageObjectFilterRender,
+                            isOnPreview = genericStream.isOnPreview
+                        )
+                    },
+                    onRightDecrement = {
+                        rightTeamGoals--
+                        drawOverlay(
+                            context = context,
+                            leftLogoBitmap = finalLeftLogo,
+                            rightLogoBitmap = finalRightLogo,
+                            leftTeamGoals = leftTeamGoals,
+                            rightTeamGoals = rightTeamGoals,
+                            backgroundColor = selectedBackgroundColor,
+                            imageObjectFilterRender = imageObjectFilterRender,
+                            isOnPreview = genericStream.isOnPreview
+                        )
                     }
                 )
                 // Reset scoreboard if overlay is hidden.
@@ -371,18 +418,17 @@ fun CameraScreenContent() {
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
-                        .width(160.dp)
-                        .padding(end = 80.dp)
-                        .align(Alignment.CenterEnd)
-                        .background(Color.Transparent)
+                        .fillMaxWidth(), // Outer container now spans the full width
+                    contentAlignment = Alignment.CenterEnd // All children will be placed at the right edge
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxHeight()
-                            .align(Alignment.Center),
+                            .padding(end = 80.dp),  // Keeps the same offset as before
                         verticalArrangement = Arrangement.SpaceEvenly,
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        horizontalAlignment = Alignment.End
                     ) {
+                        // Rocket button (this is the reference position)
                         AuxButton(
                             modifier = Modifier
                                 .size(50.dp)
@@ -390,7 +436,10 @@ fun CameraScreenContent() {
                             painter = painterResource(id = R.drawable.ic_rocket),
                             onClick = { showApplyButton = !showApplyButton }
                         )
+
                         Spacer(modifier = Modifier.height(5.dp))
+
+                        // Streaming button
                         Button(
                             onClick = {
                                 if (isStreaming) stopForegroundService() else startForegroundService()
@@ -400,11 +449,14 @@ fun CameraScreenContent() {
                                 .border(3.dp, Color.White, CircleShape),
                             colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
                             shape = CircleShape
-                        ) { /* Streaming button (big red circle) */ }
+                        ) {
+                            // Optional button content
+                        }
+
                         Spacer(modifier = Modifier.height(5.dp))
-                        // Conditionally show the record video button when streaming,
-                        // or show the settings button when not streaming.
+
                         if (isStreaming) {
+                            // Recording button
                             Box(
                                 modifier = Modifier
                                     .size(50.dp)
@@ -412,11 +464,9 @@ fun CameraScreenContent() {
                                     .background(Color.Red.copy(alpha = 0.5f))
                                     .clickable {
                                         if (!isRecording) {
-                                            // Start recording: call recordVideoStreaming and update state.
                                             recordVideoStreaming(context, genericStream) { }
                                             isRecording = true
                                         } else {
-                                            // Stop recording.
                                             recordVideoStreaming(context, genericStream) { }
                                             isRecording = false
                                         }
@@ -424,23 +474,163 @@ fun CameraScreenContent() {
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    painterResource(id = if (isRecording) R.drawable.ic_stop else R.drawable.ic_record),
+                                    painter = painterResource(id = if (isRecording) R.drawable.ic_stop else R.drawable.ic_record),
                                     contentDescription = "Button Icon",
                                     tint = Color.White,
                                     modifier = Modifier.size(30.dp)
                                 )
                             }
-                        } else {
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .size(50.dp)
+                                .zIndex(3f) // Ensure submenu appears above
+                        ) {
                             AuxButton(
                                 modifier = Modifier
                                     .size(50.dp)
-                                    .zIndex(2f),
+                                    .align(Alignment.CenterEnd),
                                 painter = painterResource(id = R.drawable.ic_settings),
-                                onClick = { isSettingsMenuVisible = !isSettingsMenuVisible }
+                                onClick = {
+                                    showSettingsSubMenu = !showSettingsSubMenu
+                                    showCameraSubSettings = false
+                                    isSettingsMenuVisible = false
+                                }
+                            )
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = showSettingsSubMenu,
+                                enter = fadeIn(tween(200)) + slideInVertically(initialOffsetY = { it / 2 }),
+                                exit = fadeOut(tween(200)) + slideOutVertically(targetOffsetY = { it / 2 }),
+                                modifier = Modifier
+                                    .align(Alignment.CenterEnd)
+                                    .offset(x = (-100).dp) // Adjust offset to align with button
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .wrapContentWidth()
+                                        .padding(6.dp),
+                                    horizontalArrangement = Arrangement.End
+                                ) {
+                                    if (!showCameraSubSettings) {
+                                        AuxButton(
+                                            modifier = Modifier.size(40.dp),
+                                            painter = painterResource(id = R.drawable.ic_camera),
+                                            onClick = {
+                                                showCameraSubSettings = !showCameraSubSettings
+                                            }
+                                        )
+                                        Spacer(modifier = Modifier.width(22.dp))
+                                        AuxButton(
+                                            modifier = Modifier.size(40.dp),
+                                            painter = painterResource(id = R.drawable.ic_record),
+                                            onClick = {
+                                                isSettingsMenuVisible = !isSettingsMenuVisible
+                                            }
+                                        )
+                                    }
+                                    else {
+                                        AuxButton(
+                                            modifier = Modifier.size(40.dp),
+                                            painter = painterResource(id = R.drawable.ic_zoom),
+                                            onClick = {
+                                                // Toggle the zoom slider overlay
+                                                showZoomSlider = !showZoomSlider
+                                            }
+                                        )
+                                        Spacer(modifier = Modifier.width(22.dp))
+                                        AuxButton(
+                                            modifier = Modifier.size(40.dp),
+                                            painter = painterResource(id = R.drawable.ic_exposure),
+                                            onClick = {
+                                                showZoomSlider = false
+                                                showExposureSlider = !showExposureSlider
+                                            }
+                                        )
+                                        Spacer(modifier = Modifier.width(22.dp))
+                                        AuxButton(
+                                            modifier = Modifier.size(40.dp),
+                                            painter = painterResource(id = R.drawable.ic_add),
+                                            onClick = {
+
+                                            }
+                                        )
+                                        Spacer(modifier = Modifier.width(22.dp))
+                                        AuxButton(
+                                            modifier = Modifier.size(40.dp),
+                                            painter = painterResource(id = R.drawable.ic_add),
+                                            onClick = {
+
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Later in your Scaffold (for example, inside the root Box), add the slider overlay:
+                    if (showZoomSlider) {
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            ZoomSlider(
+                                zoomLevel = zoomLevel,
+                                onValueChange = { newZoom ->
+                                    zoomLevel = newZoom
+                                    // Update the camera zoom directly.
+                                    camera2.setZoom(newZoom)
+                                },
+                                modifier = Modifier
+                                    .padding(start = 16.dp, top = 50.dp) // adjust padding as needed
+                                    .align(Alignment.CenterStart)
                             )
                         }
                     }
+                    // Inside your Scaffold's root Box (or similar), add this block:
+                    if (showExposureSlider) {
+                        val configuration = LocalConfiguration.current
+                        val screenWidth = configuration.screenWidthDp.dp
+
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(bottom = 100.dp) // Adjust so it sits above your ic_add buttons.
+                                    .width(screenWidth * 0.7f) // 70% of the screen width.
+                            ) {
+//                                // Exposure mode selectors as chips.
+//                                ExposureModeSelector(
+//                                    selectedMode = exposureMode,
+//                                    onModeChange = { newMode ->
+//                                        exposureMode = newMode
+//                                        when (exposureMode) {
+//                                            "AUTO" -> {
+//                                                camera2.enableAutoExposure()
+//                                            }
+//                                            "MANUAL" -> {
+//                                                camera2.disableAutoExposure()
+//                                            }
+//                                        }
+//                                        // Optionally update the camera's exposure mode here.
+//                                    },
+//                                    modifier = Modifier.fillMaxWidth()
+//                                )
+//                                Spacer(modifier = Modifier.height(16.dp))
+//                                // The horizontal exposure slider.
+                                ExposureSlider(
+                                    exposureLevel = exposureLevel,
+                                    onValueChange = { newExposure ->
+                                        exposureLevel = newExposure
+                                        camera2.setExposure(newExposure.toInt())
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+                    }
                 }
+
+
 
                 // Calculate dimensions for the settings menu.
                 val screenHeight = LocalContext.current.resources.displayMetrics.heightPixels.dp
@@ -457,6 +647,8 @@ fun CameraScreenContent() {
                     onVideoEncoderChange = { selectedVideoEncoder = it },
                     selectedAudioEncoder = selectedAudioEncoder,
                     onAudioEncoderChange = { selectedAudioEncoder = it },
+                    selectedBitrate = selectedBitrate,
+                    onBitrateChange = { selectedBitrate = it },
                     selectedFPS = selectedFPS,
                     onFPSChange = { selectedFPS = it },
                     selectedResolution = selectedResolution,
@@ -478,9 +670,11 @@ fun CameraScreenContent() {
                                 videoHeight = 720
                             }
                         }
+                        videoBitrate = selectedBitrate
                         sharedPreferences.edit().apply {
                             putInt("videoWidth", videoWidth)
                             putInt("videoHeight", videoHeight)
+                            putInt("videoBitrate", videoBitrate)
                             putString("streamUrl", streamUrl)
                             apply()
                         }
@@ -550,17 +744,6 @@ fun CameraScreenContent() {
     )
 }
 
-// Extension function to calculate the spacing between the first two pointers.
-fun MotionEvent.getPointerSpacing(): Float {
-    return if (pointerCount >= 2) {
-        val dx = getX(0) - getX(1)
-        val dy = getY(0) - getY(1)
-        hypot(dx, dy)
-    } else {
-        0f
-    }
-}
-
 @SuppressLint("ClickableViewAccessibility")
 @Composable
 fun CameraPreview(
@@ -589,31 +772,31 @@ fun CameraPreview(
                 )
                 surfaceViewRef.value = this
 
-                setOnTouchListener { _, event ->
-                    when (event.actionMasked) {
-                        MotionEvent.ACTION_POINTER_DOWN -> {
-                            if (event.pointerCount >= 2) {
-                                // Compute the current finger spacing.
-                                val currentSpacing = CameraHelper.getFingerSpacing(event)
-                                // Set the internal fingerSpacing field using the cached field.
-                                fingerSpacingField?.setFloat(videoSource, currentSpacing)
-                            }
-                        }
-                        MotionEvent.ACTION_MOVE -> {
-                            if (event.pointerCount >= 2) {
-                                // Call your setZoom method.
-                                videoSource.setZoom(event, 0.1f)
-                            }
-                        }
-                        MotionEvent.ACTION_UP -> {
-                            // Trigger tap-to-focus only for a single-finger tap.
-                            if (event.pointerCount == 1) {
-                                videoSource.tapToFocus(event)
-                            }
-                        }
-                    }
-                    true
-                }
+//                setOnTouchListener { _, event ->
+//                    when (event.actionMasked) {
+//                        MotionEvent.ACTION_POINTER_DOWN -> {
+//                            if (event.pointerCount >= 2) {
+//                                // Compute the current finger spacing.
+//                                val currentSpacing = CameraHelper.getFingerSpacing(event)
+//                                // Set the internal fingerSpacing field using the cached field.
+//                                fingerSpacingField?.setFloat(videoSource, currentSpacing)
+//                            }
+//                        }
+//                        MotionEvent.ACTION_MOVE -> {
+//                            if (event.pointerCount >= 2) {
+//                                // Call your setZoom method.
+//                                videoSource.setZoom(event, 0.1f)
+//                            }
+//                        }
+//                        MotionEvent.ACTION_UP -> {
+//                            // Trigger tap-to-focus only for a single-finger tap.
+//                            if (event.pointerCount == 1) {
+//                                videoSource.tapToFocus(event)
+//                            }
+//                        }
+//                    }
+//                    true
+//                }
 
                 holder.addCallback(object : SurfaceHolder.Callback {
                     override fun surfaceCreated(holder: SurfaceHolder) {
@@ -647,6 +830,8 @@ fun SettingsMenu(
     onVideoEncoderChange: (String) -> Unit,
     selectedAudioEncoder: String,
     onAudioEncoderChange: (String) -> Unit,
+    selectedBitrate: Int,
+    onBitrateChange: (Int) -> Unit,
     selectedFPS: String,
     onFPSChange: (String) -> Unit,
     selectedResolution: String,
@@ -674,7 +859,7 @@ fun SettingsMenu(
                     .width(cameraPreviewWidth)
                     .fillMaxHeight()
                     .padding(horizontal = horizontalPadding)
-                    .background(Color.Black.copy(alpha = 0.95f))
+                    .background(Gray.copy(alpha = 0.95f))
                     .align(Alignment.BottomCenter)
             ) {
                 Column(
@@ -739,6 +924,13 @@ fun SettingsMenu(
                         selectedValue = selectedAudioEncoder,
                         displayMapper = { it },
                         onValueChange = onAudioEncoderChange
+                    )
+                    SectionSubtitle("Bitrate")
+                    ModernDropdown(
+                        items = listOf(3000 * 1000, 5000 * 1000, 7000 * 1000, 10000 * 1000, 12000 * 1000, 15000 * 1000, 20000 * 1000, 25000 * 1000, 30000 * 1000, 35000 * 1000, 40000 * 1000, 45000 * 1000),
+                        selectedValue = selectedBitrate,
+                        displayMapper = { "${it / 1000 / 1000} Mbps" },
+                        onValueChange = onBitrateChange
                     )
                     SectionSubtitle("Stream FPS")
                     ModernDropdown(
@@ -944,7 +1136,9 @@ fun ScoreboardOverlay(
     backgroundColor: Int,
     imageObjectFilterRender: ImageObjectFilterRender,
     onLeftIncrement: () -> Unit,
-    onRightIncrement: () -> Unit
+    onRightIncrement: () -> Unit,
+    onLeftDecrement: () -> Unit,
+    onRightDecrement: () -> Unit
 ) {
     // Add or remove the overlay filter based on visibility.
     LaunchedEffect(visible) {
@@ -967,7 +1161,9 @@ fun ScoreboardOverlay(
         )
         ScoreboardActionButtons(
             onLeftButtonClick = onLeftIncrement,
-            onRightButtonClick = onRightIncrement
+            onRightButtonClick = onRightIncrement,
+            onLeftDecrement = onLeftDecrement,
+            onRightDecrement = onRightDecrement
         )
     }
 }

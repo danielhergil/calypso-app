@@ -85,30 +85,53 @@ fun SectionSubtitle(title: String) {
 @Composable
 fun ScoreboardActionButtons(
     onLeftButtonClick: () -> Unit,
-    onRightButtonClick: () -> Unit
+    onRightButtonClick: () -> Unit,
+    onLeftDecrement: () -> Unit,
+    onRightDecrement: () -> Unit
 ) {
     Box(
-        modifier = Modifier
-            .fillMaxSize()
+        modifier = Modifier.fillMaxSize()
     ) {
         Row(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(start = 153.dp, top = 50.dp),
+                .padding(start = 120.dp, top = 50.dp),
             horizontalArrangement = Arrangement.spacedBy(55.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            AuxButton(
-                modifier = Modifier.size(30.dp),
-                painter = painterResource(id = R.drawable.ic_add),
-                onClick = onLeftButtonClick
-            )
+            // Left group: decrease button to the left of add button
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp) // adjust spacing as needed
+            ) {
+                AuxButton(
+                    modifier = Modifier.size(30.dp),
+                    painter = painterResource(id = R.drawable.ic_decrease),
+                    onClick = onLeftDecrement
+                )
+                AuxButton(
+                    modifier = Modifier.size(30.dp),
+                    painter = painterResource(id = R.drawable.ic_add),
+                    onClick = onLeftButtonClick
+                )
+            }
 
-            AuxButton(
-                modifier = Modifier.size(30.dp),
-                painter = painterResource(id = R.drawable.ic_add),
-                onClick = onRightButtonClick
-            )
+            // Right group: add button with decrease button to its right
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp) // adjust spacing as needed
+            ) {
+                AuxButton(
+                    modifier = Modifier.size(30.dp),
+                    painter = painterResource(id = R.drawable.ic_add),
+                    onClick = onRightButtonClick
+                )
+                AuxButton(
+                    modifier = Modifier.size(30.dp),
+                    painter = painterResource(id = R.drawable.ic_decrease),
+                    onClick = onRightDecrement
+                )
+            }
         }
     }
 }
