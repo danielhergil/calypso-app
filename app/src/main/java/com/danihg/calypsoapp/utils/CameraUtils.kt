@@ -191,13 +191,14 @@ fun ZoomSlider(
 fun ExposureSlider(
     exposureLevel: Float,
     onValueChange: (Float) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    valueRange: ClosedFloatingPointRange<Float> = -55f..55f
 ) {
     // A standard horizontal slider.
     Slider(
         value = exposureLevel,
         onValueChange = onValueChange,
-        valueRange = -35f..25f,  // For example, from -5 to +5 stops. Adjust as needed.
+        valueRange = valueRange,  // For example, from -5 to +5 stops. Adjust as needed.
         modifier = modifier,
         colors = SliderDefaults.colors(
             thumbColor = CalypsoRed,

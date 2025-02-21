@@ -1,10 +1,7 @@
 package com.danihg.calypsoapp.overlays
 
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Paint
-import android.graphics.Rect
+import android.graphics.*
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.ui.graphics.Color
@@ -13,135 +10,204 @@ import androidx.core.content.res.ResourcesCompat
 import com.danihg.calypsoapp.R
 import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
 
+/**
+ * Creates a scoreboard bitmap using your attached scoreboard PNG (with transparency)
+ * with a fixed layout:
+ *
+ * - Overall canvas size is fixed at 770×200.
+ * - The left logo is flush at the very left edge.
+ * - The scoreboard background is drawn immediately to the right of the left logo with a minimal gap.
+ * - The right logo is flush at the right edge.
+ * - The scoreboard background displays numeric score (centered) plus hardcoded team names ("RIV" and "ALC").
+ *
+ * Adjust the constants below to fine‑tune spacing and positions.
+ */
 fun createScoreboardBitmap(
     context: Context,
     leftLogoBitmap: Bitmap?,
     rightLogoBitmap: Bitmap?,
     leftTeamGoals: Int,
     rightTeamGoals: Int,
-    backgroundColor: Int
+    leftTeamAlias: String,
+    rightTeamAlias: String,
+    backgroundColor: Int  // Not used visually; kept for parameter compatibility.
 ): Bitmap {
-    val logoSize = 80
-    val logoPadding = 20 // Padding between logos and scoreboard
+    // Fixed sizes for this layout:
+    val leftLogoSize = 80
+    val rightLogoSize = 80
+    // Make the logos narrower in X – for instance, 70% of the original width.
+    val leftLogoWidth = (leftLogoSize * 0.8).toInt()  // e.g., 56
+    val rightLogoWidth = (rightLogoSize * 0.8).toInt()  // e.g., 56
 
-    // Make the scoreboard box narrower by reducing its width.
-    val scoreboardWidth = 300 // Was 500
-    val scoreboardHeight = 100
+    val scoreboardWidth = 450   // Width of the scoreboard background area.
+    val scoreboardHeight = 250  // Height of the scoreboard background area.
+    val gapBetween = 1          // Minimal gap between logos and the scoreboard background.
 
-    // Overall bitmap width accounts for logos and padding.
-    val width = scoreboardWidth + 2 * logoSize + 4 * logoPadding
-    val height = scoreboardHeight
+    // Overall canvas dimensions:
+    // Overall width = left logo (original full size) + gap + scoreboard + gap + right logo.
+    val overallWidth = 550  // For example, 550.
+    val overallHeight = 250  // For example, 250.
 
-    // The scoreboard box starts after the left logo plus some extra padding.
-    val scoreboardLeft = logoSize + 2 * logoPadding.toFloat()
-    val scoreboardRight = scoreboardLeft + scoreboardWidth
+    // Logo positions:
+    val leftLogoX = 15  // Flush to the left.
+    // Adjust the vertical position if needed. Here we add 55 to center relative to the scoreboard.
+    val leftLogoY = (overallHeight - leftLogoSize + 55) / 2
 
-    val scoreboardBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-    val canvas = Canvas(scoreboardBitmap)
-    val paint = Paint().apply {
-        isAntiAlias = true
+    // The right logo is positioned flush at the right edge.
+    val rightLogoX = overallWidth - rightLogoSize - 27
+    val rightLogoY = (overallHeight - rightLogoSize + 55) / 2
+
+    // Scoreboard background position:
+    val scoreboardX = 45  // Immediately to the right of left logo.
+    val scoreboardY = 0
+    val scoreboardRect = Rect(scoreboardX, scoreboardY, scoreboardX + scoreboardWidth, scoreboardY + scoreboardHeight)
+
+    // Create the overall bitmap and canvas.
+    val bitmap = Bitmap.createBitmap(overallWidth, overallHeight, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+
+    // Load and scale the scoreboard background PNG to exactly scoreboardWidth×scoreboardHeight.
+    val scoreboardBg = getBitmapFromResource(context, R.drawable.scoreboard_bg)
+    if (scoreboardBg != null) {
+        val scaledBg = Bitmap.createScaledBitmap(scoreboardBg, scoreboardWidth, scoreboardHeight, true)
+        canvas.drawBitmap(scaledBg, null, scoreboardRect, null)
+    } else {
+        // Fallback: fill the scoreboard area with black.
+        val fallbackPaint = Paint().apply { color = Color.Black.toArgb() }
+        canvas.drawRect(scoreboardRect, fallbackPaint)
+    }
+
+    // Prepare text paints (fixed text sizes regardless of scoreboard background size).
+    val bigTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.White.toArgb()
+        textAlign = Paint.Align.CENTER
+        typeface = ResourcesCompat.getFont(context, R.font.montserrat_bold)
+        textSize = 50f
+        setShadowLayer(4f, 2f, 2f, Color(0x80000000).toArgb())
+    }
+    val mediumTextPaint = Paint(bigTextPaint).apply {
+        textSize = 30f
         typeface = ResourcesCompat.getFont(context, R.font.montserrat_medium)
     }
 
-    // Draw scoreboard box background.
-    paint.color = Color(0xFF222222).toArgb()
-    paint.style = Paint.Style.FILL
-    canvas.drawRoundRect(scoreboardLeft, 0f, scoreboardRight, height.toFloat(), 20f, 20f, paint)
+    // Draw the numeric score centered within the scoreboard background.
+    val scoreboardCenterX = scoreboardX - 10 + scoreboardWidth / 2f
+    val scoreY = scoreboardY + 5 + scoreboardHeight * 0.65f
+    val scoreText = "$leftTeamGoals  $rightTeamGoals"
+    canvas.drawText(scoreText, scoreboardCenterX, scoreY, bigTextPaint)
 
-    // Draw rounded border for the scoreboard.
-    paint.color = Color.White.toArgb()
-    paint.style = Paint.Style.STROKE
-    paint.strokeWidth = 8f
-    canvas.drawRoundRect(scoreboardLeft + 4f, 4f, scoreboardRight - 4f, height - 4f, 20f, 20f, paint)
-    paint.style = Paint.Style.FILL
+    // Draw the team names ("RIV" on left portion and "ALC" on right portion).
+    bigTextPaint.textSize = 35f
+    val leftTextX = scoreboardX + 35 + scoreboardWidth * 0.15f
+    val rightTextX = scoreboardX - 55 + scoreboardWidth * 0.85f
+    val teamTextY = scoreboardY + 45 + scoreboardHeight * 0.5f
+    canvas.drawText(leftTeamAlias, leftTextX, teamTextY, bigTextPaint)
+    canvas.drawText(rightTeamAlias, rightTextX, teamTextY, bigTextPaint)
 
-    // Set up text for scores with a reduced size.
-    paint.color = Color.White.toArgb()
-    paint.textSize = 50f  // Reduced from 80f
-    paint.textAlign = Paint.Align.CENTER  // Center the text horizontally.
-    paint.typeface = ResourcesCompat.getFont(context, R.font.montserrat_bold)
+    // Optionally, if you want to add "FULL TIME" at the top, you can do so here:
+    // mediumTextPaint.textSize = 30f
+    // val fullTimeY = scoreboardY + scoreboardHeight * 0.25f
+    // canvas.drawText("FULL TIME", scoreboardCenterX, fullTimeY, mediumTextPaint)
 
-    // Calculate the vertical center so that text is vertically centered.
-    val textY = height / 2f - (paint.descent() + paint.ascent()) / 2f
-
-    // Compute the x positions for the left score, dash, and right score.
-    val leftScoreX = scoreboardLeft + scoreboardWidth / 4f
-    val dashX = scoreboardLeft + scoreboardWidth / 2f
-    val rightScoreX = scoreboardLeft + 3 * scoreboardWidth / 4f
-
-    canvas.drawText(leftTeamGoals.toString(), leftScoreX, textY, paint)
-    canvas.drawText("-", dashX, textY, paint)
-    canvas.drawText(rightTeamGoals.toString(), rightScoreX, textY, paint)
-
-    // Draw team logos on the sides (logo sizes remain unchanged).
+    // Draw the logos at their fixed positions.
+    // For the left logo, use the narrower width (leftLogoWidth) but the original height (leftLogoSize).
     leftLogoBitmap?.let {
         val destRect1 = Rect(
-            logoPadding,
-            (height - logoSize) / 2,
-            logoPadding + logoSize,
-            (height + logoSize) / 2
+            leftLogoX,
+            leftLogoY,
+            leftLogoX + leftLogoWidth,
+            leftLogoY + leftLogoSize
         )
         canvas.drawBitmap(it, null, destRect1, null)
     }
-
+    // For the right logo, use the narrower width (rightLogoWidth).
     rightLogoBitmap?.let {
         val destRect2 = Rect(
-            width - logoPadding - logoSize,
-            (height - logoSize) / 2,
-            width - logoPadding,
-            (height + logoSize) / 2
+            rightLogoX,
+            rightLogoY,
+            rightLogoX + rightLogoWidth,
+            rightLogoY + rightLogoSize
         )
         canvas.drawBitmap(it, null, destRect2, null)
     }
 
-    return scoreboardBitmap
+    return bitmap
 }
 
+/**
+ * Loads a bitmap from the given resource ID.
+ */
+private fun getBitmapFromResource(context: Context, resId: Int): Bitmap? {
+    return try {
+        BitmapFactory.decodeResource(context.resources, resId)
+    } catch (e: Exception) {
+        null
+    }
+}
+
+/**
+ * Updates the overlay by creating a new scoreboard bitmap and applying it.
+ */
 fun updateOverlay(
     context: Context,
     leftLogoBitmap: Bitmap?,
     rightLogoBitmap: Bitmap?,
     leftTeamGoals: Int,
     rightTeamGoals: Int,
+    leftTeamAlias: String,
+    rightTeamAlias: String,
     backgroundColor: Int,
     imageObjectFilterRender: ImageObjectFilterRender
 ) {
     Handler(Looper.getMainLooper()).post {
-        val scoreboardBitmap: Bitmap = createScoreboardBitmap(
+        val scoreboardBitmap = createScoreboardBitmap(
             context,
             leftLogoBitmap,
             rightLogoBitmap,
             leftTeamGoals,
             rightTeamGoals,
+            leftTeamAlias,
+            rightTeamAlias,
             backgroundColor
         )
         imageObjectFilterRender.setImage(scoreboardBitmap)
 
-        val bitmapWidth = scoreboardBitmap.width
-        val bitmapHeight = scoreboardBitmap.height
-        val scaleX = 33.3f
-        val scaleY = bitmapHeight.toFloat() / bitmapWidth.toFloat() * scaleX
-
+        // Set a scale factor to adjust the on-screen size.
+        val scaleX = 30f
+        val scaleY = scoreboardBitmap.height.toFloat() / scoreboardBitmap.width.toFloat() * scaleX
         imageObjectFilterRender.setScale(scaleX, scaleY)
 
-        // Calculate new position for left-right alignment with padding.
-        val paddingLeft = 3f
-        val paddingTop = 3f
-        imageObjectFilterRender.setPosition(paddingLeft, paddingTop)
+        // Set the overlay position on screen.
+        imageObjectFilterRender.setPosition(0f, 0f)
     }
 }
 
+/**
+ * Draws the scoreboard overlay if the camera preview is active.
+ */
 fun drawOverlay(
     context: Context,
     leftLogoBitmap: Bitmap?,
     rightLogoBitmap: Bitmap?,
     leftTeamGoals: Int,
     rightTeamGoals: Int,
+    leftTeamAlias: String,
+    rightTeamAlias: String,
     backgroundColor: Int,
     imageObjectFilterRender: ImageObjectFilterRender,
     isOnPreview: Boolean
 ) {
     if (isOnPreview) {
-        updateOverlay(context, leftLogoBitmap, rightLogoBitmap, leftTeamGoals, rightTeamGoals, backgroundColor, imageObjectFilterRender)
+        updateOverlay(
+            context,
+            leftLogoBitmap,
+            rightLogoBitmap,
+            leftTeamGoals,
+            rightTeamGoals,
+            leftTeamAlias,
+            rightTeamAlias,
+            backgroundColor,
+            imageObjectFilterRender
+        )
     }
 }

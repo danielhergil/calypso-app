@@ -70,7 +70,10 @@ import coil.request.ImageRequest
 import com.danihg.calypsoapp.R
 import com.danihg.calypsoapp.data.FirestoreManager
 import com.danihg.calypsoapp.data.Team
+import com.danihg.calypsoapp.overlays.PlayerEntry
+import com.danihg.calypsoapp.overlays.animateTeamPlayersOverlay
 import com.danihg.calypsoapp.overlays.drawOverlay
+import com.danihg.calypsoapp.overlays.drawTeamPlayersOverlay
 import com.danihg.calypsoapp.sources.CameraCalypsoSource
 import com.danihg.calypsoapp.ui.theme.CalypsoRed
 import com.danihg.calypsoapp.ui.theme.Gray
@@ -101,6 +104,7 @@ import com.pedro.encoder.input.sources.audio.AudioSource
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
 import java.util.Date
 import com.pedro.encoder.input.sources.video.Camera2Source
+import com.pedro.encoder.input.video.Camera2ApiManager
 import com.pedro.extrasources.CameraUvcSource
 import com.pedro.library.base.recording.RecordController
 import com.pedro.library.generic.GenericStream
@@ -242,7 +246,6 @@ fun CameraScreenContent() {
     var leftTeamGoals by remember { mutableStateOf(0) }
     var rightTeamGoals by remember { mutableStateOf(0) }
     val imageObjectFilterRender = remember { ImageObjectFilterRender() }
-
     // Reference for the SurfaceView.
     val surfaceViewRef = remember { mutableStateOf<SurfaceView?>(null) }
 
@@ -265,12 +268,37 @@ fun CameraScreenContent() {
     // Look up the teams based on the selected names.
     val team1 = teams.find { it.name == selectedTeam1 }
     val team2 = teams.find { it.name == selectedTeam2 }
+    // Look up the teams alias based on the selected names.
+    val team1Alias = team1?.alias ?: "RIV"
+    val team2Alias = team2?.alias ?: "ALC"
     // Load team logos from URL (if available) using a helper composable.
     val leftLogoBitmap: Bitmap? = team1?.logo?.takeIf { it.isNotEmpty() }?.let { rememberBitmapFromUrl(it) }
     val rightLogoBitmap: Bitmap? = team2?.logo?.takeIf { it.isNotEmpty() }?.let { rememberBitmapFromUrl(it) }
     // Fallback to default logos.
     val finalLeftLogo = leftLogoBitmap ?: defaultLeftLogo
     val finalRightLogo = rightLogoBitmap ?: defaultRightLogo
+
+    // 1) State to track whether we want to show the team players overlay
+    var showTeamPlayersOverlay by rememberSaveable { mutableStateOf(false) }
+
+    // 2) Keep track if scoreboard was active so we can restore it after
+    var wasScoreboardActive by remember { mutableStateOf(false) }
+
+    // Example player data (in a real app, you might load from Firestore, etc.)
+    val teamAPlayers = listOf(
+        PlayerEntry("1", "John Keeper"),
+        PlayerEntry("2", "Chris Defender"),
+        PlayerEntry("3", "Alex Midfielder"),
+        PlayerEntry("4", "James Forward"),
+        // etc., up to 11
+    )
+    val teamBPlayers = listOf(
+        PlayerEntry("1", "Mike Keeper"),
+        PlayerEntry("2", "Luke Defender"),
+        PlayerEntry("3", "Ryan Midfielder"),
+        PlayerEntry("4", "David Forward"),
+        // etc.
+    )
 
     var activeCameraSource by remember { mutableStateOf(CameraCalypsoSource(context)) }
     val audio: AudioSource = remember { MicrophoneSource() }
@@ -331,6 +359,41 @@ fun CameraScreenContent() {
         }
     }
 
+    // Launch effect to animate the team players overlay when toggled.
+    LaunchedEffect(showTeamPlayersOverlay) {
+        if (showTeamPlayersOverlay) {
+            // If scoreboard overlay is active, remove it first.
+            if (showScoreboardOverlay) {
+                wasScoreboardActive = true
+                showScoreboardOverlay = false
+                genericStream.getGlInterface().removeFilter(imageObjectFilterRender)
+            } else {
+                wasScoreboardActive = false
+            }
+            genericStream.getGlInterface().addFilter(imageObjectFilterRender)
+            // Call the animateTeamPlayersOverlay function from TeamPlayersUtils.
+            // This will reveal the players row by row.
+            animateTeamPlayersOverlay(
+                context = context,
+                teamAName = "TEAM A",
+                teamBName = "TEAM B",
+                teamAPlayers = teamAPlayers,
+                teamBPlayers = teamBPlayers,
+                imageObjectFilterRender = imageObjectFilterRender
+            )
+            // Wait for 15 seconds after the animation finishes.
+            delay(15000)
+            // Remove team players overlay.
+            genericStream.getGlInterface().removeFilter(imageObjectFilterRender)
+            // Restore scoreboard overlay if it was active.
+            if (wasScoreboardActive) {
+                showScoreboardOverlay = true
+            }
+            // Reset toggle.
+            showTeamPlayersOverlay = false
+        }
+    }
+
     // Functions to start and stop streaming.
     fun startForegroundService() {
         val notification = NotificationCompat.Builder(context, "CameraStreamChannel")
@@ -381,6 +444,8 @@ fun CameraScreenContent() {
                     rightLogo = finalRightLogo,
                     leftTeamGoals = leftTeamGoals,
                     rightTeamGoals = rightTeamGoals,
+                    leftTeamAlias = team1Alias,
+                    rightTeamAlias = team2Alias,
                     backgroundColor = selectedBackgroundColor,
                     imageObjectFilterRender = imageObjectFilterRender,
                     onLeftIncrement = {
@@ -391,6 +456,8 @@ fun CameraScreenContent() {
                             rightLogoBitmap = finalRightLogo,
                             leftTeamGoals = leftTeamGoals,
                             rightTeamGoals = rightTeamGoals,
+                            leftTeamAlias = team1Alias,
+                            rightTeamAlias = team2Alias,
                             backgroundColor = selectedBackgroundColor,
                             imageObjectFilterRender = imageObjectFilterRender,
                             isOnPreview = genericStream.isOnPreview
@@ -404,6 +471,8 @@ fun CameraScreenContent() {
                             rightLogoBitmap = finalRightLogo,
                             leftTeamGoals = leftTeamGoals,
                             rightTeamGoals = rightTeamGoals,
+                            leftTeamAlias = team1Alias,
+                            rightTeamAlias = team2Alias,
                             backgroundColor = selectedBackgroundColor,
                             imageObjectFilterRender = imageObjectFilterRender,
                             isOnPreview = genericStream.isOnPreview
@@ -417,6 +486,8 @@ fun CameraScreenContent() {
                             rightLogoBitmap = finalRightLogo,
                             leftTeamGoals = leftTeamGoals,
                             rightTeamGoals = rightTeamGoals,
+                            leftTeamAlias = team1Alias,
+                            rightTeamAlias = team2Alias,
                             backgroundColor = selectedBackgroundColor,
                             imageObjectFilterRender = imageObjectFilterRender,
                             isOnPreview = genericStream.isOnPreview
@@ -430,6 +501,8 @@ fun CameraScreenContent() {
                             rightLogoBitmap = finalRightLogo,
                             leftTeamGoals = leftTeamGoals,
                             rightTeamGoals = rightTeamGoals,
+                            leftTeamAlias = team1Alias,
+                            rightTeamAlias = team2Alias,
                             backgroundColor = selectedBackgroundColor,
                             imageObjectFilterRender = imageObjectFilterRender,
                             isOnPreview = genericStream.isOnPreview
@@ -692,13 +765,23 @@ fun CameraScreenContent() {
                                 )
                                 if (exposureMode == "MANUAL") {
                                     Spacer(modifier = Modifier.height(16.dp))
+                                    val sliderRange = if (sensorExposureTimeMode == "MANUAL") 0f..1f else -55f..55f
                                     ExposureSlider(
                                         exposureLevel = exposureLevel,
                                         onValueChange = { newExposure ->
                                             exposureLevel = newExposure
-                                            activeCameraSource.setExposure(newExposure.toInt())
+                                            if (sensorExposureTimeMode == "MANUAL") {
+                                                val minExposure = 4000000L
+                                                val maxExposure = 33333333L
+                                                val newSensorExposure = (minExposure + (maxExposure - minExposure) * newExposure).toLong()
+                                                activeCameraSource.setSensorExposureTime(newSensorExposure)
+                                            }
+                                            else {
+                                                activeCameraSource.setExposure(newExposure.toInt())
+                                            }
                                         },
-                                        modifier = Modifier.fillMaxWidth()
+                                        modifier = Modifier.fillMaxWidth(),
+                                        valueRange = sliderRange
                                     )
                                 }
                             }
@@ -796,6 +879,7 @@ fun CameraScreenContent() {
                                     compensation = exposureCompensation,
                                     onValueChange = { newValue ->
                                         exposureCompensation = newValue
+                                        exposureLevel += newValue
                                         activeCameraSource.setExposure(newValue.toInt())
                                     },
                                     modifier = Modifier.fillMaxWidth()
@@ -996,6 +1080,8 @@ fun CameraScreenContent() {
                     onTeam2Change = { selectedTeam2 = it },
                     showScoreboardOverlay = showScoreboardOverlay,
                     onToggleScoreboard = { showScoreboardOverlay = it },
+                    showTeamPlayersOverlay = showTeamPlayersOverlay,
+                    onToggleTeamPlayers = { showTeamPlayersOverlay = it },
                     selectedCamera = selectedCamera,
                     onCameraChange = { selectedCamera = it },
                     onApply = { showApplyButton = false }
@@ -1282,6 +1368,8 @@ fun OverlayMenu(
     onTeam2Change: (String) -> Unit,
     showScoreboardOverlay: Boolean,
     onToggleScoreboard: (Boolean) -> Unit,
+    showTeamPlayersOverlay: Boolean,
+    onToggleTeamPlayers: (Boolean) -> Unit,
     selectedCamera: String,
     onCameraChange: (String) -> Unit,
     onApply: () -> Unit
@@ -1390,7 +1478,14 @@ fun OverlayMenu(
                             .padding(8.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        // You can add camera selection here if needed.
+                        Switch(
+                            checked = showTeamPlayersOverlay,
+                            onCheckedChange = onToggleTeamPlayers,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = CalypsoRed,
+                                uncheckedThumbColor = Color.Gray
+                            )
+                        )
                     }
                     // Right Section: Placeholder.
                     Box(
@@ -1417,10 +1512,12 @@ fun OverlayMenu(
 fun ScoreboardOverlay(
     visible: Boolean,
     genericStream: GenericStream,
-    leftLogo: android.graphics.Bitmap,
-    rightLogo: android.graphics.Bitmap,
+    leftLogo: Bitmap,
+    rightLogo: Bitmap,
     leftTeamGoals: Int,
     rightTeamGoals: Int,
+    leftTeamAlias: String,
+    rightTeamAlias: String,
     backgroundColor: Int,
     imageObjectFilterRender: ImageObjectFilterRender,
     onLeftIncrement: () -> Unit,
@@ -1443,6 +1540,8 @@ fun ScoreboardOverlay(
             rightLogoBitmap = rightLogo,
             leftTeamGoals = leftTeamGoals,
             rightTeamGoals = rightTeamGoals,
+            leftTeamAlias = leftTeamAlias,
+            rightTeamAlias = rightTeamAlias,
             backgroundColor = backgroundColor,
             imageObjectFilterRender = imageObjectFilterRender,
             isOnPreview = genericStream.isOnPreview
@@ -1455,6 +1554,39 @@ fun ScoreboardOverlay(
         )
     }
 }
+
+@Composable
+fun TeamPlayersOverlay(
+    visible: Boolean,
+    genericStream: GenericStream,
+    team1Name: String,
+    team2Name: String,
+    team1Players: List<PlayerEntry>,
+    team2Players: List<PlayerEntry>,
+    imageObjectFilterRender: ImageObjectFilterRender,
+    context: Context
+){
+    // Add or remove the overlay filter based on visibility.
+    LaunchedEffect(visible) {
+        if (visible && genericStream.isOnPreview) {
+            genericStream.getGlInterface().addFilter(imageObjectFilterRender)
+        } else {
+            genericStream.getGlInterface().removeFilter(imageObjectFilterRender)
+        }
+        if (visible && genericStream.isOnPreview) {
+            drawTeamPlayersOverlay(
+                context = context,
+                teamAName = team1Name,
+                teamBName = team2Name,
+                teamAPlayers = team1Players,
+                teamBPlayers = team2Players,
+                imageObjectFilterRender = imageObjectFilterRender,
+                isOnPreview = genericStream.isOnPreview
+            )
+        }
+    }
+}
+
 
 @SuppressLint("DefaultLocale")
 @Composable

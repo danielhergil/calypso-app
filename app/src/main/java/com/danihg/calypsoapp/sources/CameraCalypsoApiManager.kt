@@ -433,7 +433,12 @@ class CameraCalypsoApiManager(context: Context) : CameraDevice.StateCallback() {
     }
     // ----------------------------------
 
+    // Hold the base sensor exposure time.
+    private var baseSensorExposureTime: Long = 16666667L // e.g., default 10ms in nanoseconds
+
     fun setSensorExposureTime(time: Long) {
+        // Update the base value.
+        baseSensorExposureTime = time
         val builderInputSurface = this.builderInputSurface ?: return
         val cameraCaptureSession = this.cameraCaptureSession ?: return
         // Disable auto exposure so manual sensor exposure takes effect.
