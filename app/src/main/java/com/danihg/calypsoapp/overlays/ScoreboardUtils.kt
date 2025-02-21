@@ -33,14 +33,14 @@ fun createScoreboardBitmap(
     backgroundColor: Int  // Not used visually; kept for parameter compatibility.
 ): Bitmap {
     // Fixed sizes for this layout:
-    val leftLogoSize = 80
-    val rightLogoSize = 80
+    val leftLogoSize = 60
+    val rightLogoSize = 60
     // Make the logos narrower in X – for instance, 70% of the original width.
     val leftLogoWidth = (leftLogoSize * 0.8).toInt()  // e.g., 56
     val rightLogoWidth = (rightLogoSize * 0.8).toInt()  // e.g., 56
 
-    val scoreboardWidth = 450   // Width of the scoreboard background area.
-    val scoreboardHeight = 250  // Height of the scoreboard background area.
+    val scoreboardWidth = 350   // Width of the scoreboard background area.
+    val scoreboardHeight = 110  // Height of the scoreboard background area.
     val gapBetween = 1          // Minimal gap between logos and the scoreboard background.
 
     // Overall canvas dimensions:
@@ -49,25 +49,41 @@ fun createScoreboardBitmap(
     val overallHeight = 250  // For example, 250.
 
     // Logo positions:
-    val leftLogoX = 15  // Flush to the left.
+    val leftLogoX = 140  // Flush to the left.
     // Adjust the vertical position if needed. Here we add 55 to center relative to the scoreboard.
-    val leftLogoY = (overallHeight - leftLogoSize + 55) / 2
+    val leftLogoY = (overallHeight - leftLogoSize - 40) / 2
 
     // The right logo is positioned flush at the right edge.
-    val rightLogoX = overallWidth - rightLogoSize - 27
-    val rightLogoY = (overallHeight - rightLogoSize + 55) / 2
+    val rightLogoX = overallWidth - rightLogoSize - 130
+    val rightLogoY = (overallHeight - rightLogoSize - 40) / 2
 
     // Scoreboard background position:
-    val scoreboardX = 45  // Immediately to the right of left logo.
-    val scoreboardY = 0
+    val scoreboardX = 100  // Immediately to the right of left logo.
+    val scoreboardY = 50
     val scoreboardRect = Rect(scoreboardX, scoreboardY, scoreboardX + scoreboardWidth, scoreboardY + scoreboardHeight)
+
+    // Scoreboard background left
+    val scoreboardBgLeft = getBitmapFromResource(context, R.drawable.scoreboard_left_blue)
+    val scoreboardBgLeftX = scoreboardX - 85
+    val scoreboardBgLeftY = scoreboardY + 20
+    val scoreboardBgLeftWidth = 110
+    val scoreboardBgLeftHeight = 70
+    val scoreboardBgLeftRect = Rect(scoreboardBgLeftX, scoreboardBgLeftY, scoreboardBgLeftX + scoreboardBgLeftWidth, scoreboardBgLeftY + scoreboardBgLeftHeight)
+
+    // Scoreboard background right
+    val scoreboardBgRight = getBitmapFromResource(context, R.drawable.scoreboard_right_red)
+    val scoreboardBgRightX = scoreboardX + scoreboardWidth - 25
+    val scoreboardBgRightY = scoreboardY + 20
+    val scoreboardBgRightWidth = 110
+    val scoreboardBgRightHeight = 70
+    val scoreboardBgRightRect = Rect(scoreboardBgRightX, scoreboardBgRightY, scoreboardBgRightX + scoreboardBgRightWidth, scoreboardBgRightY + scoreboardBgRightHeight)
 
     // Create the overall bitmap and canvas.
     val bitmap = Bitmap.createBitmap(overallWidth, overallHeight, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
 
     // Load and scale the scoreboard background PNG to exactly scoreboardWidth×scoreboardHeight.
-    val scoreboardBg = getBitmapFromResource(context, R.drawable.scoreboard_bg)
+    val scoreboardBg = getBitmapFromResource(context, R.drawable.fondo_tablero)
     if (scoreboardBg != null) {
         val scaledBg = Bitmap.createScaledBitmap(scoreboardBg, scoreboardWidth, scoreboardHeight, true)
         canvas.drawBitmap(scaledBg, null, scoreboardRect, null)
@@ -77,11 +93,35 @@ fun createScoreboardBitmap(
         canvas.drawRect(scoreboardRect, fallbackPaint)
     }
 
+    if (scoreboardBgLeft != null) {
+        val scaledBgLeft = Bitmap.createScaledBitmap(scoreboardBgLeft, scoreboardBgLeftWidth, scoreboardBgLeftHeight, true)
+        canvas.drawBitmap(scaledBgLeft, null, scoreboardBgLeftRect, null)
+    } else {
+        // Fallback: fill the scoreboard area with black.
+        val fallbackPaint = Paint().apply { color = Color.Black.toArgb() }
+        canvas.drawRect(scoreboardBgLeftRect, fallbackPaint)
+    }
+
+    if (scoreboardBgRight != null) {
+        val scaledBgRight = Bitmap.createScaledBitmap(
+            scoreboardBgRight,
+            scoreboardBgRightWidth,
+            scoreboardBgRightHeight,
+            true
+        )
+        canvas.drawBitmap(scaledBgRight, null, scoreboardBgRightRect, null)
+    } else {
+        // Fallback: fill the scoreboard area with black.
+        val fallbackPaint = Paint().apply { color = Color.Black.toArgb() }
+        canvas.drawRect(scoreboardBgRightRect, fallbackPaint)
+    }
+
+
     // Prepare text paints (fixed text sizes regardless of scoreboard background size).
     val bigTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.White.toArgb()
         textAlign = Paint.Align.CENTER
-        typeface = ResourcesCompat.getFont(context, R.font.montserrat_bold)
+        typeface = ResourcesCompat.getFont(context, R.font.roboto_medium)
         textSize = 50f
         setShadowLayer(4f, 2f, 2f, Color(0x80000000).toArgb())
     }
@@ -91,16 +131,20 @@ fun createScoreboardBitmap(
     }
 
     // Draw the numeric score centered within the scoreboard background.
-    val scoreboardCenterX = scoreboardX - 10 + scoreboardWidth / 2f
-    val scoreY = scoreboardY + 5 + scoreboardHeight * 0.65f
-    val scoreText = "$leftTeamGoals  $rightTeamGoals"
+    val scoreboardCenterX = scoreboardX + scoreboardWidth / 2f
+    val scoreY = scoreboardY + scoreboardHeight * 0.65f
+    val scoreText = if (leftTeamGoals >= 10 && rightTeamGoals >= 10) {
+        "$leftTeamGoals - $rightTeamGoals"
+    } else {
+        "$leftTeamGoals  -  $rightTeamGoals"
+    }
     canvas.drawText(scoreText, scoreboardCenterX, scoreY, bigTextPaint)
 
     // Draw the team names ("RIV" on left portion and "ALC" on right portion).
     bigTextPaint.textSize = 35f
-    val leftTextX = scoreboardX + 35 + scoreboardWidth * 0.15f
-    val rightTextX = scoreboardX - 55 + scoreboardWidth * 0.85f
-    val teamTextY = scoreboardY + 45 + scoreboardHeight * 0.5f
+    val leftTextX = scoreboardX - 95 + scoreboardWidth * 0.15f
+    val rightTextX = scoreboardX + 85 + scoreboardWidth * 0.85f
+    val teamTextY = scoreboardY + 15 + scoreboardHeight * 0.5f
     canvas.drawText(leftTeamAlias, leftTextX, teamTextY, bigTextPaint)
     canvas.drawText(rightTeamAlias, rightTextX, teamTextY, bigTextPaint)
 
