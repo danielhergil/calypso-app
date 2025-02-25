@@ -1,14 +1,20 @@
 package com.danihg.calypsoapp.overlays
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.*
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.res.ResourcesCompat
 import com.danihg.calypsoapp.R
 import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
+
+fun normalizeColorName(colorName: String): String {
+    return colorName.lowercase().replace(" ", "_") // Convert to lowercase and replace spaces
+}
 
 /**
  * Creates a scoreboard bitmap using your attached scoreboard PNG (with transparency)
@@ -22,6 +28,7 @@ import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRende
  *
  * Adjust the constants below to fine‑tune spacing and positions.
  */
+@SuppressLint("DiscouragedApi")
 fun createScoreboardBitmap(
     context: Context,
     leftLogoBitmap: Bitmap?,
@@ -30,6 +37,8 @@ fun createScoreboardBitmap(
     rightTeamGoals: Int,
     leftTeamAlias: String,
     rightTeamAlias: String,
+    leftTeamColor: String,
+    rightTeamColor: String,
     backgroundColor: Int  // Not used visually; kept for parameter compatibility.
 ): Bitmap {
     // Fixed sizes for this layout:
@@ -63,7 +72,10 @@ fun createScoreboardBitmap(
     val scoreboardRect = Rect(scoreboardX, scoreboardY, scoreboardX + scoreboardWidth, scoreboardY + scoreboardHeight)
 
     // Scoreboard background left
-    val scoreboardBgLeft = getBitmapFromResource(context, R.drawable.scoreboard_left_blue)
+    val leftResourceName = "scoreboard_left_${normalizeColorName(leftTeamColor)}"
+    val leftResourceId = context.resources.getIdentifier(leftResourceName, "drawable", context.packageName)
+    Log.d("Scoreboard", "Left resource: $leftResourceName -> ID: $leftResourceId")
+    val scoreboardBgLeft = getBitmapFromResource(context, leftResourceId)
     val scoreboardBgLeftX = scoreboardX - 85
     val scoreboardBgLeftY = scoreboardY + 20
     val scoreboardBgLeftWidth = 110
@@ -71,7 +83,10 @@ fun createScoreboardBitmap(
     val scoreboardBgLeftRect = Rect(scoreboardBgLeftX, scoreboardBgLeftY, scoreboardBgLeftX + scoreboardBgLeftWidth, scoreboardBgLeftY + scoreboardBgLeftHeight)
 
     // Scoreboard background right
-    val scoreboardBgRight = getBitmapFromResource(context, R.drawable.scoreboard_right_red)
+    val rightResourceName = "scoreboard_right_${normalizeColorName(rightTeamColor)}"
+    val rightResourceId = context.resources.getIdentifier(rightResourceName, "drawable", context.packageName)
+    Log.d("Scoreboard", "Right resource: $rightResourceName -> ID: $rightResourceId")
+    val scoreboardBgRight = getBitmapFromResource(context, rightResourceId)
     val scoreboardBgRightX = scoreboardX + scoreboardWidth - 25
     val scoreboardBgRightY = scoreboardY + 20
     val scoreboardBgRightWidth = 110
@@ -116,8 +131,30 @@ fun createScoreboardBitmap(
         canvas.drawRect(scoreboardBgRightRect, fallbackPaint)
     }
 
+    var leftTextColor = Color.White.toArgb()
+    if (normalizeColorName(leftTeamColor) == "white" || normalizeColorName(leftTeamColor) == "yellow" || normalizeColorName(leftTeamColor) == "cyan") {
+        leftTextColor = Color.Black.toArgb()
+    }
 
+    var rightTextColor = Color.White.toArgb()
+    if (normalizeColorName(rightTeamColor) == "white" || normalizeColorName(rightTeamColor) == "yellow" || normalizeColorName(rightTeamColor) == "cyan") {
+        rightTextColor = Color.Black.toArgb()
+    }
     // Prepare text paints (fixed text sizes regardless of scoreboard background size).
+    val bigTextPaintLeft = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = leftTextColor
+        textAlign = Paint.Align.CENTER
+        typeface = ResourcesCompat.getFont(context, R.font.roboto_medium)
+        textSize = 50f
+        setShadowLayer(4f, 2f, 2f, Color(0x80000000).toArgb())
+    }
+    val bigTextPaintRight = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = rightTextColor
+        textAlign = Paint.Align.CENTER
+        typeface = ResourcesCompat.getFont(context, R.font.roboto_medium)
+        textSize = 50f
+        setShadowLayer(4f, 2f, 2f, Color(0x80000000).toArgb())
+    }
     val bigTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.White.toArgb()
         textAlign = Paint.Align.CENTER
@@ -125,10 +162,10 @@ fun createScoreboardBitmap(
         textSize = 50f
         setShadowLayer(4f, 2f, 2f, Color(0x80000000).toArgb())
     }
-    val mediumTextPaint = Paint(bigTextPaint).apply {
-        textSize = 30f
-        typeface = ResourcesCompat.getFont(context, R.font.montserrat_medium)
-    }
+//    val mediumTextPaint = Paint(bigTextPaint).apply {
+//        textSize = 30f
+//        typeface = ResourcesCompat.getFont(context, R.font.montserrat_medium)
+//    }
 
     // Draw the numeric score centered within the scoreboard background.
     val scoreboardCenterX = scoreboardX + scoreboardWidth / 2f
@@ -141,12 +178,13 @@ fun createScoreboardBitmap(
     canvas.drawText(scoreText, scoreboardCenterX, scoreY, bigTextPaint)
 
     // Draw the team names ("RIV" on left portion and "ALC" on right portion).
-    bigTextPaint.textSize = 35f
+    bigTextPaintLeft.textSize = 35f
+    bigTextPaintRight.textSize = 35f
     val leftTextX = scoreboardX - 95 + scoreboardWidth * 0.15f
     val rightTextX = scoreboardX + 85 + scoreboardWidth * 0.85f
     val teamTextY = scoreboardY + 15 + scoreboardHeight * 0.5f
-    canvas.drawText(leftTeamAlias, leftTextX, teamTextY, bigTextPaint)
-    canvas.drawText(rightTeamAlias, rightTextX, teamTextY, bigTextPaint)
+    canvas.drawText(leftTeamAlias, leftTextX, teamTextY, bigTextPaintLeft)
+    canvas.drawText(rightTeamAlias, rightTextX, teamTextY, bigTextPaintRight)
 
     // Optionally, if you want to add "FULL TIME" at the top, you can do so here:
     // mediumTextPaint.textSize = 30f
@@ -200,6 +238,8 @@ fun updateOverlay(
     rightTeamGoals: Int,
     leftTeamAlias: String,
     rightTeamAlias: String,
+    leftTeamColor: String,
+    rightTeamColor: String,
     backgroundColor: Int,
     imageObjectFilterRender: ImageObjectFilterRender
 ) {
@@ -212,6 +252,8 @@ fun updateOverlay(
             rightTeamGoals,
             leftTeamAlias,
             rightTeamAlias,
+            leftTeamColor,
+            rightTeamColor,
             backgroundColor
         )
         imageObjectFilterRender.setImage(scoreboardBitmap)
@@ -237,6 +279,8 @@ fun drawOverlay(
     rightTeamGoals: Int,
     leftTeamAlias: String,
     rightTeamAlias: String,
+    leftTeamColor: String,
+    rightTeamColor: String,
     backgroundColor: Int,
     imageObjectFilterRender: ImageObjectFilterRender,
     isOnPreview: Boolean
@@ -250,6 +294,8 @@ fun drawOverlay(
             rightTeamGoals,
             leftTeamAlias,
             rightTeamAlias,
+            leftTeamColor,
+            rightTeamColor,
             backgroundColor,
             imageObjectFilterRender
         )

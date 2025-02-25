@@ -1,7 +1,9 @@
 package com.danihg.calypsoapp.utils
 
 // CameraComponents.kt
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -73,6 +75,61 @@ fun <T> ModernDropdown(
                     },
                     onClick = {
                         onValueChange(item)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ColorDropdown(
+    colorOptions: List<Pair<String, Color>>,
+    selectedColorName: String,
+    onColorChange: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedColor = colorOptions.find { it.first == selectedColorName }?.second ?: Color.Gray
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxWidth(),
+            border = BorderStroke(1.dp, Color.White)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .background(selectedColor, CircleShape)
+                        .border(1.dp, Color.White, CircleShape)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = selectedColorName, color = Color.White)
+            }
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(Color.Black)
+        ) {
+            colorOptions.forEach { (name, color) ->
+                DropdownMenuItem(
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .background(color, CircleShape)
+                                    .border(1.dp, Color.White, CircleShape)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = name, color = Color.White)
+                        }
+                    },
+                    onClick = {
+                        onColorChange(name)
                         expanded = false
                     }
                 )

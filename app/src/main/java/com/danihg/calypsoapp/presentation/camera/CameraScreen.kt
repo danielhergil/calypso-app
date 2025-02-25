@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -54,11 +55,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -78,6 +81,7 @@ import com.danihg.calypsoapp.sources.CameraCalypsoSource
 import com.danihg.calypsoapp.ui.theme.CalypsoRed
 import com.danihg.calypsoapp.ui.theme.Gray
 import com.danihg.calypsoapp.utils.AuxButton
+import com.danihg.calypsoapp.utils.ColorDropdown
 import com.danihg.calypsoapp.utils.ExposureCompensationSlider
 import com.danihg.calypsoapp.utils.ExposureModeSelector
 import com.danihg.calypsoapp.utils.ExposureSlider
@@ -271,6 +275,9 @@ fun CameraScreenContent() {
     // Look up the teams alias based on the selected names.
     val team1Alias = team1?.alias ?: "RIV"
     val team2Alias = team2?.alias ?: "ALC"
+    // Look up the teams colors based on the selected names.
+    var leftTeamColor by remember { mutableStateOf("Blue") }
+    var rightTeamColor by remember { mutableStateOf("Red") }
     // Load team logos from URL (if available) using a helper composable.
     val leftLogoBitmap: Bitmap? = team1?.logo?.takeIf { it.isNotEmpty() }?.let { rememberBitmapFromUrl(it) }
     val rightLogoBitmap: Bitmap? = team2?.logo?.takeIf { it.isNotEmpty() }?.let { rememberBitmapFromUrl(it) }
@@ -446,6 +453,8 @@ fun CameraScreenContent() {
                     rightTeamGoals = rightTeamGoals,
                     leftTeamAlias = team1Alias,
                     rightTeamAlias = team2Alias,
+                    leftTeamColor = leftTeamColor,
+                    rightTeamColor = rightTeamColor,
                     backgroundColor = selectedBackgroundColor,
                     imageObjectFilterRender = imageObjectFilterRender,
                     onLeftIncrement = {
@@ -458,6 +467,8 @@ fun CameraScreenContent() {
                             rightTeamGoals = rightTeamGoals,
                             leftTeamAlias = team1Alias,
                             rightTeamAlias = team2Alias,
+                            leftTeamColor = leftTeamColor,
+                            rightTeamColor = rightTeamColor,
                             backgroundColor = selectedBackgroundColor,
                             imageObjectFilterRender = imageObjectFilterRender,
                             isOnPreview = genericStream.isOnPreview
@@ -473,6 +484,8 @@ fun CameraScreenContent() {
                             rightTeamGoals = rightTeamGoals,
                             leftTeamAlias = team1Alias,
                             rightTeamAlias = team2Alias,
+                            leftTeamColor = leftTeamColor,
+                            rightTeamColor = rightTeamColor,
                             backgroundColor = selectedBackgroundColor,
                             imageObjectFilterRender = imageObjectFilterRender,
                             isOnPreview = genericStream.isOnPreview
@@ -488,6 +501,8 @@ fun CameraScreenContent() {
                             rightTeamGoals = rightTeamGoals,
                             leftTeamAlias = team1Alias,
                             rightTeamAlias = team2Alias,
+                            leftTeamColor = leftTeamColor,
+                            rightTeamColor = rightTeamColor,
                             backgroundColor = selectedBackgroundColor,
                             imageObjectFilterRender = imageObjectFilterRender,
                             isOnPreview = genericStream.isOnPreview
@@ -503,6 +518,8 @@ fun CameraScreenContent() {
                             rightTeamGoals = rightTeamGoals,
                             leftTeamAlias = team1Alias,
                             rightTeamAlias = team2Alias,
+                            leftTeamColor = leftTeamColor,
+                            rightTeamColor = rightTeamColor,
                             backgroundColor = selectedBackgroundColor,
                             imageObjectFilterRender = imageObjectFilterRender,
                             isOnPreview = genericStream.isOnPreview
@@ -1073,6 +1090,8 @@ fun CameraScreenContent() {
                 // Auxiliary overlay menu.
                 OverlayMenu(
                     visible = showApplyButton,
+                    screenWidth = screenWidth,
+                    screenHeight = screenHeight,
                     teams = teams,  // Pass the list of teams from Firestore.
                     selectedTeam1 = selectedTeam1,
                     onTeam1Change = { selectedTeam1 = it },
@@ -1080,11 +1099,11 @@ fun CameraScreenContent() {
                     onTeam2Change = { selectedTeam2 = it },
                     showScoreboardOverlay = showScoreboardOverlay,
                     onToggleScoreboard = { showScoreboardOverlay = it },
-                    showTeamPlayersOverlay = showTeamPlayersOverlay,
-                    onToggleTeamPlayers = { showTeamPlayersOverlay = it },
-                    selectedCamera = selectedCamera,
-                    onCameraChange = { selectedCamera = it },
-                    onApply = { showApplyButton = false }
+                    selectedLeftColor = leftTeamColor,
+                    onLeftColorChange = { leftTeamColor = it },
+                    selectedRightColor = rightTeamColor,
+                    onRightColorChange = { rightTeamColor = it },
+                    onClose = { showApplyButton = false }
                 )
 
                 // Place the recording timer at the very top with a high z-index.
@@ -1361,6 +1380,8 @@ fun SettingsMenu(
 @Composable
 fun OverlayMenu(
     visible: Boolean,
+    screenWidth: Dp,
+    screenHeight: Dp,
     teams: List<Team>,
     selectedTeam1: String,
     onTeam1Change: (String) -> Unit,
@@ -1368,145 +1389,170 @@ fun OverlayMenu(
     onTeam2Change: (String) -> Unit,
     showScoreboardOverlay: Boolean,
     onToggleScoreboard: (Boolean) -> Unit,
-    showTeamPlayersOverlay: Boolean,
-    onToggleTeamPlayers: (Boolean) -> Unit,
-    selectedCamera: String,
-    onCameraChange: (String) -> Unit,
-    onApply: () -> Unit
+    selectedLeftColor: String,
+    onLeftColorChange: (String) -> Unit,
+    selectedRightColor: String,
+    onRightColorChange: (String) -> Unit,
+    onClose: () -> Unit
 ) {
+    val colorOptions = listOf(
+        "Black" to Color.Black,
+        "Blue" to Color.Blue,
+        "Cyan" to Color.Cyan,
+        "Green" to Color.Green,
+        "Orange" to Color(0xFFFFA500),
+        "Pink" to Color(0xFFFF69B4),
+        "Purple" to Color(0xFF800080),
+        "Red" to Color.Red,
+        "Soft Blue" to Color(0xFF87CEFA),
+        "White" to Color.White,
+        "Yellow" to Color.Yellow
+    )
+
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(tween(500)) + slideInVertically(initialOffsetY = { it }),
-        exit = fadeOut(tween(500)) + slideOutVertically(targetOffsetY = { it })
+        enter = fadeIn(tween(300)) + slideInVertically(initialOffsetY = { it / 2 }),
+        exit = fadeOut(tween(300)) + slideOutVertically(targetOffsetY = { it / 2 })
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.95f))
-        ) {
-            Column(
+        val menuHeight = screenHeight * 0.8f // 80% of screen height for better layout
+        val menuWidth = menuHeight * (16f / 9f)
+        val horizontalPadding = (screenWidth - menuWidth) / 2
+
+        Box(modifier = Modifier.fillMaxSize()) {
+            Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.Top,
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .width(menuWidth)
+                    .height(menuHeight)
+                    .padding(horizontal = horizontalPadding)
+                    .background(Gray.copy(alpha = 0.92f), shape = RoundedCornerShape(16.dp))
+                    .border(2.dp, Color.White, shape = RoundedCornerShape(16.dp))
+                    .align(Alignment.Center)
+                    .shadow(8.dp, shape = RoundedCornerShape(16.dp))
             ) {
-                Row(
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    horizontalArrangement = Arrangement.Start,
-                    verticalAlignment = Alignment.CenterVertically
+                        .fillMaxSize()
+                        .padding(16.dp)
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Left Section: Team selection for Scoreboard.
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .background(Color.Gray.copy(alpha = 0.2f))
-                            .padding(8.dp),
-                        contentAlignment = Alignment.TopCenter
+                    // Close Button (X)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(12.dp),
-                            verticalArrangement = Arrangement.Top,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    modifier = Modifier.padding(start = 5.dp),
-                                    text = "Scoreboard",
-                                    fontSize = 20.sp,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                    color = Color.White
-                                )
-                                Switch(
-                                    checked = showScoreboardOverlay,
-                                    onCheckedChange = onToggleScoreboard,
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = CalypsoRed,
-                                        uncheckedThumbColor = Color.Gray
-                                    )
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(15.dp))
-                            // Use team names retrieved from Firestore.
-                            SectionSubtitle("Select Team 1")
-                            ModernDropdown(
-                                items = teams.map { it.name },
-                                selectedValue = selectedTeam1,
-                                displayMapper = { it },
-                                onValueChange = onTeam1Change
+                        IconButton(onClick = onClose) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_close),
+                                contentDescription = "Close",
+                                tint = Color.White
                             )
-                            Spacer(modifier = Modifier.height(25.dp))
-                            SectionSubtitle("Select Team 2")
-                            ModernDropdown(
-                                items = teams.map { it.name },
-                                selectedValue = selectedTeam2,
-                                displayMapper = { it },
-                                onValueChange = onTeam2Change
-                            )
-                            Spacer(modifier = Modifier.height(25.dp))
-                            Button(
-                                onClick = onApply,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(4.dp)
-                                    .height(40.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = CalypsoRed,
-                                    contentColor = Color.White
-                                ),
-                                shape = CircleShape
-                            ) {
-                                Text("Apply", color = Color.White, fontSize = 18.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
-                            }
                         }
                     }
-                    // Center Section: (Optional Camera Selection UI)
-                    Box(
+
+                    // Scoreboard Toggle (Header)
+                    Text(
+                        text = "Scoreboard Configuration",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    Divider(color = Color.White.copy(alpha = 0.3f), thickness = 1.dp)
+
+                    Row(
                         modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .background(Color.Gray.copy(alpha = 0.3f))
-                            .padding(8.dp),
-                        contentAlignment = Alignment.Center
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Text(
+                            text = "Show Scoreboard",
+                            fontSize = 18.sp,
+                            color = Color.White
+                        )
                         Switch(
-                            checked = showTeamPlayersOverlay,
-                            onCheckedChange = onToggleTeamPlayers,
+                            checked = showScoreboardOverlay,
+                            onCheckedChange = onToggleScoreboard,
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = CalypsoRed,
                                 uncheckedThumbColor = Color.Gray
                             )
                         )
                     }
-                    // Right Section: Placeholder.
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .background(Color.Gray.copy(alpha = 0.4f))
-                            .padding(8.dp),
-                        contentAlignment = Alignment.Center
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Team Selection Layout (Side by Side)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            text = "Section 3",
-                            fontSize = 18.sp,
-                            color = Color.White
-                        )
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            SectionSubtitle("Team 1")
+                            ModernDropdown(
+                                items = teams.map { it.name },
+                                selectedValue = selectedTeam1,
+                                displayMapper = { it },
+                                onValueChange = onTeam1Change
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            SectionSubtitle("Team 2")
+                            ModernDropdown(
+                                items = teams.map { it.name },
+                                selectedValue = selectedTeam2,
+                                displayMapper = { it },
+                                onValueChange = onTeam2Change
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Color Selection Layout (Side by Side)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            SectionSubtitle("Left Color")
+                            ColorDropdown(
+                                colorOptions = colorOptions,
+                                selectedColorName = selectedLeftColor,
+                                onColorChange = onLeftColorChange
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            SectionSubtitle("Right Color")
+                            ColorDropdown(
+                                colorOptions = colorOptions,
+                                selectedColorName = selectedRightColor,
+                                onColorChange = onRightColorChange
+                            )
+                        }
                     }
                 }
             }
         }
     }
 }
+
 
 @Composable
 fun ScoreboardOverlay(
@@ -1518,6 +1564,8 @@ fun ScoreboardOverlay(
     rightTeamGoals: Int,
     leftTeamAlias: String,
     rightTeamAlias: String,
+    leftTeamColor: String,
+    rightTeamColor: String,
     backgroundColor: Int,
     imageObjectFilterRender: ImageObjectFilterRender,
     onLeftIncrement: () -> Unit,
@@ -1542,6 +1590,8 @@ fun ScoreboardOverlay(
             rightTeamGoals = rightTeamGoals,
             leftTeamAlias = leftTeamAlias,
             rightTeamAlias = rightTeamAlias,
+            leftTeamColor = leftTeamColor,
+            rightTeamColor = rightTeamColor,
             backgroundColor = backgroundColor,
             imageObjectFilterRender = imageObjectFilterRender,
             isOnPreview = genericStream.isOnPreview
