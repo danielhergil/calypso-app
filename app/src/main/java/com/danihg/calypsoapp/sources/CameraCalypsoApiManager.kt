@@ -28,6 +28,7 @@ import android.util.Rational
 import android.util.Size
 import android.view.MotionEvent
 import android.view.Surface
+import androidx.compose.runtime.rememberCoroutineScope
 import com.pedro.common.secureGet
 import com.pedro.encoder.input.video.Camera2ResolutionCalculator.getOptimalResolution
 import com.pedro.encoder.input.video.CameraCallbacks
@@ -36,6 +37,7 @@ import com.pedro.encoder.input.video.CameraHelper.Facing
 import com.pedro.encoder.input.video.CameraOpenException
 import com.pedro.encoder.input.video.facedetector.FaceDetectorCallback
 import com.pedro.encoder.input.video.facedetector.mapCamera2Faces
+import kotlinx.coroutines.delay
 import java.util.concurrent.Executors
 import java.util.concurrent.Semaphore
 import kotlin.math.max

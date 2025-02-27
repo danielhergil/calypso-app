@@ -3,8 +3,8 @@ package com.danihg.calypsoapp.data
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Color
 import android.net.Uri
-import android.util.Log
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -201,5 +201,4 @@ class FirestoreManager {
     fun getLogoDownloadUrl(logoPath: String): String? {
         return logoPath // Just return the URL since we're now storing the full URL
     }
-
 }

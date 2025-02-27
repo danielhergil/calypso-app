@@ -7,34 +7,44 @@ import coil.transform.Transformation
 import kotlin.math.sqrt
 
 class RemoveBorderWhiteTransformation(
-    private val borderSize: Int = 10,   // How many pixels inward to check from each edge.
-    private val tolerance: Int = 15     // How close a pixel’s color must be to the background to be removed.
+    private val tolerance: Int = 15  // How close a pixel’s color must be to the background to be removed.
 ) : Transformation {
 
     override val cacheKey: String
-        get() = "RemoveBorderWhiteTransformation-$borderSize-$tolerance"
+        get() = "RemoveBorderWhiteTransformation-$tolerance"
 
     override suspend fun transform(input: Bitmap, size: Size): Bitmap {
+        val width = input.width
+        val height = input.height
         val output = input.copy(Bitmap.Config.ARGB_8888, true)
-        val width = output.width
-        val height = output.height
 
         // Assume the background color is the top-left corner.
         val bgColor = output.getPixel(0, 0)
 
-        // Loop only over the border region.
+        // Determine bounding box for the actual logo (ignoring white background)
+        var minX = width
+        var minY = height
+        var maxX = 0
+        var maxY = 0
+
         for (x in 0 until width) {
             for (y in 0 until height) {
-                // Check if the pixel is within the border region.
-                if (x < borderSize || y < borderSize || x > width - borderSize || y > height - borderSize) {
-                    val pixel = output.getPixel(x, y)
-                    if (colorDistance(pixel, bgColor) < tolerance) {
-                        output.setPixel(x, y, Color.TRANSPARENT)
-                    }
+                val pixel = output.getPixel(x, y)
+                if (colorDistance(pixel, bgColor) >= tolerance) { // Pixel is not part of the background
+                    if (x < minX) minX = x
+                    if (y < minY) minY = y
+                    if (x > maxX) maxX = x
+                    if (y > maxY) maxY = y
                 }
             }
         }
-        return output
+
+        // Ensure cropping bounds are valid
+        if (minX < maxX && minY < maxY) {
+            return Bitmap.createBitmap(output, minX, minY, maxX - minX, maxY - minY)
+        }
+
+        return output // Return original if no significant difference
     }
 
     // Euclidean distance between two RGB colors.

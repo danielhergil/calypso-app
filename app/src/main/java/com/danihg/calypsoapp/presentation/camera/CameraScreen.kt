@@ -9,12 +9,14 @@ import android.content.Context
 import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.PixelFormat
 import android.graphics.drawable.BitmapDrawable
 import android.hardware.camera2.CaptureRequest
 import android.os.Build
 import android.util.Log
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import android.opengl.GLSurfaceView
 import android.view.ViewGroup
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -50,6 +52,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -68,6 +71,12 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import androidx.core.app.NotificationCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.ImageLoader
 import coil.request.ImageRequest
 import com.danihg.calypsoapp.R
@@ -113,9 +122,15 @@ import com.pedro.extrasources.CameraUvcSource
 import com.pedro.library.base.recording.RecordController
 import com.pedro.library.generic.GenericStream
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
 import kotlin.math.hypot
+
+class CameraViewModel(context: Context) : ViewModel() {
+    // Create the camera instance once and keep it here.
+    val activeCameraSource: CameraCalypsoSource = CameraCalypsoSource(context)
+}
 
 @Composable
 fun CameraScreen() {
@@ -260,14 +275,18 @@ fun CameraScreenContent() {
         teams = FirestoreManager().getTeams()
     }
 
+    // Store team logo URLs persistently
+    var leftLogoUrl by rememberSaveable { mutableStateOf<String?>(null) }
+    var rightLogoUrl by rememberSaveable { mutableStateOf<String?>(null) }
+
     // For default logos in case no team is selected or loading fails.
     val defaultOptions = BitmapFactory.Options().apply { inScaled = false }
     val defaultLeftLogo = BitmapFactory.decodeResource(context.resources, R.drawable.rivas_50, defaultOptions)
     val defaultRightLogo = BitmapFactory.decodeResource(context.resources, R.drawable.alcorcon_50, defaultOptions)
 
     // The selected team names for scoreboard overlay.
-    var selectedTeam1 by remember { mutableStateOf(if (teams.isNotEmpty()) teams.first().name else "Rivas") }
-    var selectedTeam2 by remember { mutableStateOf(if (teams.size > 1) teams[1].name else "Alcorcón") }
+    var selectedTeam1 by rememberSaveable { mutableStateOf(if (teams.isNotEmpty()) teams.first().name else "Rivas") }
+    var selectedTeam2 by rememberSaveable { mutableStateOf(if (teams.size > 1) teams[1].name else "Alcorcón") }
 
     // Look up the teams based on the selected names.
     val team1 = teams.find { it.name == selectedTeam1 }
@@ -307,36 +326,48 @@ fun CameraScreenContent() {
         // etc.
     )
 
-    var activeCameraSource by remember { mutableStateOf(CameraCalypsoSource(context)) }
+    // Use a custom factory to pass context to your CameraViewModel.
+    val cameraViewModel: CameraViewModel = viewModel(
+        factory = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                return CameraViewModel(context) as T
+            }
+        }
+    )
+    // Retrieve the same camera instance
+    var activeCameraSource = cameraViewModel.activeCameraSource
+
+//    var activeCameraSource by remember { mutableStateOf(CameraCalypsoSource(context)) }
     val audio: AudioSource = remember { MicrophoneSource() }
 
     // For showing/hiding the zoom slider overlay
     var showZoomSlider by rememberSaveable { mutableStateOf(false) }
     // For holding the current zoom level (e.g., 1x to 5x)
-    var zoomLevel by remember { mutableFloatStateOf(1f) }
+    var zoomLevel by rememberSaveable { mutableFloatStateOf(1f) }
 
     // For the exposure slider (horizontal, bottom center)
     var showExposureSlider by rememberSaveable { mutableStateOf(false) }
-    var exposureLevel by remember { mutableStateOf(0f) }
-    var exposureMode by remember { mutableStateOf("AUTO") } // "AUTO" or "MANUAL"
+    var exposureLevel by rememberSaveable { mutableStateOf(0f) }
+    var exposureMode by rememberSaveable { mutableStateOf("AUTO") } // "AUTO" or "MANUAL"
     val defaultExposure by remember { mutableStateOf(activeCameraSource.getExposure()) }
 
     // State variables for white balance
     var showWhiteBalanceSlider by rememberSaveable { mutableStateOf(false) }
-    var whiteBalanceMode by remember { mutableStateOf("AUTO") } // "AUTO" or "MANUAL"
-    var manualWhiteBalanceTemperature by remember { mutableStateOf(5000f) } // in Kelvin
+    var whiteBalanceMode by rememberSaveable { mutableStateOf("AUTO") } // "AUTO" or "MANUAL"
+    var manualWhiteBalanceTemperature by rememberSaveable { mutableStateOf(5000f) } // in Kelvin
 
     // State for Optical Video Stabilization
     var showOpticalVideoStabilization by rememberSaveable { mutableStateOf(false) }
-    var opticalVideoStabilizationMode by remember { mutableStateOf("DISABLE") }
+    var opticalVideoStabilizationMode by rememberSaveable { mutableStateOf("DISABLE") }
 
     // States for exposure compensation and sensor exposure time
     var showExposureCompensationSlider by rememberSaveable { mutableStateOf(false) }
-    var exposureCompensation by remember { mutableStateOf(0f) }
+    var exposureCompensation by rememberSaveable { mutableStateOf(0f) }
     var showSensorExposureTimeSlider by rememberSaveable { mutableStateOf(false) }
-    var sensorExposureTimeIndex by remember { mutableStateOf<Float?>(null) }
+    var sensorExposureTimeIndex by rememberSaveable { mutableStateOf<Float?>(null) }
     val defaultSensorExposureIndex = 3f
-    var sensorExposureTimeMode by remember { mutableStateOf("AUTO") }
+    var sensorExposureTimeMode by rememberSaveable { mutableStateOf("AUTO") }
 
     // Define your common sensor exposure options.
     val sensorExposureTimeOptions = listOf(
@@ -366,40 +397,128 @@ fun CameraScreenContent() {
         }
     }
 
-    // Launch effect to animate the team players overlay when toggled.
-    LaunchedEffect(showTeamPlayersOverlay) {
-        if (showTeamPlayersOverlay) {
-            // If scoreboard overlay is active, remove it first.
-            if (showScoreboardOverlay) {
-                wasScoreboardActive = true
-                showScoreboardOverlay = false
-                genericStream.getGlInterface().removeFilter(imageObjectFilterRender)
-            } else {
-                wasScoreboardActive = false
+
+//    // Launch effect to animate the team players overlay when toggled.
+//    LaunchedEffect(showTeamPlayersOverlay) {
+//        if (showTeamPlayersOverlay) {
+//            // If scoreboard overlay is active, remove it first.
+//            if (showScoreboardOverlay) {
+//                wasScoreboardActive = true
+//                showScoreboardOverlay = false
+//                genericStream.getGlInterface().removeFilter(imageObjectFilterRender)
+//            } else {
+//                wasScoreboardActive = false
+//            }
+//            genericStream.getGlInterface().addFilter(imageObjectFilterRender)
+//            // Call the animateTeamPlayersOverlay function from TeamPlayersUtils.
+//            // This will reveal the players row by row.
+//            animateTeamPlayersOverlay(
+//                context = context,
+//                teamAName = "TEAM A",
+//                teamBName = "TEAM B",
+//                teamAPlayers = teamAPlayers,
+//                teamBPlayers = teamBPlayers,
+//                imageObjectFilterRender = imageObjectFilterRender
+//            )
+//            // Wait for 15 seconds after the animation finishes.
+//            delay(15000)
+//            // Remove team players overlay.
+//            genericStream.getGlInterface().removeFilter(imageObjectFilterRender)
+//            // Restore scoreboard overlay if it was active.
+//            if (wasScoreboardActive) {
+//                showScoreboardOverlay = true
+//            }
+//            // Reset toggle.
+//            showTeamPlayersOverlay = false
+//        }
+//    }
+
+    // Track lifecycle changes
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val coroutineScope = rememberCoroutineScope() // Create a coroutine scope
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_STOP -> {
+                    Log.d("CameraScreen", "App minimized")
+                }
+                Lifecycle.Event.ON_START -> {
+                    Log.d("CameraScreen", "App restored")
+
+                    Log.d("CameraScreen", "Exposure Level: $exposureLevel")
+                    Log.d("CameraScreen", "Exposure Mode: $exposureMode")
+
+                    coroutineScope.launch {
+                        while (!genericStream.isOnPreview) {
+                            delay(100) // Wait for surface to be recreated
+                        }
+                        // Reapply the saved settings:
+
+                        // Zoom
+                        activeCameraSource.setZoom(zoomLevel)
+                        if (exposureMode == "MANUAL") {
+                            activeCameraSource.setExposure(exposureLevel.toInt())
+                        } else {
+                            activeCameraSource.enableAutoExposure()
+                        }
+
+                        // Reapply White Balance
+                        if (whiteBalanceMode == "MANUAL") {
+                            activeCameraSource.setManualWhiteBalance(manualWhiteBalanceTemperature)
+                        } else {
+                            activeCameraSource.setWhiteBalance(CaptureRequest.CONTROL_AWB_MODE_AUTO)
+                        }
+
+                        // Reapply Optical Stabilization
+                        when (opticalVideoStabilizationMode) {
+                            "ENABLE" -> activeCameraSource.enableOpticalVideoStabilization()
+                            "DISABLE" -> activeCameraSource.disableOpticalVideoStabilization()
+                        }
+
+                        // Reapply sensor exposure time if separately controlled (only if needed)
+                        if (sensorExposureTimeMode == "MANUAL" && sensorExposureTimeIndex != null) {
+                            val idx = sensorExposureTimeIndex!!.toInt().coerceIn(0, sensorExposureTimeOptions.size - 1)
+                            activeCameraSource.setSensorExposureTime(sensorExposureTimeOptions[idx].second)
+                        }
+
+                        // Optionally, reapply exposure compensation if needed:
+//                        activeCameraSource.setExposure(exposureCompensation.toInt())
+                    }
+                    coroutineScope.launch {
+                        // Wait until the preview is ready.
+                        while (!genericStream.isOnPreview) {
+                            delay(100)
+                        }
+                        // If the scoreboard overlay should be visible, reapply it.
+                        if (showScoreboardOverlay && !isStreaming) {
+                            genericStream.getGlInterface().clearFilters()
+                            genericStream.getGlInterface().addFilter(imageObjectFilterRender)
+                            drawOverlay(
+                                context = context,
+                                leftLogoBitmap = finalLeftLogo,
+                                rightLogoBitmap = finalRightLogo,
+                                leftTeamGoals = leftTeamGoals,
+                                rightTeamGoals = rightTeamGoals,
+                                leftTeamAlias = team1Alias,
+                                rightTeamAlias = team2Alias,
+                                leftTeamColor = leftTeamColor,
+                                rightTeamColor = rightTeamColor,
+                                backgroundColor = selectedBackgroundColor,
+                                imageObjectFilterRender = imageObjectFilterRender,
+                                isOnPreview = genericStream.isOnPreview
+                            )
+                        }
+                    }
+                }
+                else -> {}
             }
-            genericStream.getGlInterface().addFilter(imageObjectFilterRender)
-            // Call the animateTeamPlayersOverlay function from TeamPlayersUtils.
-            // This will reveal the players row by row.
-            animateTeamPlayersOverlay(
-                context = context,
-                teamAName = "TEAM A",
-                teamBName = "TEAM B",
-                teamAPlayers = teamAPlayers,
-                teamBPlayers = teamBPlayers,
-                imageObjectFilterRender = imageObjectFilterRender
-            )
-            // Wait for 15 seconds after the animation finishes.
-            delay(15000)
-            // Remove team players overlay.
-            genericStream.getGlInterface().removeFilter(imageObjectFilterRender)
-            // Restore scoreboard overlay if it was active.
-            if (wasScoreboardActive) {
-                showScoreboardOverlay = true
-            }
-            // Reset toggle.
-            showTeamPlayersOverlay = false
         }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
+
+
 
     // Functions to start and stop streaming.
     fun startForegroundService() {
@@ -442,10 +561,42 @@ fun CameraScreenContent() {
                     context = context,
                     videoSource = activeCameraSource
                 )
+//                AndroidView(
+//                    factory = { ctx ->
+//                        SurfaceView(ctx).apply {
+//
+//
+//                            layoutParams = ViewGroup.LayoutParams(
+//                                ViewGroup.LayoutParams.MATCH_PARENT,
+//                                ViewGroup.LayoutParams.MATCH_PARENT
+//                            )
+//                            surfaceViewRef.value = this
+//
+//                            holder.setFormat(PixelFormat.TRANSLUCENT)
+//
+//                            holder.addCallback(object : SurfaceHolder.Callback {
+//                                override fun surfaceCreated(holder: SurfaceHolder) {
+//                                    if (!genericStream.isOnPreview) {
+//                                        genericStream.startPreview(this@apply)
+//                                    }
+//                                }
+//                                override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+//                                    genericStream.getGlInterface().setPreviewResolution(width, height)
+//                                }
+//                                override fun surfaceDestroyed(holder: SurfaceHolder) {
+//                                    if (genericStream.isOnPreview) {
+//                                        genericStream.stopPreview()
+//                                    }
+//                                }
+//                            })
+//                        }
+//                    },
+//                    modifier = Modifier.fillMaxSize()
+//                )
 
                 // Scoreboard overlay.
                 ScoreboardOverlay(
-                    visible = showScoreboardOverlay && genericStream.isOnPreview && !showApplyButton,
+                    visible = showScoreboardOverlay && !showApplyButton,
                     genericStream = genericStream,
                     leftLogo = finalLeftLogo,
                     rightLogo = finalRightLogo,
@@ -787,6 +938,7 @@ fun CameraScreenContent() {
                                         exposureLevel = exposureLevel,
                                         onValueChange = { newExposure ->
                                             exposureLevel = newExposure
+                                            Log.d("ExposureCheck", "New exposure level: $exposureLevel")
                                             if (sensorExposureTimeMode == "MANUAL") {
                                                 val minExposure = 4000000L
                                                 val maxExposure = 33333333L
@@ -1097,6 +1249,8 @@ fun CameraScreenContent() {
                     onTeam1Change = { selectedTeam1 = it },
                     selectedTeam2 = selectedTeam2,
                     onTeam2Change = { selectedTeam2 = it },
+                    onLeftLogoUrlChange = { leftLogoUrl = it }, // Save the new left logo URL
+                    onRightLogoUrlChange = { rightLogoUrl = it }, // Save the new right logo URL
                     showScoreboardOverlay = showScoreboardOverlay,
                     onToggleScoreboard = { showScoreboardOverlay = it },
                     selectedLeftColor = leftTeamColor,
@@ -1152,6 +1306,8 @@ fun CameraPreview(
     AndroidView(
         factory = { ctx ->
             SurfaceView(ctx).apply {
+
+
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
@@ -1183,6 +1339,7 @@ fun CameraPreview(
 //                    }
 //                    true
 //                }
+                holder.setFormat(PixelFormat.TRANSLUCENT)
 
                 holder.addCallback(object : SurfaceHolder.Callback {
                     override fun surfaceCreated(holder: SurfaceHolder) {
@@ -1387,6 +1544,8 @@ fun OverlayMenu(
     onTeam1Change: (String) -> Unit,
     selectedTeam2: String,
     onTeam2Change: (String) -> Unit,
+    onLeftLogoUrlChange: (String?) -> Unit, // New parameter to update logo URL
+    onRightLogoUrlChange: (String?) -> Unit, // New parameter to update logo URL
     showScoreboardOverlay: Boolean,
     onToggleScoreboard: (Boolean) -> Unit,
     selectedLeftColor: String,
@@ -1498,7 +1657,11 @@ fun OverlayMenu(
                                 items = teams.map { it.name },
                                 selectedValue = selectedTeam1,
                                 displayMapper = { it },
-                                onValueChange = onTeam1Change
+                                onValueChange = {
+                                    onTeam1Change(it)
+                                    val team = teams.find { team -> team.name == it }
+                                    onLeftLogoUrlChange(team?.logo) // Save the new logo URL
+                                }
                             )
                         }
                         Spacer(modifier = Modifier.width(16.dp))
@@ -1511,7 +1674,11 @@ fun OverlayMenu(
                                 items = teams.map { it.name },
                                 selectedValue = selectedTeam2,
                                 displayMapper = { it },
-                                onValueChange = onTeam2Change
+                                onValueChange = {
+                                    onTeam2Change(it)
+                                    val team = teams.find { team -> team.name == it }
+                                    onRightLogoUrlChange(team?.logo) // Save the new logo URL
+                                }
                             )
                         }
                     }
@@ -1573,15 +1740,19 @@ fun ScoreboardOverlay(
     onLeftDecrement: () -> Unit,
     onRightDecrement: () -> Unit
 ) {
+
+    Log.d("ScoreboardOverlay", "Visible: $visible")
+    Log.d("ScoreboardOverlay", "isOnPreview: ${genericStream.isOnPreview}")
+
     // Add or remove the overlay filter based on visibility.
     LaunchedEffect(visible) {
-        if (visible && genericStream.isOnPreview) {
+        if (visible) {
             genericStream.getGlInterface().addFilter(imageObjectFilterRender)
         } else {
             genericStream.getGlInterface().removeFilter(imageObjectFilterRender)
         }
     }
-    if (visible && genericStream.isOnPreview) {
+    if (visible) {
         drawOverlay(
             context = LocalContext.current,
             leftLogoBitmap = leftLogo,
@@ -1656,6 +1827,11 @@ fun RecordingTimer(recordingSeconds: Long) {
     }
 }
 
+suspend fun safeLoadBitmap(context: Context, url: String?): Bitmap? {
+    val originalBitmap = url?.let { loadBitmapFromUrl(context, it) }
+    return originalBitmap
+}
+
 // Helper composable to load a Bitmap from a URL using Coil.
 @Composable
 fun rememberBitmapFromUrl(url: String): Bitmap? {
@@ -1672,7 +1848,7 @@ suspend fun loadBitmapFromUrl(context: Context, url: String): Bitmap? {
     val request = ImageRequest.Builder(context)
         .data(url)
         .allowHardware(false)
-        .transformations(RemoveBorderWhiteTransformation(borderSize = 10, tolerance = 15))
+//        .transformations(RemoveBorderWhiteTransformation(tolerance = 30))
         .build()
 
     val result = loader.execute(request)
