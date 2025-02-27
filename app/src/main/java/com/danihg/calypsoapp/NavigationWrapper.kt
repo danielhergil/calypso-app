@@ -1,9 +1,16 @@
 package com.danihg.calypsoapp
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.danihg.calypsoapp.data.FirestoreManager
+import com.danihg.calypsoapp.model.AddTeamViewModel
+import com.danihg.calypsoapp.presentation.addteam.AddTeamScreen
 import com.danihg.calypsoapp.presentation.home.HomeScreen
 import com.danihg.calypsoapp.presentation.initial.InitialScreen
 import com.danihg.calypsoapp.presentation.login.LoginScreen
@@ -18,8 +25,7 @@ fun NavigationWrapper (navHostController: NavHostController, auth: FirebaseAuth)
     NavHost(navController = navHostController, startDestination = "initial") {
         composable("initial"){
             InitialScreen(
-                navigateToLogin = { navHostController.navigate("login") },
-                navigateToSignup = { navHostController.navigate("signup") }
+                navigateToHome = { navHostController.navigate("home") }
             )
         }
         composable("login"){
@@ -37,8 +43,20 @@ fun NavigationWrapper (navHostController: NavHostController, auth: FirebaseAuth)
                 navigateToOverlay = { navHostController.navigate("overlay") }
             )
         }
-        composable("camera") {
+        composable(
+            route = "camera",
+            enterTransition = {
+                fadeIn(animationSpec = tween(300))
+            },
+            exitTransition = {
+                fadeOut(animationSpec = tween(300))
+            }
+        ) {
             CameraScreen()
+        }
+        composable("addTeam") {
+            val firestoreManager = FirestoreManager()
+            AddTeamScreen(firestoreManager)
         }
         composable("settings") {
             SettingsScreen()

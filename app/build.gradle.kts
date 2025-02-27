@@ -52,6 +52,11 @@ dependencies {
     implementation(libs.androidx.core.ktx.v1120)
     implementation(libs.opengl.api)
 
+    implementation(libs.uvcandroid)
+    implementation(libs.play.services.auth)
+
+    implementation(libs.coil.kt.coil.compose)
+
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -65,6 +70,7 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.espresso.core)
     implementation(libs.androidx.camera.core)
+    implementation(libs.firebase.storage.ktx)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
