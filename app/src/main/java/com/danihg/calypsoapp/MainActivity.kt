@@ -175,7 +175,7 @@ class MainActivity : ComponentActivity() {
         )
 
         // Add Android 14+ specific permissions
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        if (Build.VERSION.SDK_INT >= 34) {
             permissions.add(Manifest.permission.FOREGROUND_SERVICE_MICROPHONE)
             permissions.add(Manifest.permission.FOREGROUND_SERVICE_CAMERA)
         }

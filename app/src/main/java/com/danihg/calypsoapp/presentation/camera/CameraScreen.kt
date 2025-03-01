@@ -1,6 +1,7 @@
 // CameraScreen.kt
 package com.danihg.calypsoapp.presentation.camera
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.NotificationChannel
@@ -8,6 +9,7 @@ import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.PixelFormat
@@ -72,6 +74,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ViewModel
@@ -526,6 +529,14 @@ fun CameraScreenContent() {
 
 
     fun startForegroundService() {
+
+        // Check if the FOREGROUND_SERVICE_CAMERA permission is granted
+        if (Build.VERSION.SDK_INT >= 34 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.FOREGROUND_SERVICE_CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            showToast("Camera permission for foreground service not granted!")
+            return
+        }
+
         val serviceIntent = Intent(context, StreamingService::class.java)
 
         try {
