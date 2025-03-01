@@ -3,6 +3,7 @@ package com.danihg.calypsoapp
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
@@ -167,13 +168,19 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestPermissions() {
-        permissionsLauncher.launch(
-            arrayOf(
-                Manifest.permission.CAMERA,
-                Manifest.permission.RECORD_AUDIO,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
-            )
+        val permissions = mutableListOf(
+            Manifest.permission.CAMERA,
+            Manifest.permission.RECORD_AUDIO,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE
         )
+
+        // Add Android 14+ specific permissions
+        if (Build.VERSION.SDK_INT >= 34) {
+            permissions.add(Manifest.permission.FOREGROUND_SERVICE_MICROPHONE)
+            permissions.add(Manifest.permission.FOREGROUND_SERVICE_CAMERA)
+        }
+
+        permissionsLauncher.launch(permissions.toTypedArray())
     }
 
     private fun showToast(message: String) {

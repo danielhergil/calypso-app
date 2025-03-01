@@ -1,12 +1,15 @@
 // CameraScreen.kt
 package com.danihg.calypsoapp.presentation.camera
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.PixelFormat
@@ -71,6 +74,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ViewModel
@@ -86,6 +90,7 @@ import com.danihg.calypsoapp.overlays.PlayerEntry
 import com.danihg.calypsoapp.overlays.animateTeamPlayersOverlay
 import com.danihg.calypsoapp.overlays.drawOverlay
 import com.danihg.calypsoapp.overlays.drawTeamPlayersOverlay
+import com.danihg.calypsoapp.services.StreamingService
 import com.danihg.calypsoapp.sources.CameraCalypsoSource
 import com.danihg.calypsoapp.ui.theme.CalypsoRed
 import com.danihg.calypsoapp.ui.theme.Gray
@@ -121,6 +126,8 @@ import com.pedro.encoder.input.video.Camera2ApiManager
 import com.pedro.extrasources.CameraUvcSource
 import com.pedro.library.base.recording.RecordController
 import com.pedro.library.generic.GenericStream
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -175,6 +182,7 @@ fun CameraScreen() {
 @Composable
 fun CameraScreenContent() {
     val context = LocalContext.current
+    var isServiceRunning by remember { mutableStateOf(false) }
     PreventScreenLock()
     val showToast = rememberToast()
 
@@ -520,29 +528,55 @@ fun CameraScreenContent() {
 
 
 
-    // Functions to start and stop streaming.
     fun startForegroundService() {
-        val notification = NotificationCompat.Builder(context, "CameraStreamChannel")
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("Streaming Active")
-            .setContentText("Streaming in progress")
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
 
-        (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
-            .notify(1001, notification)
-        if (!isStreaming) {
-            genericStream.startStream(streamUrl)
-            isStreaming = true
+        // Check if the FOREGROUND_SERVICE_CAMERA permission is granted
+        if (Build.VERSION.SDK_INT >= 34 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.FOREGROUND_SERVICE_CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            showToast("Camera permission for foreground service not granted!")
+            return
+        }
+
+        val serviceIntent = Intent(context, StreamingService::class.java)
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(serviceIntent)
+            } else {
+                context.startService(serviceIntent)
+            }
+
+            // Add slight delay before starting stream
+            CoroutineScope(Dispatchers.Main).launch {
+                delay(500)
+                if (!genericStream.isStreaming) {
+                    genericStream.startStream(streamUrl)
+                    isStreaming = true
+                }
+            }
+        } catch (e: SecurityException) {
+            Log.e("StreamService", "Failed to start service: ${e.message}")
+            // Handle permission error
         }
     }
 
+    // Replace stopForegroundService function
     fun stopForegroundService() {
-        if (isStreaming) {
+        val serviceIntent = Intent(context, StreamingService::class.java)
+        context.stopService(serviceIntent)
+
+        if (genericStream.isStreaming) {
             genericStream.stopStream()
-            (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
-                .cancel(1001)
             isStreaming = false
+        }
+    }
+
+    // Add service cleanup when leaving the screen
+    DisposableEffect(Unit) {
+        onDispose {
+            if (isServiceRunning) {
+                context.stopService(Intent(context, StreamingService::class.java))
+            }
         }
     }
 
