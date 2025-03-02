@@ -15,6 +15,7 @@ import android.graphics.BitmapFactory
 import android.graphics.PixelFormat
 import android.graphics.drawable.BitmapDrawable
 import android.hardware.camera2.CaptureRequest
+import android.media.MediaRecorder
 import android.os.Build
 import android.util.Log
 import android.view.SurfaceHolder
@@ -203,6 +204,7 @@ fun CameraScreenContent() {
 
     // Streaming and camera settings.
     var selectedCameraSource by remember { mutableStateOf("Device Camera") }
+    var selectedAudioSource by remember { mutableStateOf("Device Audio") }
     var selectedVideoEncoder by remember { mutableStateOf("H264") }
     var selectedAudioEncoder by remember { mutableStateOf("AAC") }
     var selectedFPS by remember { mutableStateOf("30") }
@@ -1161,6 +1163,8 @@ fun CameraScreenContent() {
                     isStreaming = isStreaming,
                     selectedCameraSource = selectedCameraSource,
                     onCameraSourceChange = { selectedCameraSource = it },
+                    selectedAudioSource = selectedAudioSource,
+                    onAudioSourceChange = { selectedAudioSource = it },
                     selectedVideoEncoder = selectedVideoEncoder,
                     onVideoEncoderChange = { selectedVideoEncoder = it },
                     selectedAudioEncoder = selectedAudioEncoder,
@@ -1205,7 +1209,8 @@ fun CameraScreenContent() {
                                 genericStream.setVideoCodec(videoCodec)
                                 Log.d("CodecCheck", "Set video codec to: $videoCodec")
                             }
-                            genericStream.prepareVideo(videoWidth, videoHeight, videoBitrate, videoFPS)
+                            val newFPS = selectedFPS.toInt()
+                            genericStream.prepareVideo(videoWidth, videoHeight, videoBitrate, newFPS)
                             genericStream.prepareAudio(audioSampleRate, audioIsStereo, audioBitrate)
                             // Restart preview using the stored SurfaceView.
                             surfaceViewRef.value?.let { surfaceView ->
@@ -1220,6 +1225,11 @@ fun CameraScreenContent() {
                                 val newCameraSource = CameraCalypsoSource(context)
                                 genericStream.changeVideoSource(newCameraSource)
                                 activeCameraSource = newCameraSource
+                            }
+                            if (selectedAudioSource == "USB Mic") {
+                                genericStream.changeAudioSource(MicrophoneSource(MediaRecorder.AudioSource.MIC))
+                            } else {
+                                genericStream.changeAudioSource(audio)
                             }
                         }
                         else {
@@ -1404,6 +1414,8 @@ fun SettingsMenu(
     screenHeight: Dp,
     selectedCameraSource: String,
     onCameraSourceChange: (String) -> Unit,
+    selectedAudioSource: String,
+    onAudioSourceChange: (String) -> Unit,
     selectedVideoEncoder: String,
     onVideoEncoderChange: (String) -> Unit,
     selectedAudioEncoder: String,
@@ -1479,6 +1491,15 @@ fun SettingsMenu(
                         enabled = !isStreaming
                     )
                     Spacer(modifier = Modifier.height(16.dp))
+                    SectionSubtitle("Audio Source")
+                    ModernDropdown(
+                        items = listOf("Device Audio", "USB Mic"),
+                        selectedValue = selectedAudioSource,
+                        displayMapper = { it },
+                        onValueChange = onAudioSourceChange,
+                        enabled = !isStreaming
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         text = "Streaming Settings",
                         fontSize = 20.sp,
@@ -1515,7 +1536,7 @@ fun SettingsMenu(
                     )
                     SectionSubtitle("Stream FPS")
                     ModernDropdown(
-                        items = if (selectedCameraSource == "USB Camera") listOf("30", "60") else listOf("30"),
+                        items = if (selectedCameraSource == "USB Camera") listOf("30", "60") else listOf("30", "60"),
                         selectedValue = selectedFPS,
                         displayMapper = { it },
                         onValueChange = onFPSChange,
