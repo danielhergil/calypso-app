@@ -17,13 +17,16 @@ import com.danihg.calypsoapp.R
 import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
 import java.util.Locale
 
-// Global object to hold row animation state
+// Global object to hold row animation state.
 object TeamPlayersAnimationState {
     // currentRow: -1 means no row is being animated yet.
     var currentRow: Int = -1
     // currentRowProgress: progress (0f to 1f) for the currently animating row.
     var currentRowProgress: Float = 0f
 }
+
+// Global cache for the fully drawn main overlay.
+var cachedMainBitmap: Bitmap? = null
 
 data class PlayerEntry(
     val number: String,
@@ -32,14 +35,6 @@ data class PlayerEntry(
 
 /**
  * Draws a bitmap onto the canvas with a vertical gradient fade.
- * @param canvas The canvas to draw on.
- * @param bitmap The bitmap to draw.
- * @param x The left coordinate where the bitmap will be drawn.
- * @param y The top coordinate where the bitmap will be drawn.
- * @param width The target width.
- * @param height The target height.
- * @param progress A float value (0f to 1f) controlling the reveal: 0f = fully faded; 1f = fully visible.
- * @param fallbackColor A fallback color if bitmap is null.
  */
 fun drawFadedBitmap(
     canvas: Canvas,
@@ -56,7 +51,7 @@ fun drawFadedBitmap(
         val scaledBitmap = Bitmap.createScaledBitmap(bitmap, width, height, true)
         canvas.drawBitmap(scaledBitmap, x.toFloat(), y.toFloat(), null)
 
-        // Use a smaller fade region (30% instead of 40%)
+        // Use a smaller fade region (30% of height)
         val gradientHeight = height * 0.3f
         val transitionPoint = y + (height * progress)
         val startY = transitionPoint - gradientHeight
@@ -86,13 +81,6 @@ fun drawFadedBitmap(
 
 /**
  * Draws text onto the canvas with a vertical gradient fade.
- *
- * @param canvas The canvas to draw on.
- * @param text The string to draw.
- * @param x The x-coordinate for the text.
- * @param y The y-coordinate for the text’s baseline.
- * @param paint The Paint used for drawing the text.
- * @param progress A float value (0f to 1f) controlling the reveal.
  */
 fun drawFadedText(
     canvas: Canvas,
@@ -117,7 +105,7 @@ fun drawFadedText(
         val textBottom = y + paint.descent()
         val textRect = RectF(textLeft, textTop, textLeft + textWidth, textBottom)
 
-        // Use a smaller fade zone (30% of text height).
+        // Use a smaller fade zone (30% of text height)
         val gradientHeight = textHeight * 0.3f
         val revealLine = textTop + textHeight * progress
         val gradientStart = revealLine - gradientHeight
@@ -143,11 +131,8 @@ fun drawFadedText(
 /**
  * Creates a team players bitmap with two images (left and right) and rows of player entries.
  *
- * The main part is drawn using the "progress" parameter.
- * The rows are drawn using the global TeamPlayersAnimationState:
- * - Rows with index less than currentRow are fully drawn (progress = 1f)
- * - The row with index equal to currentRow is drawn partially based on currentRowProgress.
- * - Later rows are not drawn (progress = 0f).
+ * The main part (backgrounds, logos, team names) is drawn using the "progress" parameter.
+ * The rows are drawn using the global TeamPlayersAnimationState.
  */
 fun createTeamPlayersBitmap(
     context: Context,
@@ -166,9 +151,6 @@ fun createTeamPlayersBitmap(
 
     val leftBackground = getBitmapFromResource(context, R.drawable.team_players_bg_left)
     val rightBackground = getBitmapFromResource(context, R.drawable.team_players_bg_right)
-
-    Log.d("TeamPlayersBitmap", "Left background width: ${leftBackground?.width}")
-    Log.d("TeamPlayersBitmap", "Left background height: ${leftBackground?.height}")
 
     val scaleFactor = 0.3f
     val scaleFactorLogo = 0.4f
@@ -226,6 +208,25 @@ fun createTeamPlayersBitmap(
     }
 
     // Draw Player Rows (animated sequentially)
+    // (During the main animation, row progress is 0 so rows are not drawn.)
+    drawPlayerRows(context, canvas, screenWidth, screenHeight, leftBackground, scaleFactor, leftTeamPlayers, rightTeamPlayers)
+
+    return bitmap
+}
+
+/**
+ * Draws the player rows on the provided canvas.
+ */
+private fun drawPlayerRows(
+    context: Context,
+    canvas: Canvas,
+    screenWidth: Int,
+    screenHeight: Int,
+    leftBackground: Bitmap?,
+    scaleFactor: Float,
+    leftTeamPlayers: List<PlayerEntry>,
+    rightTeamPlayers: List<PlayerEntry>
+) {
     val leftPlayerRow_1 = getBitmapFromResource(context, R.drawable.team_players_row_1_left)
     val rightPlayerRow_1 = getBitmapFromResource(context, R.drawable.team_players_row_1_right)
     val leftPlayerRow_2 = getBitmapFromResource(context, R.drawable.team_players_row_2_left)
@@ -245,6 +246,7 @@ fun createTeamPlayersBitmap(
             else -> 0f
         }
         if (i % 2 == 0) {
+            // Using row_1 resources.
             if (i == 0) {
                 leftPlayerRow_1?.let {
                     val bgScaledWidth = (leftBackground?.width?.times(scaleFactor))?.toInt() ?: 0
@@ -262,6 +264,7 @@ fun createTeamPlayersBitmap(
                     }
                     val textX = x + (scaledWidth + numberGap) / 2f
                     val textY = y + (scaledHeight + initialGap - 10) / 2f
+                    // Draw the row text with the row's progress
                     drawFadedText(canvas, leftTeamPlayers[i].name.uppercase(Locale.ROOT), textX, textY, bigTextPaintLeft, rowProgress)
                 }
                 rightPlayerRow_1?.let {
@@ -356,16 +359,30 @@ fun createTeamPlayersBitmap(
             }
         }
     }
-
-    return bitmap
 }
 
-private fun getBitmapFromResource(context: Context, resId: Int): Bitmap? {
-    return try {
-        BitmapFactory.decodeResource(context.resources, resId)
-    } catch (e: Exception) {
-        null
+/**
+ * Helper: Creates a team players bitmap using the cached main overlay and draws only the player rows.
+ */
+fun createTeamPlayersBitmapWithCachedMain(
+    context: Context,
+    screenWidth: Int,
+    screenHeight: Int,
+    cachedMain: Bitmap,
+    leftTeamPlayers: List<PlayerEntry>,
+    rightTeamPlayers: List<PlayerEntry>
+): Bitmap? {
+    // Make a mutable copy of the cached main overlay.
+    val bitmap = cachedMain.config?.let { cachedMain.copy(it, true) }
+    val canvas = bitmap?.let { Canvas(it) }
+    // Redraw only the rows.
+    // We need the left background for positioning; reuse the cached version.
+    val leftBackground = getBitmapFromResource(context, R.drawable.team_players_bg_left)
+    val scaleFactor = 0.3f
+    if (canvas != null) {
+        drawPlayerRows(context, canvas, screenWidth, screenHeight, leftBackground, scaleFactor, leftTeamPlayers, rightTeamPlayers)
     }
+    return bitmap
 }
 
 /**
@@ -404,6 +421,14 @@ fun updateTeamPlayersOverlay(
         }
         mainAnimator.addListener(object : AnimatorListenerAdapter() {
             override fun onAnimationEnd(animation: Animator) {
+                // Cache the fully drawn main overlay.
+                cachedMainBitmap = createTeamPlayersBitmap(
+                    context, screenWidth, screenHeight,
+                    leftLogoBitmap, rightLogoBitmap,
+                    leftTeamName, rightTeamName,
+                    leftTeamPlayers, rightTeamPlayers,
+                    1f
+                )
                 animateRows(
                     context, screenWidth, screenHeight,
                     leftLogoBitmap, rightLogoBitmap,
@@ -445,14 +470,11 @@ private fun animateRows(
                 interpolator = AccelerateDecelerateInterpolator()
                 addUpdateListener { anim ->
                     TeamPlayersAnimationState.currentRowProgress = anim.animatedValue as Float
-                    val bitmap = createTeamPlayersBitmap(
-                        context, screenWidth, screenHeight,
-                        leftLogoBitmap, rightLogoBitmap,
-                        leftTeamName, rightTeamName,
-                        leftTeamPlayers, rightTeamPlayers,
-                        1f
-                    )
-                    imageObjectFilterRender.setImage(bitmap)
+                    // Use cached main overlay and update rows only.
+                    val bitmap = cachedMainBitmap?.let { cached ->
+                        createTeamPlayersBitmapWithCachedMain(context, screenWidth, screenHeight, cached, leftTeamPlayers, rightTeamPlayers)
+                    }
+                    bitmap?.let { imageObjectFilterRender.setImage(it) }
                 }
                 addListener(object : AnimatorListenerAdapter() {
                     override fun onAnimationEnd(animation: Animator) {
@@ -494,5 +516,13 @@ fun drawTeamPlayersOverlay(
             leftTeamPlayers, rightTeamPlayers,
             imageObjectFilterRender
         )
+    }
+}
+
+private fun getBitmapFromResource(context: Context, resId: Int): Bitmap? {
+    return try {
+        BitmapFactory.decodeResource(context.resources, resId)
+    } catch (e: Exception) {
+        null
     }
 }
