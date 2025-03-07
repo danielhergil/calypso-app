@@ -1,5 +1,7 @@
 package com.danihg.calypsoapp.overlays
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
@@ -14,6 +16,13 @@ import com.danihg.calypsoapp.R
 import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
 import java.util.Locale
 
+// Global object to hold row animation state
+object TeamPlayersAnimationState {
+    // currentRow: -1 means no row is being animated yet.
+    var currentRow: Int = -1
+    // currentRowProgress: progress (0f to 1f) for the currently animating row.
+    var currentRowProgress: Float = 0f
+}
 
 data class PlayerEntry(
     val number: String,
@@ -152,10 +161,26 @@ fun drawFadedText(
 }
 
 /**
- * Creates a team players bitmap with two images (left and right) that are drawn with a fade effect.
- * @param progress A float value from 0f (fully faded) to 1f (fully visible).
+ * Creates a team players bitmap with two images (left and right) and rows of player entries.
+ *
+ * The main part (backgrounds, logos, team names) is drawn using the "progress" parameter.
+ * The rows (player entries) are drawn using the global TeamPlayersAnimationState:
+ *   - Rows with index less than currentRow are fully drawn (progress = 1f)
+ *   - The row with index equal to currentRow is drawn partially based on currentRowProgress.
+ *   - Rows with a higher index are not drawn (progress = 0f).
  */
-fun createTeamPlayersBitmap(context: Context, screenWidth: Int, screenHeight: Int, leftLogoBitmap: Bitmap?, rightLogoBitmap: Bitmap?, leftTeamName: String, rightTeamName: String, leftTeamPlayers: List<PlayerEntry>, rightTeamPlayers: List<PlayerEntry>, progress: Float): Bitmap {
+fun createTeamPlayersBitmap(
+    context: Context,
+    screenWidth: Int,
+    screenHeight: Int,
+    leftLogoBitmap: Bitmap?,
+    rightLogoBitmap: Bitmap?,
+    leftTeamName: String,
+    rightTeamName: String,
+    leftTeamPlayers: List<PlayerEntry>,
+    rightTeamPlayers: List<PlayerEntry>,
+    progress: Float
+): Bitmap {
     val bitmap = Bitmap.createBitmap(screenWidth, screenHeight, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
 
@@ -163,28 +188,27 @@ fun createTeamPlayersBitmap(context: Context, screenWidth: Int, screenHeight: In
     val leftBackground = getBitmapFromResource(context, R.drawable.team_players_bg_left)
     val rightBackground = getBitmapFromResource(context, R.drawable.team_players_bg_right)
 
-    val leftBackgroundWidth = leftBackground?.width
-
     Log.d("TeamPlayersBitmap", "Left background width: ${leftBackground?.width}")
     Log.d("TeamPlayersBitmap", "Left background height: ${leftBackground?.height}")
 
-    // Use a scaling factor (adjust as needed).
+    // Use scaling factors.
     val scaleFactor = 0.3f
     val scaleFactorLogo = 0.4f
 
-    // Draw left image.
-    leftBackground?.let {
-        val scaledWidth = (it.width * scaleFactor).toInt()
-        val scaledHeight = (it.height * scaleFactor).toInt()
+    // --------- Draw Left Side Main Section ---------
+    leftBackground?.let { lb ->
+        val scaledWidth = (lb.width * scaleFactor).toInt()
+        val scaledHeight = (lb.height * scaleFactor).toInt()
         val x = screenWidth / 5
         val y = screenHeight / 6
-        drawFadedBitmap(canvas, it, x, y, scaledWidth, scaledHeight, progress)
+        // Animate main background with "progress"
+        drawFadedBitmap(canvas, lb, x, y, scaledWidth, scaledHeight, progress)
 
         leftLogoBitmap?.let { logo ->
             val logoScaledWidth = (logo.width * scaleFactorLogo).toInt()
             val logoScaledHeight = (logo.height * scaleFactorLogo).toInt()
-            val logoX = screenWidth / 5 + 50
-            val logoY = screenHeight / 6 + 15
+            val logoX = x + 50
+            val logoY = y + 15
             drawFadedBitmap(canvas, logo, logoX, logoY, logoScaledWidth, logoScaledHeight, progress)
         }
 
@@ -195,27 +219,25 @@ fun createTeamPlayersBitmap(context: Context, screenWidth: Int, screenHeight: In
             textSize = 50f
             setShadowLayer(4f, 2f, 2f, Color(0x80000000).toArgb())
         }
-
-        val textX = x + (scaledWidth + (leftLogoBitmap?.width?.times(scaleFactorLogo)?.toInt()!!)) / 2f
-        val textY = y + 60
-
-        drawFadedText(canvas, leftTeamName.uppercase(Locale.ROOT), textX.toFloat(), textY.toFloat(), bigTextPaintLeft, progress)
+        // Center team name on left background.
+        val textX = x + scaledWidth / 2f
+        val textY = y + scaledHeight / 2f - ((bigTextPaintLeft.descent() + bigTextPaintLeft.ascent()) / 2f)
+        drawFadedText(canvas, leftTeamName.uppercase(Locale.ROOT), textX, textY, bigTextPaintLeft, progress)
     }
 
-    // Draw right image.
-    rightBackground?.let {
-        val scaledWidth = (it.width * scaleFactor).toInt()
-        val scaledHeight = (it.height * scaleFactor).toInt()
+    // --------- Draw Right Side Main Section ---------
+    rightBackground?.let { rb ->
+        val scaledWidth = (rb.width * scaleFactor).toInt()
+        val scaledHeight = (rb.height * scaleFactor).toInt()
         val x = screenWidth / 2
         val y = screenHeight / 6
-        drawFadedBitmap(canvas, it, x, y, scaledWidth, scaledHeight, progress)
+        drawFadedBitmap(canvas, rb, x, y, scaledWidth, scaledHeight, progress)
 
-        // Draw right logo at the end of rightBackground.
         rightLogoBitmap?.let { logo ->
             val logoScaledWidth = (logo.width * scaleFactorLogo).toInt()
             val logoScaledHeight = (logo.height * scaleFactorLogo).toInt()
-            // Calculate x to start at the end of rightBackground.
-            val logoX = x + scaledWidth - logo.width - 50
+            // Position logo at end of right background.
+            val logoX = x + scaledWidth - logoScaledWidth - 50
             val logoY = y + 15
             drawFadedBitmap(canvas, logo, logoX, logoY, logoScaledWidth, logoScaledHeight, progress)
 
@@ -226,77 +248,83 @@ fun createTeamPlayersBitmap(context: Context, screenWidth: Int, screenHeight: In
                 textSize = 50f
                 setShadowLayer(4f, 2f, 2f, Color(0x80000000).toArgb())
             }
-
-            val textX = x + (scaledWidth - (rightLogoBitmap.width.times(scaleFactorLogo).toInt())) / 2f
-            val textY = y + 60
-
-            drawFadedText(canvas, rightTeamName.uppercase(Locale.ROOT), textX.toFloat(), textY.toFloat(), bigTextPaintRight, progress)
+            val textX = x + scaledWidth / 2f
+            val textY = y + scaledHeight / 2f - ((bigTextPaintRight.descent() + bigTextPaintRight.ascent()) / 2f)
+            drawFadedText(canvas, rightTeamName.uppercase(Locale.ROOT), textX, textY, bigTextPaintRight, progress)
         }
     }
 
+    // --------- Draw Player Rows (animated sequentially) ---------
+    // Row resources:
     val leftPlayerRow_1 = getBitmapFromResource(context, R.drawable.team_players_row_1_left)
     val rightPlayerRow_1 = getBitmapFromResource(context, R.drawable.team_players_row_1_right)
     val leftPlayerRow_2 = getBitmapFromResource(context, R.drawable.team_players_row_2_left)
     val rightPlayerRow_2 = getBitmapFromResource(context, R.drawable.team_players_row_2_right)
 
-
     val leftTeamCount = leftTeamPlayers.size
     val rightTeamCount = rightTeamPlayers.size
-
     val maxCount = maxOf(leftTeamCount, rightTeamCount)
-
     val initialGap = 30
 
+    // For each row index, determine the row progress based on global state.
     for (i in 0 until maxCount) {
+        val rowProgress = when {
+            TeamPlayersAnimationState.currentRow == -1 -> 0f
+            i < TeamPlayersAnimationState.currentRow -> 1f
+            i == TeamPlayersAnimationState.currentRow -> TeamPlayersAnimationState.currentRowProgress
+            else -> 0f
+        }
         if (i % 2 == 0) {
+            // Even row: use row_1 resources.
             if (i == 0) {
                 leftPlayerRow_1?.let {
-                    val bgScaledWidth = (leftBackground?.width?.times(scaleFactor))?.toInt()
+                    val bgScaledWidth = (leftBackground?.width?.times(scaleFactor))?.toInt() ?: 0
                     val scaledWidth = (it.width * scaleFactor).toInt()
                     val scaledHeight = (it.height * scaleFactor).toInt()
-                    val x = screenWidth / 5 + (bgScaledWidth?.minus(scaledWidth)!!)
-                    val y = screenHeight / 6 + (leftBackground.height * scaleFactor).toInt() + initialGap
-                    drawFadedBitmap(canvas, it, x, y, scaledWidth, scaledHeight, progress)
+                    val x = screenWidth / 5 + (bgScaledWidth - scaledWidth)
+                    val y = screenHeight / 6 + ((leftBackground?.height?.times(scaleFactor))?.toInt() ?: 0) + initialGap
+                    drawFadedBitmap(canvas, it, x, y, scaledWidth, scaledHeight, rowProgress)
                 }
                 rightPlayerRow_1?.let {
                     val scaledWidth = (it.width * scaleFactor).toInt()
                     val scaledHeight = (it.height * scaleFactor).toInt()
                     val x = screenWidth / 2
-                    val y = screenHeight / 6 + ((leftBackground?.height?.times(scaleFactor))?.toInt()!!) + initialGap
-                    drawFadedBitmap(canvas, it, x, y, scaledWidth, scaledHeight, progress)
+                    val y = screenHeight / 6 + ((leftBackground?.height?.times(scaleFactor))?.toInt() ?: 0) + initialGap
+                    drawFadedBitmap(canvas, it, x, y, scaledWidth, scaledHeight, rowProgress)
                 }
             } else {
                 leftPlayerRow_1?.let {
-                    val bgScaledWidth = (leftBackground?.width?.times(scaleFactor))?.toInt()
+                    val bgScaledWidth = (leftBackground?.width?.times(scaleFactor))?.toInt() ?: 0
                     val scaledWidth = (it.width * scaleFactor).toInt()
                     val scaledHeight = (it.height * scaleFactor).toInt()
-                    val x = screenWidth / 5 + (bgScaledWidth?.minus(scaledWidth)!!)
-                    val y = screenHeight / 6 + ((leftBackground.height.times(scaleFactor)).toInt()) + scaledHeight * i + initialGap
-                    drawFadedBitmap(canvas, it, x, y, scaledWidth, scaledHeight, progress)
+                    val x = screenWidth / 5 + (bgScaledWidth - scaledWidth)
+                    val y = screenHeight / 6 + ((leftBackground?.height?.times(scaleFactor))?.toInt() ?: 0) + scaledHeight * i + initialGap
+                    drawFadedBitmap(canvas, it, x, y, scaledWidth, scaledHeight, rowProgress)
                 }
                 rightPlayerRow_1?.let {
                     val scaledWidth = (it.width * scaleFactor).toInt()
                     val scaledHeight = (it.height * scaleFactor).toInt()
                     val x = screenWidth / 2
-                    val y = screenHeight / 6 + ((leftBackground?.height?.times(scaleFactor))?.toInt()!!) + scaledHeight * i + initialGap
-                    drawFadedBitmap(canvas, it, x, y, scaledWidth, scaledHeight, progress)
+                    val y = screenHeight / 6 + ((leftBackground?.height?.times(scaleFactor))?.toInt() ?: 0) + scaledHeight * i + initialGap
+                    drawFadedBitmap(canvas, it, x, y, scaledWidth, scaledHeight, rowProgress)
                 }
             }
         } else {
+            // Odd row: use row_2 resources.
             leftPlayerRow_2?.let {
-                val bgScaledWidth = (leftBackground?.width?.times(scaleFactor))?.toInt()
+                val bgScaledWidth = (leftBackground?.width?.times(scaleFactor))?.toInt() ?: 0
                 val scaledWidth = (it.width * scaleFactor).toInt()
                 val scaledHeight = (it.height * scaleFactor).toInt()
-                val x = screenWidth / 5 + (bgScaledWidth?.minus(scaledWidth)!!)
-                val y = screenHeight / 6 + ((leftBackground.height.times(scaleFactor)).toInt()) + scaledHeight * i + initialGap
-                drawFadedBitmap(canvas, it, x, y, scaledWidth, scaledHeight, progress)
+                val x = screenWidth / 5 + (bgScaledWidth - scaledWidth)
+                val y = screenHeight / 6 + ((leftBackground?.height?.times(scaleFactor))?.toInt() ?: 0) + scaledHeight * i + initialGap
+                drawFadedBitmap(canvas, it, x, y, scaledWidth, scaledHeight, rowProgress)
             }
             rightPlayerRow_2?.let {
                 val scaledWidth = (it.width * scaleFactor).toInt()
                 val scaledHeight = (it.height * scaleFactor).toInt()
                 val x = screenWidth / 2
-                val y = screenHeight / 6 + ((leftBackground?.height?.times(scaleFactor))?.toInt()!!) + scaledHeight * i + initialGap
-                drawFadedBitmap(canvas, it, x, y, scaledWidth, scaledHeight, progress)
+                val y = screenHeight / 6 + ((leftBackground?.height?.times(scaleFactor))?.toInt() ?: 0) + scaledHeight * i + initialGap
+                drawFadedBitmap(canvas, it, x, y, scaledWidth, scaledHeight, rowProgress)
             }
         }
     }
@@ -313,7 +341,8 @@ private fun getBitmapFromResource(context: Context, resId: Int): Bitmap? {
 }
 
 /**
- * Updates the team players overlay using a ValueAnimator to animate the gradient fade.
+ * Updates the team players overlay by first animating the main background (with logos and team names),
+ * then sequentially animating each row.
  */
 @SuppressLint("DiscouragedApi")
 fun updateTeamPlayersOverlay(
@@ -329,20 +358,91 @@ fun updateTeamPlayersOverlay(
     imageObjectFilterRender: ImageObjectFilterRender
 ) {
     Handler(Looper.getMainLooper()).post {
-        // Animate the progress value from 0 (fully faded) to 1 (fully revealed).
-        val animator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 500L // Duration in milliseconds (adjust as needed)
+        // First animate the main part.
+        val mainAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 300L // Duration for the main section.
             addUpdateListener { animation ->
                 val progress = animation.animatedValue as Float
-                val playersBitmap = createTeamPlayersBitmap(context, screenWidth, screenHeight, leftLogoBitmap, rightLogoBitmap, leftTeamName, rightTeamName, leftTeamPlayers, rightTeamPlayers, progress)
-                imageObjectFilterRender.setImage(playersBitmap)
-                // Optionally, adjust scale and position of your overlay:
-                // imageObjectFilterRender.setScale(...)
-                // imageObjectFilterRender.setPosition(...)
+                // During the main animation, rows are not yet animated.
+                val bitmap = createTeamPlayersBitmap(
+                    context, screenWidth, screenHeight,
+                    leftLogoBitmap, rightLogoBitmap,
+                    leftTeamName, rightTeamName,
+                    leftTeamPlayers, rightTeamPlayers,
+                    progress
+                )
+                imageObjectFilterRender.setImage(bitmap)
             }
         }
-        animator.start()
+        mainAnimator.addListener(object : AnimatorListenerAdapter() {
+            override fun onAnimationEnd(animation: Animator) {
+                // When main animation ends, start sequential row animations.
+                animateRows(
+                    context, screenWidth, screenHeight,
+                    leftLogoBitmap, rightLogoBitmap,
+                    leftTeamName, rightTeamName,
+                    leftTeamPlayers, rightTeamPlayers,
+                    imageObjectFilterRender
+                )
+            }
+        })
+        mainAnimator.start()
     }
+}
+
+/**
+ * Animates the player rows sequentially.
+ */
+private fun animateRows(
+    context: Context,
+    screenWidth: Int,
+    screenHeight: Int,
+    leftLogoBitmap: Bitmap?,
+    rightLogoBitmap: Bitmap?,
+    leftTeamName: String,
+    rightTeamName: String,
+    leftTeamPlayers: List<PlayerEntry>,
+    rightTeamPlayers: List<PlayerEntry>,
+    imageObjectFilterRender: ImageObjectFilterRender
+) {
+    val leftTeamCount = leftTeamPlayers.size
+    val rightTeamCount = rightTeamPlayers.size
+    val maxCount = maxOf(leftTeamCount, rightTeamCount)
+    var currentRow = 0
+
+    fun animateNextRow() {
+        if (currentRow < maxCount) {
+            // Set current row in global state.
+            TeamPlayersAnimationState.currentRow = currentRow
+            val rowAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+                duration = 300L // Duration for each row animation.
+                addUpdateListener { anim ->
+                    TeamPlayersAnimationState.currentRowProgress = anim.animatedValue as Float
+                    // Redraw the overlay with main part fully visible (progress = 1f) and the current row animating.
+                    val bitmap = createTeamPlayersBitmap(
+                        context, screenWidth, screenHeight,
+                        leftLogoBitmap, rightLogoBitmap,
+                        leftTeamName, rightTeamName,
+                        leftTeamPlayers, rightTeamPlayers,
+                        1f
+                    )
+                    imageObjectFilterRender.setImage(bitmap)
+                }
+                addListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        currentRow++
+                        animateNextRow() // Animate the next row.
+                    }
+                })
+            }
+            rowAnimator.start()
+        } else {
+            // Reset row state when finished.
+            TeamPlayersAnimationState.currentRow = -1
+            TeamPlayersAnimationState.currentRowProgress = 0f
+        }
+    }
+    animateNextRow()
 }
 
 /**
@@ -362,6 +462,12 @@ fun drawTeamPlayersOverlay(
     isOnPreview: Boolean
 ) {
     if (isOnPreview) {
-        updateTeamPlayersOverlay(context, screenWidth, screenHeight, leftLogoBitmap, rightLogoBitmap, leftTeamName, rightTeamName, leftTeamPlayers, rightTeamPlayers, imageObjectFilterRender)
+        updateTeamPlayersOverlay(
+            context, screenWidth, screenHeight,
+            leftLogoBitmap, rightLogoBitmap,
+            leftTeamName, rightTeamName,
+            leftTeamPlayers, rightTeamPlayers,
+            imageObjectFilterRender
+        )
     }
 }
