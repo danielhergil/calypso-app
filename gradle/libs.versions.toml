@@ -23,6 +23,7 @@ cameraCore = "1.4.0"
 uvcandroid = "1.0.8"
 firebaseStorageKtx = "21.0.1"
 crashlytics = "3.0.2"
+coreAnimation = "1.0.0"
 
 
 [libraries]
@@ -61,6 +62,7 @@ androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycl
 androidx-camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "cameraCore" }
 uvcandroid = { module = "com.herohan:UVCAndroid", version.ref = "uvcandroid" }
 firebase-storage-ktx = { group = "com.google.firebase", name = "firebase-storage-ktx", version.ref = "firebaseStorageKtx" }
+androidx-core-animation = { group = "androidx.core", name = "core-animation", version.ref = "coreAnimation" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
