@@ -289,13 +289,13 @@ fun updateTeamPlayersOverlaySequential(
                 imageObjectFilterRender.setImage(updatedOverlay)
                 Handler(Looper.getMainLooper()).postDelayed({
                     revealNextRow(current + 1)
-                }, 10L) // Delay (in milliseconds) between rows.
+                }, 50L) // Delay (in milliseconds) between rows.
             }
         }
         // Start revealing rows after a short delay.
         Handler(Looper.getMainLooper()).postDelayed({
             revealNextRow(0)
-        }, 300L)
+        }, 1000L)
     }
 }
 
