@@ -273,6 +273,7 @@ fun CameraScreenContent() {
     var leftTeamGoals by remember { mutableStateOf(0) }
     var rightTeamGoals by remember { mutableStateOf(0) }
     val imageObjectFilterRender = remember { ImageObjectFilterRender() }
+    val lineUpFilter = remember { ImageObjectFilterRender() }
     // Reference for the SurfaceView.
     val surfaceViewRef = remember { mutableStateOf<SurfaceView?>(null) }
 
@@ -644,7 +645,7 @@ fun CameraScreenContent() {
                     leftLogo = finalLeftLogo,
                     rightLogo = finalRightLogo,
                     selectedTeamsOverlayDuration = selectedTeamsOverlayDuration,
-                    imageObjectFilterRender = imageObjectFilterRender,
+                    lineUpFilter = lineUpFilter,
                     context = context
                 )
 
@@ -1781,7 +1782,7 @@ fun TeamPlayersOverlay(
     leftLogo: Bitmap,
     rightLogo: Bitmap,
     selectedTeamsOverlayDuration: String,
-    imageObjectFilterRender: ImageObjectFilterRender,
+    lineUpFilter: ImageObjectFilterRender,
     context: Context
 ){
     // Add or remove the overlay filter based on visibility.
@@ -1790,9 +1791,9 @@ fun TeamPlayersOverlay(
     LaunchedEffect(visible) {
         if (visible && genericStream.isOnPreview) {
             genericStream.getGlInterface().clearFilters()
-            genericStream.getGlInterface().addFilter(imageObjectFilterRender)
+            genericStream.getGlInterface().addFilter(lineUpFilter)
         } else {
-            genericStream.getGlInterface().removeFilter(imageObjectFilterRender)
+            genericStream.getGlInterface().removeFilter(lineUpFilter)
         }
 
         if (visible && genericStream.isOnPreview) {
@@ -1806,13 +1807,13 @@ fun TeamPlayersOverlay(
                 rightTeamName = team2Name,
                 leftTeamPlayers = team1Players,
                 rightTeamPlayers = team2Players,
-                imageObjectFilterRender = imageObjectFilterRender,
+                imageObjectFilterRender = lineUpFilter,
                 isOnPreview = genericStream.isOnPreview
             )
 
             val teamPlayersOverlayDelay = selectedTeamsOverlayDuration.split("s").first()
             delay(teamPlayersOverlayDelay.toLong() * 1000)
-            genericStream.getGlInterface().removeFilter(imageObjectFilterRender)
+            genericStream.getGlInterface().removeFilter(lineUpFilter)
         }
     }
 }
@@ -2032,6 +2033,7 @@ fun ScoreboardOverlay(
     // Add or remove the overlay filter based on visibility.
     LaunchedEffect(visible) {
         if (visible) {
+            genericStream.getGlInterface().clearFilters()
             genericStream.getGlInterface().addFilter(imageObjectFilterRender)
         } else {
             genericStream.getGlInterface().removeFilter(imageObjectFilterRender)
