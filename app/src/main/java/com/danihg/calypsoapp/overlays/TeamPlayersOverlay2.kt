@@ -7,10 +7,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Rect
-import android.graphics.RectF
-import android.os.Handler
-import android.os.Looper
-import android.util.Log
+import kotlinx.coroutines.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.res.ResourcesCompat
@@ -174,7 +171,13 @@ fun createTeamPlayersBitmapSequential(
                     }
                     val textX = x + (scaledWidth + numberGap) / 2f
                     val textY = y + (scaledHeight + initialGap - 10) / 2f
-                    drawStaticText(canvas, leftTeamPlayers[i].name.uppercase(Locale.ROOT), textX, textY, bigTextPaintLeft)
+
+                    val leftPlayerName = if (i < leftTeamPlayers.size) {
+                        leftTeamPlayers[i].name.uppercase(Locale.ROOT)
+                    } else {
+                        ""
+                    }
+                    drawStaticText(canvas, leftPlayerName, textX, textY, bigTextPaintLeft)
                 }
                 rightPlayerRow_1?.let {
                     val scaledWidth = (it.width * scaleFactor).toInt()
@@ -191,7 +194,13 @@ fun createTeamPlayersBitmapSequential(
                     }
                     val textX = x + (scaledWidth - numberGap) / 2f
                     val textY = y + (scaledHeight + initialGap - 10) / 2f
-                    drawStaticText(canvas, rightTeamPlayers[i].name.uppercase(Locale.ROOT), textX, textY, bigTextPaintLeft)
+
+                    val rightPlayerName = if (i < rightTeamPlayers.size) {
+                        rightTeamPlayers[i].name.uppercase(Locale.ROOT)
+                    } else {
+                        ""
+                    }
+                    drawStaticText(canvas, rightPlayerName, textX, textY, bigTextPaintLeft)
                 }
             } else {
                 // Row type 2.
@@ -211,7 +220,13 @@ fun createTeamPlayersBitmapSequential(
                     }
                     val textX = x + (scaledWidth + numberGap) / 2f
                     val textY = y + (scaledHeight + initialGap - 10) / 2f
-                    drawStaticText(canvas, leftTeamPlayers[i].name.uppercase(Locale.ROOT), textX, textY, bigTextPaintLeft)
+
+                    val leftPlayerName = if (i < leftTeamPlayers.size) {
+                        leftTeamPlayers[i].name.uppercase(Locale.ROOT)
+                    } else {
+                        ""
+                    }
+                    drawStaticText(canvas, leftPlayerName, textX, textY, bigTextPaintLeft)
                 }
                 rightPlayerRow_2?.let {
                     val scaledWidth = (it.width * scaleFactor).toInt()
@@ -228,7 +243,13 @@ fun createTeamPlayersBitmapSequential(
                     }
                     val textX = x + (scaledWidth - numberGap) / 2f
                     val textY = y + (scaledHeight + initialGap - 10) / 2f
-                    drawStaticText(canvas, rightTeamPlayers[i].name.uppercase(Locale.ROOT), textX, textY, bigTextPaintLeft)
+
+                    val rightPlayerName = if (i < rightTeamPlayers.size) {
+                        rightTeamPlayers[i].name.uppercase(Locale.ROOT)
+                    } else {
+                        ""
+                    }
+                    drawStaticText(canvas, rightPlayerName, textX, textY, bigTextPaintLeft)
                 }
             }
         }
@@ -262,40 +283,45 @@ fun updateTeamPlayersOverlaySequential(
     rightTeamPlayers: List<PlayerEntry>,
     imageObjectFilterRender: ImageObjectFilterRender
 ) {
-    Handler(Looper.getMainLooper()).post {
+    // Launch a coroutine on the Main dispatcher.
+    CoroutineScope(Dispatchers.Main).launch {
         // Immediately show the main overlay (without rows).
         TeamPlayersAnimationState.currentRow = -1
-        val mainOverlay = createTeamPlayersBitmapSequential(
-            context, screenWidth, screenHeight,
-            leftLogoBitmap, rightLogoBitmap,
-            leftTeamName, rightTeamName,
-            leftTeamPlayers, rightTeamPlayers
-        )
+        val mainOverlay = withContext(Dispatchers.Default) {
+            createTeamPlayersBitmapSequential(
+                context, screenWidth, screenHeight,
+                leftLogoBitmap, rightLogoBitmap,
+                leftTeamName, rightTeamName,
+                leftTeamPlayers, rightTeamPlayers
+            )
+        }
         imageObjectFilterRender.setImage(mainOverlay)
 
         // Determine the maximum number of rows.
         val maxCount = maxOf(leftTeamPlayers.size, rightTeamPlayers.size)
 
-        // Sequentially reveal rows using a Handler with delay.
-        fun revealNextRow(current: Int) {
+        // Delay before starting to reveal rows.
+        delay(1000L)
+
+        // Define a suspend function to reveal rows sequentially.
+        suspend fun revealNextRow(current: Int) {
             if (current < maxCount) {
                 TeamPlayersAnimationState.currentRow = current
-                val updatedOverlay = createTeamPlayersBitmapSequential(
-                    context, screenWidth, screenHeight,
-                    leftLogoBitmap, rightLogoBitmap,
-                    leftTeamName, rightTeamName,
-                    leftTeamPlayers, rightTeamPlayers
-                )
+                val updatedOverlay = withContext(Dispatchers.Default) {
+                    createTeamPlayersBitmapSequential(
+                        context, screenWidth, screenHeight,
+                        leftLogoBitmap, rightLogoBitmap,
+                        leftTeamName, rightTeamName,
+                        leftTeamPlayers, rightTeamPlayers
+                    )
+                }
                 imageObjectFilterRender.setImage(updatedOverlay)
-                Handler(Looper.getMainLooper()).postDelayed({
-                    revealNextRow(current + 1)
-                }, 50L) // Delay (in milliseconds) between rows.
+                delay(50L) // Delay (in milliseconds) between rows.
+                revealNextRow(current + 1)
             }
         }
-        // Start revealing rows after a short delay.
-        Handler(Looper.getMainLooper()).postDelayed({
-            revealNextRow(0)
-        }, 1000L)
+        // Start revealing rows.
+        revealNextRow(0)
     }
 }
 

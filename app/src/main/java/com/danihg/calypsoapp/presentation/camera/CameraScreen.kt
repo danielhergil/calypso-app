@@ -117,9 +117,11 @@ import com.danihg.calypsoapp.utils.rememberToast
 import com.pedro.common.AudioCodec
 import com.pedro.common.ConnectChecker
 import com.pedro.common.VideoCodec
+import com.pedro.encoder.input.gl.render.filters.`object`.GifObjectFilterRender
 import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
 import com.pedro.encoder.input.sources.audio.AudioSource
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
+import com.pedro.encoder.utils.gl.TranslateTo
 import java.util.Date
 import com.pedro.extrasources.CameraUvcSource
 import com.pedro.library.base.recording.RecordController
@@ -312,6 +314,27 @@ fun CameraScreenContent() {
     // Fallback to default logos.
     val finalLeftLogo = leftLogoBitmap ?: defaultLeftLogo
     val finalRightLogo = rightLogoBitmap ?: defaultRightLogo
+
+    val team1Players: List<PlayerEntry> = team1?.players?.map { playerStr ->
+        val parts = playerStr.split(",")
+        if (parts.size == 2) {
+            // parts[0] is player name and parts[1] is the number.
+            PlayerEntry(parts[1].trim(), parts[0].trim())
+        } else {
+            // Fallback if the format is not as expected.
+            PlayerEntry("", playerStr)
+        }
+    } ?: emptyList()
+
+    val team2Players: List<PlayerEntry> = team2?.players?.map { playerStr ->
+        val parts = playerStr.split(",")
+        if (parts.size == 2) {
+            PlayerEntry(parts[1].trim(), parts[0].trim())
+        } else {
+            PlayerEntry("", playerStr)
+        }
+    } ?: emptyList()
+
 
     // 1) State to track whether we want to show the team players overlay
     var showTeamPlayersOverlay by rememberSaveable { mutableStateOf(false) }
@@ -1269,7 +1292,7 @@ fun CameraScreenContent() {
                                 genericStream.stopPreview()
 
                                 // Introduce a delay (e.g., 500ms) to allow the GL context to settle.
-                                delay(500)
+//                                delay(500)
 
                                 // Apply new resolution settings.
                                 when (selectedResolution) {

@@ -16,7 +16,8 @@ openglApi = "gl1.1-android-2.1_r1"
 playServicesAuth = "21.3.0"
 services = "4.4.2"
 navigationCompose = "2.7.7"
-rootEncoderLibrary = "2.5.5"
+rootEncoderLibrary = "8fdb2831d1"
+rootEncoderExtra = "2.5.5"
 cameraView = "1.4.0"
 cameraLifecycle = "1.4.0"
 cameraCore = "1.4.0"
@@ -54,7 +55,7 @@ firebase-crashlytics = {module = "com.google.firebase:firebase-crashlytics"}
 opengl-api = { module = "org.khronos:opengl-api", version.ref = "openglApi" }
 play-services-auth = { module = "com.google.android.gms:play-services-auth", version.ref = "playServicesAuth" }
 rootencoder-library = {module = "com.github.pedroSG94.RootEncoder:library", version.ref = "rootEncoderLibrary"}
-rootencoder-extra = {module = "com.github.pedroSG94.RootEncoder:extra-sources", version.ref = "rootEncoderLibrary"}
+rootencoder-extra = {module = "com.github.pedroSG94.RootEncoder:extra-sources", version.ref = "rootEncoderExtra"}
 
 androidx-navigation-compose = {module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose"}
 androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "cameraView" }
