@@ -26,7 +26,7 @@ data class PlayerEntry(
 )
 
 /**
- * Draws a bitmap onto the canvas without any fade.
+ * Draws a bitmap onto the canvas with a given alpha.
  */
 fun drawStaticBitmap(
     canvas: Canvas,
@@ -34,34 +34,43 @@ fun drawStaticBitmap(
     x: Int,
     y: Int,
     width: Int,
-    height: Int
+    height: Int,
+    alpha: Int = 255
 ) {
     val rect = Rect(x, y, x + width, y + height)
     if (bitmap != null) {
         val scaledBitmap = Bitmap.createScaledBitmap(bitmap, width, height, true)
-        canvas.drawBitmap(scaledBitmap, x.toFloat(), y.toFloat(), null)
+        val paint = Paint().apply { this.alpha = alpha }
+        canvas.drawBitmap(scaledBitmap, x.toFloat(), y.toFloat(), paint)
     } else {
-        val fallbackPaint = Paint().apply { color = Color.Black.toArgb() }
+        val fallbackPaint = Paint().apply {
+            color = Color.Black.toArgb()
+            this.alpha = alpha
+        }
         canvas.drawRect(rect, fallbackPaint)
     }
 }
 
 /**
- * Draws text onto the canvas without any fade.
+ * Draws text onto the canvas with a given alpha.
  */
 fun drawStaticText(
     canvas: Canvas,
     text: String,
     x: Float,
     y: Float,
-    paint: Paint
+    paint: Paint,
+    alpha: Int = 255
 ) {
+    paint.alpha = alpha
     canvas.drawText(text, x, y, paint)
 }
 
 /**
  * Creates a team players overlay bitmap that includes the main elements (backgrounds, logos, team names)
  * and player rows. Only rows with index <= TeamPlayersAnimationState.currentRow are drawn.
+ *
+ * The new parameter fadeAlpha controls the opacity for the currently animating row.
  */
 fun createTeamPlayersBitmapSequential(
     context: Context,
@@ -72,7 +81,8 @@ fun createTeamPlayersBitmapSequential(
     leftTeamName: String,
     rightTeamName: String,
     leftTeamPlayers: List<PlayerEntry>,
-    rightTeamPlayers: List<PlayerEntry>
+    rightTeamPlayers: List<PlayerEntry>,
+    fadeAlpha: Float = 1f
 ): Bitmap {
     val bitmap = Bitmap.createBitmap(screenWidth, screenHeight, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
@@ -153,6 +163,11 @@ fun createTeamPlayersBitmapSequential(
     // For each row index, draw the row only if it is less than or equal to currentRow.
     for (i in 0 until maxCount) {
         if (i <= TeamPlayersAnimationState.currentRow) {
+            // Determine the alpha value for the row.
+            val currentAlpha = if (i == TeamPlayersAnimationState.currentRow)
+                (fadeAlpha * 255).toInt().coerceIn(0, 255)
+            else 255
+
             if (i % 2 == 0) {
                 // Row type 1.
                 leftPlayerRow_1?.let {
@@ -161,7 +176,7 @@ fun createTeamPlayersBitmapSequential(
                     val scaledHeight = (it.height * scaleFactor).toInt()
                     val x = screenWidth / 5 + (bgScaledWidth - scaledWidth)
                     val y = screenHeight / 6 + ((leftBackground?.height?.times(scaleFactor))?.toInt() ?: 0) + initialGap + scaledHeight * i
-                    drawStaticBitmap(canvas, it, x, y, scaledWidth, scaledHeight)
+                    drawStaticBitmap(canvas, it, x, y, scaledWidth, scaledHeight, currentAlpha)
                     val bigTextPaintLeft = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                         color = Color.White.toArgb()
                         textAlign = Paint.Align.CENTER
@@ -171,20 +186,17 @@ fun createTeamPlayersBitmapSequential(
                     }
                     val textX = x + (scaledWidth + numberGap) / 2f
                     val textY = y + (scaledHeight + initialGap - 10) / 2f
-
                     val leftPlayerName = if (i < leftTeamPlayers.size) {
                         leftTeamPlayers[i].name.uppercase(Locale.ROOT)
-                    } else {
-                        ""
-                    }
-                    drawStaticText(canvas, leftPlayerName, textX, textY, bigTextPaintLeft)
+                    } else ""
+                    drawStaticText(canvas, leftPlayerName, textX, textY, bigTextPaintLeft, currentAlpha)
                 }
                 rightPlayerRow_1?.let {
                     val scaledWidth = (it.width * scaleFactor).toInt()
                     val scaledHeight = (it.height * scaleFactor).toInt()
                     val x = screenWidth / 2
                     val y = screenHeight / 6 + ((leftBackground?.height?.times(scaleFactor))?.toInt() ?: 0) + initialGap + scaledHeight * i
-                    drawStaticBitmap(canvas, it, x, y, scaledWidth, scaledHeight)
+                    drawStaticBitmap(canvas, it, x, y, scaledWidth, scaledHeight, currentAlpha)
                     val bigTextPaintLeft = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                         color = Color.White.toArgb()
                         textAlign = Paint.Align.CENTER
@@ -194,13 +206,10 @@ fun createTeamPlayersBitmapSequential(
                     }
                     val textX = x + (scaledWidth - numberGap) / 2f
                     val textY = y + (scaledHeight + initialGap - 10) / 2f
-
                     val rightPlayerName = if (i < rightTeamPlayers.size) {
                         rightTeamPlayers[i].name.uppercase(Locale.ROOT)
-                    } else {
-                        ""
-                    }
-                    drawStaticText(canvas, rightPlayerName, textX, textY, bigTextPaintLeft)
+                    } else ""
+                    drawStaticText(canvas, rightPlayerName, textX, textY, bigTextPaintLeft, currentAlpha)
                 }
             } else {
                 // Row type 2.
@@ -210,7 +219,7 @@ fun createTeamPlayersBitmapSequential(
                     val scaledHeight = (it.height * scaleFactor).toInt()
                     val x = screenWidth / 5 + (bgScaledWidth - scaledWidth)
                     val y = screenHeight / 6 + ((leftBackground?.height?.times(scaleFactor))?.toInt() ?: 0) + initialGap + scaledHeight * i
-                    drawStaticBitmap(canvas, it, x, y, scaledWidth, scaledHeight)
+                    drawStaticBitmap(canvas, it, x, y, scaledWidth, scaledHeight, currentAlpha)
                     val bigTextPaintLeft = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                         color = Color.White.toArgb()
                         textAlign = Paint.Align.CENTER
@@ -220,20 +229,17 @@ fun createTeamPlayersBitmapSequential(
                     }
                     val textX = x + (scaledWidth + numberGap) / 2f
                     val textY = y + (scaledHeight + initialGap - 10) / 2f
-
                     val leftPlayerName = if (i < leftTeamPlayers.size) {
                         leftTeamPlayers[i].name.uppercase(Locale.ROOT)
-                    } else {
-                        ""
-                    }
-                    drawStaticText(canvas, leftPlayerName, textX, textY, bigTextPaintLeft)
+                    } else ""
+                    drawStaticText(canvas, leftPlayerName, textX, textY, bigTextPaintLeft, currentAlpha)
                 }
                 rightPlayerRow_2?.let {
                     val scaledWidth = (it.width * scaleFactor).toInt()
                     val scaledHeight = (it.height * scaleFactor).toInt()
                     val x = screenWidth / 2
                     val y = screenHeight / 6 + ((leftBackground?.height?.times(scaleFactor))?.toInt() ?: 0) + initialGap + scaledHeight * i
-                    drawStaticBitmap(canvas, it, x, y, scaledWidth, scaledHeight)
+                    drawStaticBitmap(canvas, it, x, y, scaledWidth, scaledHeight, currentAlpha)
                     val bigTextPaintLeft = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                         color = Color.White.toArgb()
                         textAlign = Paint.Align.CENTER
@@ -243,18 +249,14 @@ fun createTeamPlayersBitmapSequential(
                     }
                     val textX = x + (scaledWidth - numberGap) / 2f
                     val textY = y + (scaledHeight + initialGap - 10) / 2f
-
                     val rightPlayerName = if (i < rightTeamPlayers.size) {
                         rightTeamPlayers[i].name.uppercase(Locale.ROOT)
-                    } else {
-                        ""
-                    }
-                    drawStaticText(canvas, rightPlayerName, textX, textY, bigTextPaintLeft)
+                    } else ""
+                    drawStaticText(canvas, rightPlayerName, textX, textY, bigTextPaintLeft, currentAlpha)
                 }
             }
         }
     }
-
     return bitmap
 }
 
@@ -268,7 +270,7 @@ private fun getBitmapFromResource(context: Context, resId: Int): Bitmap? {
 
 /**
  * Updates the team players overlay sequentially: first the main overlay is shown,
- * then the player rows are revealed one by one (without fade).
+ * then each row fades in fast.
  */
 @SuppressLint("DiscouragedApi")
 fun updateTeamPlayersOverlaySequential(
@@ -299,31 +301,35 @@ fun updateTeamPlayersOverlaySequential(
 
         // Determine the maximum number of rows.
         val maxCount = maxOf(leftTeamPlayers.size, rightTeamPlayers.size)
-
-        // Delay before starting to reveal rows.
         delay(1000L)
 
-        // Define a suspend function to reveal rows sequentially.
+        // For each row index, animate a fade-in.
         suspend fun revealNextRow(current: Int) {
             if (current < maxCount) {
                 TeamPlayersAnimationState.currentRow = current
-                val updatedOverlay = withContext(Dispatchers.Default) {
-                    createTeamPlayersBitmapSequential(
-                        context, screenWidth, screenHeight,
-                        leftLogoBitmap, rightLogoBitmap,
-                        leftTeamName, rightTeamName,
-                        leftTeamPlayers, rightTeamPlayers
-                    )
+                val fadeSteps = 15  // Increased fade steps for smoother transition.
+                for (step in 0 until fadeSteps) {
+                    val fadeAlpha = (step + 1) / fadeSteps.toFloat()  // Gradually increase from 0 to 1.
+                    val updatedOverlay = withContext(Dispatchers.Default) {
+                        createTeamPlayersBitmapSequential(
+                            context, screenWidth, screenHeight,
+                            leftLogoBitmap, rightLogoBitmap,
+                            leftTeamName, rightTeamName,
+                            leftTeamPlayers, rightTeamPlayers,
+                            fadeAlpha = fadeAlpha
+                        )
+                    }
+                    imageObjectFilterRender.setImage(updatedOverlay)
+                    delay(15L)  // Shorter delay for smoother fade (total fade duration ~225ms).
                 }
-                imageObjectFilterRender.setImage(updatedOverlay)
-                delay(50L) // Delay (in milliseconds) between rows.
+                delay(50L)
                 revealNextRow(current + 1)
             }
         }
-        // Start revealing rows.
         revealNextRow(0)
     }
 }
+
 
 /**
  * Call this function to draw the overlay sequentially (first main overlay then rows).
