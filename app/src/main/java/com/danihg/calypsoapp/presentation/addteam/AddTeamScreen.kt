@@ -290,10 +290,27 @@ fun EditTeamDialog(
 
     var name by remember { mutableStateOf(team.name) }
     var alias by remember { mutableStateOf(team.alias) }
-    var playerInput by remember { mutableStateOf("") }
-    var players by remember { mutableStateOf(team.players) }
+    // For adding new players in edit mode.
+    var newPlayerNameInput by remember { mutableStateOf("") }
+    var newPlayerNumberInput by remember { mutableStateOf("") }
     var logoUri by remember { mutableStateOf<Uri?>(null) }
     var isUploading by remember { mutableStateOf(false) }
+
+    // A simple data class for splitting player info.
+    data class PlayerData(var name: String, var number: String)
+
+    // Build a mutable state list from the existing team players.
+    val playersData = remember {
+        mutableStateListOf<PlayerData>().apply {
+            team.players.forEach { playerStr ->
+                val parts = playerStr.split(",")
+                if (parts.size == 2)
+                    add(PlayerData(parts[0], parts[1]))
+                else
+                    add(PlayerData(playerStr, ""))
+            }
+        }
+    }
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
@@ -338,14 +355,62 @@ fun EditTeamDialog(
                     )
                 )
                 Spacer(modifier = Modifier.height(8.dp))
+                Text("Players:", color = Color.LightGray, fontWeight = FontWeight.Medium)
+                // Display each player as two editable fields.
+                playersData.forEachIndexed { index, playerData ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = playerData.name,
+                            onValueChange = { newName ->
+                                playersData[index] = playerData.copy(name = newName)
+                            },
+                            label = { Text("Name") },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = CalypsoRed,
+                                unfocusedBorderColor = Color.Gray,
+                                focusedLabelColor = CalypsoRed,
+                                unfocusedLabelColor = Color.Gray
+                            )
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        OutlinedTextField(
+                            value = playerData.number,
+                            onValueChange = { newNumber ->
+                                playersData[index] = playerData.copy(number = newNumber)
+                            },
+                            label = { Text("Number") },
+                            singleLine = true,
+                            modifier = Modifier.width(80.dp),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = CalypsoRed,
+                                unfocusedBorderColor = Color.Gray,
+                                focusedLabelColor = CalypsoRed,
+                                unfocusedLabelColor = Color.Gray
+                            )
+                        )
+                    }
+                }
+                // Row to add a new player in edit mode.
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     OutlinedTextField(
-                        value = playerInput,
-                        onValueChange = { if (it.length <= 20) playerInput = it },
-                        label = { Text("Add Player") },
+                        value = newPlayerNameInput,
+                        onValueChange = { if (it.length <= 20) newPlayerNameInput = it },
+                        label = { Text("Player Name") },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                         colors = OutlinedTextFieldDefaults.colors(
@@ -357,21 +422,39 @@ fun EditTeamDialog(
                             unfocusedLabelColor = Color.Gray
                         )
                     )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    OutlinedTextField(
+                        value = newPlayerNumberInput,
+                        onValueChange = { if (it.length <= 4) newPlayerNumberInput = it },
+                        label = { Text("Number") },
+                        singleLine = true,
+                        modifier = Modifier.width(80.dp),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = CalypsoRed,
+                            unfocusedBorderColor = Color.Gray,
+                            focusedLabelColor = CalypsoRed,
+                            unfocusedLabelColor = Color.Gray
+                        )
+                    )
                     IconButton(
                         onClick = {
-                            if (playerInput.isNotBlank()) {
-                                players = players + playerInput
-                                playerInput = ""
+                            if (newPlayerNameInput.isNotBlank() && newPlayerNumberInput.isNotBlank()) {
+                                playersData.add(
+                                    PlayerData(
+                                        newPlayerNameInput.trim(),
+                                        newPlayerNumberInput.trim()
+                                    )
+                                )
+                                newPlayerNameInput = ""
+                                newPlayerNumberInput = ""
                             }
                         },
                         modifier = Modifier.padding(start = 8.dp)
                     ) {
                         Icon(Icons.Default.Add, contentDescription = "Add Player", tint = CalypsoRed)
-                    }
-                }
-                LazyColumn(modifier = Modifier.height(100.dp)) {
-                    items(players) { player ->
-                        Text(player, color = Color.White)
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -405,12 +488,14 @@ fun EditTeamDialog(
                     if (name.isNotBlank() && alias.isNotBlank()) {
                         coroutineScope.launch {
                             isUploading = true
+                            // Convert the list of PlayerData back into a list of "name,number" strings.
+                            val updatedPlayers = playersData.map { "${it.name},${it.number}" }
                             val success = firestoreManager.updateTeam(
                                 context = context,
                                 team = team,
                                 newTeamName = name,
                                 newTeamAlias = alias,
-                                newPlayers = players,
+                                newPlayers = updatedPlayers,
                                 newLogoUri = logoUri
                             )
                             isUploading = false
@@ -438,6 +523,7 @@ fun EditTeamDialog(
     )
 }
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddTeamDialog(
@@ -450,7 +536,9 @@ fun AddTeamDialog(
 
     var name by remember { mutableStateOf("") }
     var alias by remember { mutableStateOf("") }
-    var playerInput by remember { mutableStateOf("") }
+    // Instead of a single input, use two inputs: one for player name and one for number.
+    var playerNameInput by remember { mutableStateOf("") }
+    var playerNumberInput by remember { mutableStateOf("") }
     var players by remember { mutableStateOf(listOf<String>()) }
     var logoUri by remember { mutableStateOf<Uri?>(null) }
     var isUploading by remember { mutableStateOf(false) }
@@ -500,14 +588,15 @@ fun AddTeamDialog(
                     )
                 )
                 Spacer(modifier = Modifier.height(8.dp))
+                // Row for adding a player (name and number)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     OutlinedTextField(
-                        value = playerInput,
-                        onValueChange = { if (it.length <= 20) playerInput = it },
-                        label = { Text("Add Player") },
+                        value = playerNameInput,
+                        onValueChange = { if (it.length <= 20) playerNameInput = it },
+                        label = { Text("Player Name") },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                         colors = OutlinedTextFieldDefaults.colors(
@@ -519,11 +608,30 @@ fun AddTeamDialog(
                             unfocusedLabelColor = Color.Gray
                         )
                     )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    OutlinedTextField(
+                        value = playerNumberInput,
+                        onValueChange = { if (it.length <= 4) playerNumberInput = it },
+                        label = { Text("Number") },
+                        singleLine = true,
+                        modifier = Modifier.width(80.dp),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = CalypsoRed,
+                            unfocusedBorderColor = Color.Gray,
+                            focusedLabelColor = CalypsoRed,
+                            unfocusedLabelColor = Color.Gray
+                        )
+                    )
                     IconButton(
                         onClick = {
-                            if (playerInput.isNotBlank()) {
-                                players = players + playerInput
-                                playerInput = ""
+                            if (playerNameInput.isNotBlank() && playerNumberInput.isNotBlank()) {
+                                // Save the player as "name,number"
+                                players = players + "${playerNameInput.trim()},${playerNumberInput.trim()}"
+                                playerNameInput = ""
+                                playerNumberInput = ""
                             }
                         },
                         modifier = Modifier.padding(start = 8.dp)
@@ -531,11 +639,16 @@ fun AddTeamDialog(
                         Icon(Icons.Default.Add, contentDescription = "Add Player", tint = CalypsoRed)
                     }
                 }
+                // Display added players in a friendly format.
                 LazyColumn(
                     modifier = Modifier.height(100.dp)
                 ) {
                     items(players) { player ->
-                        Text(player, color = Color.White)
+                        val parts = player.split(",")
+                        val displayText = if (parts.size == 2) {
+                            "Name: ${parts[0]} – Number: ${parts[1]}"
+                        } else player
+                        Text(displayText, color = Color.White)
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))

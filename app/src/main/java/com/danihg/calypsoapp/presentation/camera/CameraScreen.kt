@@ -20,13 +20,14 @@ import android.os.Build
 import android.util.Log
 import android.view.SurfaceHolder
 import android.view.SurfaceView
-import android.opengl.GLSurfaceView
 import android.view.ViewGroup
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -74,7 +75,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
-import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -88,7 +88,6 @@ import com.danihg.calypsoapp.R
 import com.danihg.calypsoapp.data.FirestoreManager
 import com.danihg.calypsoapp.data.Team
 import com.danihg.calypsoapp.overlays.PlayerEntry
-import com.danihg.calypsoapp.overlays.animateTeamPlayersOverlay
 import com.danihg.calypsoapp.overlays.drawOverlay
 import com.danihg.calypsoapp.overlays.drawTeamPlayersOverlay
 import com.danihg.calypsoapp.services.StreamingService
@@ -105,25 +104,25 @@ import com.danihg.calypsoapp.utils.ModernDropdown
 import com.danihg.calypsoapp.utils.OpticalStabilizationModeSelector
 import com.danihg.calypsoapp.utils.PathUtils
 import com.danihg.calypsoapp.utils.PreventScreenLock
-import com.danihg.calypsoapp.utils.RemoveBorderWhiteTransformation
 import com.danihg.calypsoapp.utils.ScoreboardActionButtons
 import com.danihg.calypsoapp.utils.SectionSubtitle
 import com.danihg.calypsoapp.utils.SensorExposureTimeModeSelector
 import com.danihg.calypsoapp.utils.SensorExposureTimeSlider
+import com.danihg.calypsoapp.utils.ToggleAuxButton
 import com.danihg.calypsoapp.utils.WhiteBalanceModeSelector
-import com.danihg.calypsoapp.utils.ZoomSlider
+import com.danihg.calypsoapp.utils.ZoomControls
 import com.danihg.calypsoapp.utils.getAvailableAudioCodecs
 import com.danihg.calypsoapp.utils.getAvailableVideoCodecs
 import com.danihg.calypsoapp.utils.rememberToast
 import com.pedro.common.AudioCodec
 import com.pedro.common.ConnectChecker
 import com.pedro.common.VideoCodec
+import com.pedro.encoder.input.gl.render.filters.`object`.GifObjectFilterRender
 import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
 import com.pedro.encoder.input.sources.audio.AudioSource
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
+import com.pedro.encoder.utils.gl.TranslateTo
 import java.util.Date
-import com.pedro.encoder.input.sources.video.Camera2Source
-import com.pedro.encoder.input.video.Camera2ApiManager
 import com.pedro.extrasources.CameraUvcSource
 import com.pedro.library.base.recording.RecordController
 import com.pedro.library.generic.GenericStream
@@ -133,7 +132,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
-import kotlin.math.hypot
 
 class CameraViewModel(context: Context) : ViewModel() {
     // Create the camera instance once and keep it here.
@@ -183,7 +181,7 @@ fun CameraScreen() {
 @Composable
 fun CameraScreenContent() {
     val context = LocalContext.current
-    var isServiceRunning by remember { mutableStateOf(false) }
+    val isServiceRunning by remember { mutableStateOf(false) }
     PreventScreenLock()
     val showToast = rememberToast()
 
@@ -210,6 +208,7 @@ fun CameraScreenContent() {
     var selectedFPS by remember { mutableStateOf("30") }
     var selectedResolution by remember { mutableStateOf("1080p") }
     var selectedBitrate by remember { mutableIntStateOf(5000 * 1000) }
+    var selectedTeamsOverlayDuration by remember { mutableStateOf("10s") }
 
     // Map string values to codec objects.
     val enumAudioMapping = mapOf(
@@ -228,10 +227,11 @@ fun CameraScreenContent() {
     var isRecording by rememberSaveable { mutableStateOf(false) }
     var isSettingsMenuVisible by rememberSaveable { mutableStateOf(false) }
     var showApplyButton by rememberSaveable { mutableStateOf(false) }
+    var showOverlaySubMenu by rememberSaveable { mutableStateOf(false) }
     var showScoreboardOverlay by rememberSaveable { mutableStateOf(false) }
-    var selectedCamera by rememberSaveable { mutableStateOf("Camera2") }
     var showSettingsSubMenu  by rememberSaveable { mutableStateOf(false) }
     var showCameraSubSettings  by rememberSaveable { mutableStateOf(false) }
+    var showTeamPlayersOverlayMenu by rememberSaveable { mutableStateOf(false) }
 
     // State for recording timer (in seconds).
     var streamingTimerSeconds by remember { mutableStateOf(0L) }
@@ -275,6 +275,7 @@ fun CameraScreenContent() {
     var leftTeamGoals by remember { mutableStateOf(0) }
     var rightTeamGoals by remember { mutableStateOf(0) }
     val imageObjectFilterRender = remember { ImageObjectFilterRender() }
+    val lineUpFilter = remember { ImageObjectFilterRender() }
     // Reference for the SurfaceView.
     val surfaceViewRef = remember { mutableStateOf<SurfaceView?>(null) }
 
@@ -314,6 +315,27 @@ fun CameraScreenContent() {
     val finalLeftLogo = leftLogoBitmap ?: defaultLeftLogo
     val finalRightLogo = rightLogoBitmap ?: defaultRightLogo
 
+    val team1Players: List<PlayerEntry> = team1?.players?.map { playerStr ->
+        val parts = playerStr.split(",")
+        if (parts.size == 2) {
+            // parts[0] is player name and parts[1] is the number.
+            PlayerEntry(parts[1].trim(), parts[0].trim())
+        } else {
+            // Fallback if the format is not as expected.
+            PlayerEntry("", playerStr)
+        }
+    } ?: emptyList()
+
+    val team2Players: List<PlayerEntry> = team2?.players?.map { playerStr ->
+        val parts = playerStr.split(",")
+        if (parts.size == 2) {
+            PlayerEntry(parts[1].trim(), parts[0].trim())
+        } else {
+            PlayerEntry("", playerStr)
+        }
+    } ?: emptyList()
+
+
     // 1) State to track whether we want to show the team players overlay
     var showTeamPlayersOverlay by rememberSaveable { mutableStateOf(false) }
 
@@ -340,7 +362,7 @@ fun CameraScreenContent() {
     val cameraViewModel: CameraViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
-            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 return CameraViewModel(context) as T
             }
         }
@@ -630,6 +652,26 @@ fun CameraScreenContent() {
 //                    modifier = Modifier.fillMaxSize()
 //                )
 
+                // Team Players Overlay.
+                Log.d("PixelsWidth", LocalContext.current.resources.displayMetrics.widthPixels.toString())
+                Log.d("PixelsHeight", LocalContext.current.resources.displayMetrics.heightPixels.toString())
+
+                TeamPlayersOverlay(
+                    visible = showTeamPlayersOverlay && !showTeamPlayersOverlayMenu,
+                    genericStream = genericStream,
+                    screenWidth = LocalContext.current.resources.displayMetrics.widthPixels,
+                    screenHeight = LocalContext.current.resources.displayMetrics.heightPixels,
+                    team1Name = selectedTeam1,
+                    team2Name = selectedTeam2,
+                    team1Players = teamAPlayers,
+                    team2Players = teamBPlayers,
+                    leftLogo = finalLeftLogo,
+                    rightLogo = finalRightLogo,
+                    selectedTeamsOverlayDuration = selectedTeamsOverlayDuration,
+                    lineUpFilter = lineUpFilter,
+                    context = context
+                )
+
                 // Scoreboard overlay.
                 ScoreboardOverlay(
                     visible = showScoreboardOverlay && !showApplyButton,
@@ -734,14 +776,56 @@ fun CameraScreenContent() {
                         verticalArrangement = Arrangement.SpaceEvenly,
                         horizontalAlignment = Alignment.End
                     ) {
-                        // Rocket button (this is the reference position)
-                        AuxButton(
+                        Box(
                             modifier = Modifier
+                                .fillMaxWidth()
                                 .size(50.dp)
-                                .zIndex(2f),
-                            painter = painterResource(id = R.drawable.ic_rocket),
-                            onClick = { showApplyButton = !showApplyButton }
-                        )
+                                .zIndex(3f) // Ensure submenu appears above
+                        ){
+                            // Rocket button (this is the reference position)
+                            AuxButton(
+                                modifier = Modifier
+                                    .size(50.dp)
+                                    .align(Alignment.CenterEnd)
+                                    .zIndex(2f),
+                                painter = painterResource(id = R.drawable.ic_rocket),
+                                onClick = {
+                                    showOverlaySubMenu = !showOverlaySubMenu
+                                }
+                            )
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = showOverlaySubMenu,
+                                enter = fadeIn(tween(200)) + slideInHorizontally (initialOffsetX = { it / 2 }),
+                                exit = fadeOut(tween(200)) + slideOutHorizontally (targetOffsetX = { it / 2 }),
+                                modifier = Modifier
+                                    .align(Alignment.CenterEnd)
+                                    .offset(x = (-100).dp) // Adjust offset to align with button
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .wrapContentWidth()
+                                        .padding(6.dp),
+                                    horizontalArrangement = Arrangement.End
+                                ) {
+                                    AuxButton(
+                                        modifier = Modifier.size(40.dp),
+                                        painter = painterResource(id = R.drawable.ic_del_1),
+                                        onClick = {
+                                            showApplyButton = !showApplyButton
+                                        }
+                                    )
+                                    Spacer(modifier = Modifier.width(22.dp))
+                                    AuxButton(
+                                        modifier = Modifier.size(40.dp),
+                                        painter = painterResource(id = R.drawable.ic_del_2),
+                                        onClick = {
+                                            showTeamPlayersOverlayMenu = !showTeamPlayersOverlayMenu
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
 
                         Spacer(modifier = Modifier.height(5.dp))
 
@@ -805,13 +889,13 @@ fun CameraScreenContent() {
                                     showWhiteBalanceSlider = false
                                     showOpticalVideoStabilization = false
                                     showExposureSlider = false
-                                    showZoomSlider = false
+//                                    showZoomSlider = false
                                 }
                             )
                             androidx.compose.animation.AnimatedVisibility(
                                 visible = showSettingsSubMenu,
-                                enter = fadeIn(tween(200)) + slideInVertically(initialOffsetY = { it / 2 }),
-                                exit = fadeOut(tween(200)) + slideOutVertically(targetOffsetY = { it / 2 }),
+                                enter = fadeIn(tween(200)) + slideInHorizontally (initialOffsetX = { it / 2 }),
+                                exit = fadeOut(tween(200)) + slideOutHorizontally (targetOffsetX = { it / 2 }),
                                 modifier = Modifier
                                     .align(Alignment.CenterEnd)
                                     .offset(x = (-100).dp) // Adjust offset to align with button
@@ -840,10 +924,11 @@ fun CameraScreenContent() {
                                         )
                                     }
                                     else {
-                                        AuxButton(
+                                        ToggleAuxButton(
                                             modifier = Modifier.size(40.dp),
                                             painter = painterResource(id = R.drawable.ic_zoom),
-                                            onClick = {
+                                            toggled = showZoomSlider,
+                                            onToggle = {
                                                 // Toggle the zoom slider overlay
                                                 showZoomSlider = !showZoomSlider
                                                 showExposureSlider = false
@@ -858,7 +943,7 @@ fun CameraScreenContent() {
                                             modifier = Modifier.size(40.dp),
                                             painter = painterResource(id = R.drawable.ic_iso),
                                             onClick = {
-                                                showZoomSlider = false
+//                                                showZoomSlider = false
                                                 showExposureSlider = !showExposureSlider
                                                 showWhiteBalanceSlider = false
                                                 showOpticalVideoStabilization = false
@@ -872,7 +957,7 @@ fun CameraScreenContent() {
                                             painter = painterResource(id = R.drawable.ic_wb),
                                             onClick = {
                                                 showWhiteBalanceSlider = !showWhiteBalanceSlider
-                                                showZoomSlider = false
+//                                                showZoomSlider = false
                                                 showExposureSlider = false
                                                 showOpticalVideoStabilization = false
                                                 showExposureCompensationSlider = false
@@ -885,7 +970,7 @@ fun CameraScreenContent() {
                                             painter = painterResource(id = R.drawable.ic_optical_stabilization),
                                             onClick = {
                                                 showOpticalVideoStabilization = !showOpticalVideoStabilization
-                                                showZoomSlider = false
+//                                                showZoomSlider = false
                                                 showExposureSlider = false
                                                 showWhiteBalanceSlider = false
                                                 showExposureCompensationSlider = false
@@ -898,7 +983,7 @@ fun CameraScreenContent() {
                                             painter = painterResource(id = R.drawable.ic_exposure_compensation),
                                             onClick = {
                                                 showExposureCompensationSlider = !showExposureCompensationSlider
-                                                showZoomSlider = false
+//                                                showZoomSlider = false
                                                 showExposureSlider = false
                                                 showWhiteBalanceSlider = false
                                                 showOpticalVideoStabilization = false
@@ -911,7 +996,7 @@ fun CameraScreenContent() {
                                             painter = painterResource(id = R.drawable.ic_exposure_time),
                                             onClick = {
                                                 showSensorExposureTimeSlider = !showSensorExposureTimeSlider
-                                                showZoomSlider = false
+//                                                showZoomSlider = false
                                                 showExposureSlider = false
                                                 showWhiteBalanceSlider = false
                                                 showOpticalVideoStabilization = false
@@ -925,21 +1010,39 @@ fun CameraScreenContent() {
                     }
 
                     // Later in your Scaffold (for example, inside the root Box), add the slider overlay:
+//                    if (showZoomSlider) {
+//                        Box(modifier = Modifier.fillMaxSize()) {
+//                            ZoomSlider(
+//                                zoomLevel = zoomLevel,
+//                                onValueChange = { newZoom ->
+//                                    zoomLevel = newZoom
+//                                    // Update the camera zoom directly.
+//                                    activeCameraSource.setZoom(newZoom)
+//                                },
+//                                modifier = Modifier
+//                                    .padding(start = 16.dp, top = 50.dp) // adjust padding as needed
+//                                    .align(Alignment.CenterStart)
+//                            )
+//                        }
+//                    }
+
                     if (showZoomSlider) {
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            ZoomSlider(
+                        Box(modifier = Modifier.fillMaxSize().padding(start = 50.dp)) {
+                            // Assume zoomLevel is a mutable state.
+                            ZoomControls(
                                 zoomLevel = zoomLevel,
-                                onValueChange = { newZoom ->
-                                    zoomLevel = newZoom
-                                    // Update the camera zoom directly.
-                                    activeCameraSource.setZoom(newZoom)
+                                onZoomDelta = { delta ->
+                                    // Update the zoom level smoothly and ensure it stays within your bounds (e.g. 1f to 5f)
+                                    zoomLevel = (zoomLevel + delta).coerceIn(1f, 5f)
+                                    activeCameraSource.setZoom(zoomLevel)
                                 },
                                 modifier = Modifier
-                                    .padding(start = 16.dp, top = 50.dp) // adjust padding as needed
+                                    .padding(start = 40.dp, top = 50.dp) // adjust padding as needed
                                     .align(Alignment.CenterStart)
                             )
                         }
                     }
+
                     // Inside your Scaffold's root Box (or similar), add this block:
                     if (showExposureSlider) {
                         val configuration = LocalConfiguration.current
@@ -1149,8 +1252,6 @@ fun CameraScreenContent() {
                     }
                 }
 
-
-
                 // Calculate dimensions for the settings menu.
                 val screenHeight = LocalContext.current.resources.displayMetrics.heightPixels.dp
                 val screenWidth = LocalContext.current.resources.displayMetrics.widthPixels.dp
@@ -1180,105 +1281,82 @@ fun CameraScreenContent() {
                     availableVideoCodecs = getAvailableVideoCodecs(),
                     availableAudioCodecs = getAvailableAudioCodecs(),
                     onApply = {
-                        if (!isStreaming) {
-                            // Apply settings: update resolution, prepare codecs, and restart preview.
-                            genericStream.stopPreview()
-                            when (selectedResolution) {
-                                "1080p" -> {
-                                    videoWidth = 1920
-                                    videoHeight = 1080
+                        // Launch a coroutine to introduce a delay after stopping the preview.
+                        coroutineScope.launch {
+                            if (!isStreaming) {
+
+                                // 1. Clear any active GL filters to prevent lingering state.
+                                genericStream.getGlInterface().clearFilters()
+
+                                // 2. Stop the current preview so that the GL context can properly shut down.
+                                genericStream.stopPreview()
+
+                                // Introduce a delay (e.g., 500ms) to allow the GL context to settle.
+//                                delay(500)
+
+                                // Apply new resolution settings.
+                                when (selectedResolution) {
+                                    "1080p" -> {
+                                        videoWidth = 1920
+                                        videoHeight = 1080
+                                    }
+                                    "720p" -> {
+                                        videoWidth = 1280
+                                        videoHeight = 720
+                                    }
                                 }
-                                "720p" -> {
-                                    videoWidth = 1280
-                                    videoHeight = 720
+                                videoBitrate = selectedBitrate
+
+                                // Save settings.
+                                sharedPreferences.edit().apply {
+                                    putInt("videoWidth", videoWidth)
+                                    putInt("videoHeight", videoHeight)
+                                    putInt("videoBitrate", videoBitrate)
+                                    putString("streamUrl", streamUrl)
+                                    apply()
                                 }
-                            }
-                            videoBitrate = selectedBitrate
-                            sharedPreferences.edit().apply {
-                                putInt("videoWidth", videoWidth)
-                                putInt("videoHeight", videoHeight)
-                                putInt("videoBitrate", videoBitrate)
-                                putString("streamUrl", streamUrl)
-                                apply()
-                            }
-                            enumAudioMapping[selectedAudioEncoder]?.let { audioCodec ->
-                                genericStream.setAudioCodec(audioCodec)
-                                Log.d("CodecCheck", "Set audio codec to: $audioCodec")
-                            }
-                            enumVideoMapping[selectedVideoEncoder]?.let { videoCodec ->
-                                genericStream.setVideoCodec(videoCodec)
-                                Log.d("CodecCheck", "Set video codec to: $videoCodec")
-                            }
-                            val newFPS = selectedFPS.toInt()
-                            genericStream.prepareVideo(videoWidth, videoHeight, videoBitrate, newFPS)
-                            genericStream.prepareAudio(audioSampleRate, audioIsStereo, audioBitrate)
-                            // Restart preview using the stored SurfaceView.
-                            surfaceViewRef.value?.let { surfaceView ->
-                                genericStream.startPreview(surfaceView)
-                            } ?: run {
-                                showToast("Error: SurfaceView not available")
-                            }
-                            // Update video source based on camera source setting.
-                            if (selectedCameraSource == "USB Camera") {
-                                genericStream.changeVideoSource(CameraUvcSource())
+
+                                // Update codecs.
+                                enumAudioMapping[selectedAudioEncoder]?.let { audioCodec ->
+                                    genericStream.setAudioCodec(audioCodec)
+                                    Log.d("CodecCheck", "Set audio codec to: $audioCodec")
+                                }
+                                enumVideoMapping[selectedVideoEncoder]?.let { videoCodec ->
+                                    genericStream.setVideoCodec(videoCodec)
+                                    Log.d("CodecCheck", "Set video codec to: $videoCodec")
+                                }
+
+                                // Prepare video and audio with new settings.
+                                genericStream.prepareVideo(videoWidth, videoHeight, videoBitrate, selectedFPS.toInt())
+                                genericStream.prepareAudio(audioSampleRate, audioIsStereo, audioBitrate)
+
+                                // Restart preview using the stored SurfaceView.
+                                surfaceViewRef.value?.let { surfaceView ->
+                                    genericStream.startPreview(surfaceView)
+                                } ?: run {
+                                    showToast("Error: SurfaceView not available")
+                                }
+
+                                // Update video source based on camera source setting.
+                                if (selectedCameraSource == "USB Camera") {
+                                    genericStream.changeVideoSource(CameraUvcSource())
+                                } else {
+                                    val newCameraSource = CameraCalypsoSource(context)
+                                    genericStream.changeVideoSource(newCameraSource)
+                                    activeCameraSource = newCameraSource
+                                }
+                                // Update audio source.
+                                if (selectedAudioSource == "USB Mic") {
+                                    genericStream.changeAudioSource(MicrophoneSource(MediaRecorder.AudioSource.MIC))
+                                } else {
+                                    genericStream.changeAudioSource(audio)
+                                }
                             } else {
-                                val newCameraSource = CameraCalypsoSource(context)
-                                genericStream.changeVideoSource(newCameraSource)
-                                activeCameraSource = newCameraSource
+                                videoBitrate = selectedBitrate
+                                genericStream.setVideoBitrateOnFly(videoBitrate)
                             }
-                            if (selectedAudioSource == "USB Mic") {
-                                genericStream.changeAudioSource(MicrophoneSource(MediaRecorder.AudioSource.MIC))
-                            } else {
-                                genericStream.changeAudioSource(audio)
-                            }
+                            isSettingsMenuVisible = false
                         }
-                        else {
-                            videoBitrate = selectedBitrate
-                            genericStream.setVideoBitrateOnFly(videoBitrate)
-                        }
-//                        // Apply settings: update resolution, prepare codecs, and restart preview.
-//                        genericStream.stopPreview()
-//                        when (selectedResolution) {
-//                            "1080p" -> {
-//                                videoWidth = 1920
-//                                videoHeight = 1080
-//                            }
-//                            "720p" -> {
-//                                videoWidth = 1280
-//                                videoHeight = 720
-//                            }
-//                        }
-//                        videoBitrate = selectedBitrate
-//                        sharedPreferences.edit().apply {
-//                            putInt("videoWidth", videoWidth)
-//                            putInt("videoHeight", videoHeight)
-//                            putInt("videoBitrate", videoBitrate)
-//                            putString("streamUrl", streamUrl)
-//                            apply()
-//                        }
-//                        enumAudioMapping[selectedAudioEncoder]?.let { audioCodec ->
-//                            genericStream.setAudioCodec(audioCodec)
-//                            Log.d("CodecCheck", "Set audio codec to: $audioCodec")
-//                        }
-//                        enumVideoMapping[selectedVideoEncoder]?.let { videoCodec ->
-//                            genericStream.setVideoCodec(videoCodec)
-//                            Log.d("CodecCheck", "Set video codec to: $videoCodec")
-//                        }
-//                        genericStream.prepareVideo(videoWidth, videoHeight, videoBitrate, videoFPS)
-//                        genericStream.prepareAudio(audioSampleRate, audioIsStereo, audioBitrate)
-//                        // Restart preview using the stored SurfaceView.
-//                        surfaceViewRef.value?.let { surfaceView ->
-//                            genericStream.startPreview(surfaceView)
-//                        } ?: run {
-//                            showToast("Error: SurfaceView not available")
-//                        }
-//                        // Update video source based on camera source setting.
-//                        if (selectedCameraSource == "USB Camera") {
-//                            genericStream.changeVideoSource(CameraUvcSource())
-//                        } else {
-//                            genericStream.changeVideoSource(Camera2Source(context))
-//                        }
-                        isSettingsMenuVisible = false
                     },
                     onClose = { isSettingsMenuVisible = false }
                 )
@@ -1302,6 +1380,18 @@ fun CameraScreenContent() {
                     selectedRightColor = rightTeamColor,
                     onRightColorChange = { rightTeamColor = it },
                     onClose = { showApplyButton = false }
+                )
+
+                // Auxiliary Teams Overlay Menu
+                OverlayTeamsMenu(
+                    visible = showTeamPlayersOverlayMenu,
+                    screenWidth = screenWidth,
+                    screenHeight = screenHeight,
+                    showTeamsOverlay = showTeamPlayersOverlay,
+                    selectedTeamsOverlayDuration = "10s",
+                    onTeamsOverlayDurationChange = { selectedTeamsOverlayDuration = it },
+                    onToggleTeamsOverlay = { showTeamPlayersOverlay = it },
+                    onClose = { showTeamPlayersOverlayMenu = false }
                 )
 
                 // Place the recording timer at the very top with a high z-index.
@@ -1447,10 +1537,12 @@ fun SettingsMenu(
             Box(
                 modifier = Modifier
                     .width(cameraPreviewWidth)
-                    .fillMaxHeight()
+                    .height(cameraPreviewHeight)
                     .padding(horizontal = horizontalPadding)
-                    .background(Gray.copy(alpha = 0.95f))
-                    .align(Alignment.BottomCenter)
+                    .background(Gray.copy(alpha = 0.92f), shape = RoundedCornerShape(16.dp))
+                    .border(2.dp, Color.White, shape = RoundedCornerShape(16.dp))
+                    .align(Alignment.Center)
+                    .shadow(8.dp, shape = RoundedCornerShape(16.dp))
             ) {
                 Column(
                     modifier = Modifier
@@ -1474,11 +1566,11 @@ fun SettingsMenu(
                     Text(
                         text = "Camera Settings",
                         fontSize = 20.sp,
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        fontWeight = FontWeight.Bold,
                         color = Color.White,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
-                    androidx.compose.material3.Divider(
+                    Divider(
                         color = Color.White.copy(alpha = 0.3f),
                         thickness = 1.dp
                     )
@@ -1503,11 +1595,11 @@ fun SettingsMenu(
                     Text(
                         text = "Streaming Settings",
                         fontSize = 20.sp,
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        fontWeight = FontWeight.Bold,
                         color = Color.White,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
-                    androidx.compose.material3.Divider(
+                    Divider(
                         color = Color.White.copy(alpha = 0.3f),
                         thickness = 1.dp
                     )
@@ -1581,10 +1673,170 @@ fun SettingsMenu(
                         ),
                         shape = CircleShape
                     ) {
-                        Text("Apply", fontSize = 18.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        Text("Apply", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun OverlayTeamsMenu(
+    visible: Boolean,
+    screenWidth: Dp,
+    screenHeight: Dp,
+    selectedTeamsOverlayDuration: String,
+    onTeamsOverlayDurationChange: (String) -> Unit,
+    showTeamsOverlay: Boolean,
+    onToggleTeamsOverlay: (Boolean) -> Unit,
+    onClose: () -> Unit
+) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(300)) + slideInVertically(initialOffsetY = { it / 2 }),
+        exit = fadeOut(tween(300)) + slideOutVertically(targetOffsetY = { it / 2 })
+    ) {
+        val cameraPreviewHeight = screenHeight
+        val cameraPreviewWidth = cameraPreviewHeight * (16f / 9f)
+        val horizontalPadding = (screenWidth - cameraPreviewWidth) / 2
+
+        Box(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .width(cameraPreviewWidth)
+                    .height(cameraPreviewHeight)
+                    .padding(horizontal = horizontalPadding)
+                    .background(Gray.copy(alpha = 0.92f), shape = RoundedCornerShape(16.dp))
+                    .border(2.dp, Color.White, shape = RoundedCornerShape(16.dp))
+                    .align(Alignment.Center)
+                    .shadow(8.dp, shape = RoundedCornerShape(16.dp))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Close Button (X)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        IconButton(onClick = onClose) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_close),
+                                contentDescription = "Close",
+                                tint = Color.White
+                            )
+                        }
+                    }
+
+                    // Scoreboard Toggle (Header)
+                    Text(
+                        text = "Teams Overlay Configuration",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    Divider(color = Color.White.copy(alpha = 0.3f), thickness = 1.dp)
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Show Teams",
+                            fontSize = 18.sp,
+                            color = Color.White
+                        )
+                        Switch(
+                            checked = showTeamsOverlay,
+                            onCheckedChange = onToggleTeamsOverlay,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = CalypsoRed,
+                                uncheckedThumbColor = Color.Gray
+                            )
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Team Selection Layout (Side by Side)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            SectionSubtitle("Duration")
+                            ModernDropdown(
+                                items = listOf("5s", "10s", "15s", "20s", "25s", "30s"),
+                                selectedValue = selectedTeamsOverlayDuration,
+                                displayMapper = { it },
+                                onValueChange = {
+                                    onTeamsOverlayDurationChange(it)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TeamPlayersOverlay(
+    visible: Boolean,
+    genericStream: GenericStream,
+    screenWidth: Int,
+    screenHeight: Int,
+    team1Name: String,
+    team2Name: String,
+    team1Players: List<PlayerEntry>,
+    team2Players: List<PlayerEntry>,
+    leftLogo: Bitmap,
+    rightLogo: Bitmap,
+    selectedTeamsOverlayDuration: String,
+    lineUpFilter: ImageObjectFilterRender,
+    context: Context
+){
+    // Add or remove the overlay filter based on visibility.
+    Log.d("TeamPlayersOverlay", "Visibility: $visible")
+    Log.d("TeamPlayersOverlay", "isOnPreview: ${genericStream.isOnPreview}")
+    LaunchedEffect(visible) {
+        if (visible && genericStream.isOnPreview) {
+            genericStream.getGlInterface().clearFilters()
+            genericStream.getGlInterface().addFilter(lineUpFilter)
+        } else {
+            genericStream.getGlInterface().removeFilter(lineUpFilter)
+        }
+
+        if (visible && genericStream.isOnPreview) {
+            drawTeamPlayersOverlay(
+                context = context,
+                screenWidth = screenWidth,
+                screenHeight = screenHeight,
+                leftLogoBitmap = leftLogo,
+                rightLogoBitmap = rightLogo,
+                leftTeamName = team1Name,
+                rightTeamName = team2Name,
+                leftTeamPlayers = team1Players,
+                rightTeamPlayers = team2Players,
+                imageObjectFilterRender = lineUpFilter,
+                isOnPreview = genericStream.isOnPreview
+            )
+
+            val teamPlayersOverlayDelay = selectedTeamsOverlayDuration.split("s").first()
+            delay(teamPlayersOverlayDelay.toLong() * 1000)
+            genericStream.getGlInterface().removeFilter(lineUpFilter)
         }
     }
 }
@@ -1628,15 +1880,17 @@ fun OverlayMenu(
         enter = fadeIn(tween(300)) + slideInVertically(initialOffsetY = { it / 2 }),
         exit = fadeOut(tween(300)) + slideOutVertically(targetOffsetY = { it / 2 })
     ) {
-        val menuHeight = screenHeight * 0.8f // 80% of screen height for better layout
-        val menuWidth = menuHeight * (16f / 9f)
-        val horizontalPadding = (screenWidth - menuWidth) / 2
+        val cameraPreviewHeight = screenHeight
+        val cameraPreviewWidth = cameraPreviewHeight * (16f / 9f)
+
+        // Center horizontally.
+        val horizontalPadding = (screenWidth - cameraPreviewWidth) / 2
 
         Box(modifier = Modifier.fillMaxSize()) {
             Box(
                 modifier = Modifier
-                    .width(menuWidth)
-                    .height(menuHeight)
+                    .width(cameraPreviewWidth)
+                    .height(cameraPreviewHeight)
                     .padding(horizontal = horizontalPadding)
                     .background(Gray.copy(alpha = 0.92f), shape = RoundedCornerShape(16.dp))
                     .border(2.dp, Color.White, shape = RoundedCornerShape(16.dp))
@@ -1802,6 +2056,7 @@ fun ScoreboardOverlay(
     // Add or remove the overlay filter based on visibility.
     LaunchedEffect(visible) {
         if (visible) {
+            genericStream.getGlInterface().clearFilters()
             genericStream.getGlInterface().addFilter(imageObjectFilterRender)
         } else {
             genericStream.getGlInterface().removeFilter(imageObjectFilterRender)
@@ -1828,38 +2083,6 @@ fun ScoreboardOverlay(
             onLeftDecrement = onLeftDecrement,
             onRightDecrement = onRightDecrement
         )
-    }
-}
-
-@Composable
-fun TeamPlayersOverlay(
-    visible: Boolean,
-    genericStream: GenericStream,
-    team1Name: String,
-    team2Name: String,
-    team1Players: List<PlayerEntry>,
-    team2Players: List<PlayerEntry>,
-    imageObjectFilterRender: ImageObjectFilterRender,
-    context: Context
-){
-    // Add or remove the overlay filter based on visibility.
-    LaunchedEffect(visible) {
-        if (visible && genericStream.isOnPreview) {
-            genericStream.getGlInterface().addFilter(imageObjectFilterRender)
-        } else {
-            genericStream.getGlInterface().removeFilter(imageObjectFilterRender)
-        }
-        if (visible && genericStream.isOnPreview) {
-            drawTeamPlayersOverlay(
-                context = context,
-                teamAName = team1Name,
-                teamBName = team2Name,
-                teamAPlayers = team1Players,
-                teamBPlayers = team2Players,
-                imageObjectFilterRender = imageObjectFilterRender,
-                isOnPreview = genericStream.isOnPreview
-            )
-        }
     }
 }
 

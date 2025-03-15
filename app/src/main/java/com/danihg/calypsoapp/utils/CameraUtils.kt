@@ -5,6 +5,7 @@ import android.content.Context
 import android.media.MediaCodecList
 import android.os.PowerManager
 import android.util.Log
+import android.view.MotionEvent
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.runtime.Composable
@@ -15,13 +16,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -34,11 +39,26 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.pointerInteropFilter
+import androidx.compose.ui.res.painterResource
+import com.danihg.calypsoapp.R
 import com.danihg.calypsoapp.ui.theme.CalypsoRed
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 @Composable
 fun rememberToast(): (String) -> Unit {
@@ -80,6 +100,35 @@ fun AuxButton(modifier: Modifier = Modifier.size(50.dp), painter: Painter, onCli
         Icon(
             painter,
             contentDescription = "Button Icon",
+            tint = Color.White,
+            modifier = Modifier.size(30.dp)
+        )
+    }
+}
+@Composable
+fun ToggleAuxButton(
+    modifier: Modifier = Modifier.size(50.dp),
+    painter: Painter,
+    toggled: Boolean,
+    onToggle: (Boolean) -> Unit
+) {
+    // Choose background based on the passed toggled state.
+    val backgroundColor = if (toggled)
+        Color.DarkGray.copy(alpha = 0.7f)  // Darker when toggled (pressed)
+    else
+        Color.Gray.copy(alpha = 0.5f)      // Default appearance
+
+    Box(
+        modifier = modifier
+            .size(50.dp)
+            .clip(CircleShape)
+            .background(backgroundColor)
+            .clickable { onToggle(!toggled) },
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            painter = painter,
+            contentDescription = "Toggle Button Icon",
             tint = Color.White,
             modifier = Modifier.size(30.dp)
         )
@@ -160,6 +209,84 @@ fun getAvailableAudioCodecs(): List<String> {
     Log.d("CodecCheck", "Available Audio Codecs: $availableCodecs")
     return availableCodecs
 }
+
+// A new composable to handle continuous press behavior
+@Composable
+fun ContinuousZoomButton(
+    modifier: Modifier = Modifier,
+    painter: Painter,
+    zoomSpeed: Float, // Zoom change per second; use positive for zooming in, negative for zooming out.
+    onZoomDelta: (Float) -> Unit,
+) {
+    var isPressed by remember { mutableStateOf(false) }
+
+    // Launch a frame-based loop when the button is pressed.
+    LaunchedEffect(isPressed) {
+        if (isPressed) {
+            var lastFrameTime = withFrameNanos { it }
+            while (isPressed) {
+                val currentFrameTime = withFrameNanos { it }
+                // Calculate elapsed time in seconds
+                val deltaTime = (currentFrameTime - lastFrameTime) / 1_000_000_000f
+                lastFrameTime = currentFrameTime
+                onZoomDelta(zoomSpeed * deltaTime)
+            }
+        }
+    }
+
+    // A Box mimicking the AuxButton styling while handling press using pointerInput.
+    Box(
+        modifier = modifier
+            .size(30.dp)
+            .clip(CircleShape)
+            .background(Color.Gray.copy(alpha = 0.5f))
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        isPressed = true
+                        tryAwaitRelease() // Wait until the press is released.
+                        isPressed = false
+                    }
+                )
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            painter = painter,
+            contentDescription = "Button Icon",
+            tint = Color.White,
+            modifier = Modifier.size(20.dp)
+        )
+    }
+}
+
+@Composable
+fun ZoomControls(
+    zoomLevel: Float,
+    onZoomDelta: (Float) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        // Zoom In button with a positive zoom speed (adjust speed as needed).
+        ContinuousZoomButton(
+            painter = painterResource(id = R.drawable.ic_add), // Replace with your plus icon resource.
+            zoomSpeed = 1f, // Adjust the speed (units per second) for zooming in.
+            onZoomDelta = onZoomDelta
+        )
+        Spacer(modifier = Modifier.height(30.dp))
+        // Zoom Out button with a negative zoom speed.
+        ContinuousZoomButton(
+            painter = painterResource(id = R.drawable.ic_less), // Replace with your minus icon resource.
+            zoomSpeed = -1f, // Adjust the speed for zooming out.
+            onZoomDelta = onZoomDelta
+        )
+    }
+}
+
 
 @Composable
 fun ZoomSlider(

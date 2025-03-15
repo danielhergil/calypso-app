@@ -16,13 +16,15 @@ openglApi = "gl1.1-android-2.1_r1"
 playServicesAuth = "21.3.0"
 services = "4.4.2"
 navigationCompose = "2.7.7"
-rootEncoderLibrary = "2.5.5"
+rootEncoderLibrary = "8fdb2831d1"
+rootEncoderExtra = "2.5.5"
 cameraView = "1.4.0"
 cameraLifecycle = "1.4.0"
 cameraCore = "1.4.0"
 uvcandroid = "1.0.8"
 firebaseStorageKtx = "21.0.1"
 crashlytics = "3.0.2"
+coreAnimation = "1.0.0"
 
 
 [libraries]
@@ -53,7 +55,7 @@ firebase-crashlytics = {module = "com.google.firebase:firebase-crashlytics"}
 opengl-api = { module = "org.khronos:opengl-api", version.ref = "openglApi" }
 play-services-auth = { module = "com.google.android.gms:play-services-auth", version.ref = "playServicesAuth" }
 rootencoder-library = {module = "com.github.pedroSG94.RootEncoder:library", version.ref = "rootEncoderLibrary"}
-rootencoder-extra = {module = "com.github.pedroSG94.RootEncoder:extra-sources", version.ref = "rootEncoderLibrary"}
+rootencoder-extra = {module = "com.github.pedroSG94.RootEncoder:extra-sources", version.ref = "rootEncoderExtra"}
 
 androidx-navigation-compose = {module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose"}
 androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "cameraView" }
@@ -61,6 +63,7 @@ androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycl
 androidx-camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "cameraCore" }
 uvcandroid = { module = "com.herohan:UVCAndroid", version.ref = "uvcandroid" }
 firebase-storage-ktx = { group = "com.google.firebase", name = "firebase-storage-ktx", version.ref = "firebaseStorageKtx" }
+androidx-core-animation = { group = "androidx.core", name = "core-animation", version.ref = "coreAnimation" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
