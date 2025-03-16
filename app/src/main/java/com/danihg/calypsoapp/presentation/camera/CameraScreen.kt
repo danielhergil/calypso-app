@@ -40,6 +40,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -368,7 +369,7 @@ fun CameraScreenContent() {
         }
     )
     // Retrieve the same camera instance
-    var activeCameraSource = cameraViewModel.activeCameraSource
+    var activeCameraSource by remember { mutableStateOf(cameraViewModel.activeCameraSource) }
 
 //    var activeCameraSource by remember { mutableStateOf(CameraCalypsoSource(context)) }
     val audio: AudioSource = remember { MicrophoneSource() }
@@ -1027,7 +1028,9 @@ fun CameraScreenContent() {
 //                    }
 
                     if (showZoomSlider) {
-                        Box(modifier = Modifier.fillMaxSize().padding(start = 50.dp)) {
+                        Box(modifier = Modifier
+                            .fillMaxSize()
+                            .padding(start = 50.dp)) {
                             // Assume zoomLevel is a mutable state.
                             ZoomControls(
                                 zoomLevel = zoomLevel,
@@ -1374,12 +1377,19 @@ fun CameraScreenContent() {
                     onLeftLogoUrlChange = { leftLogoUrl = it }, // Save the new left logo URL
                     onRightLogoUrlChange = { rightLogoUrl = it }, // Save the new right logo URL
                     showScoreboardOverlay = showScoreboardOverlay,
-                    onToggleScoreboard = { showScoreboardOverlay = it },
+                    onToggleScoreboard = {
+                        showScoreboardOverlay = it
+                    },
                     selectedLeftColor = leftTeamColor,
                     onLeftColorChange = { leftTeamColor = it },
                     selectedRightColor = rightTeamColor,
                     onRightColorChange = { rightTeamColor = it },
-                    onClose = { showApplyButton = false }
+                    onClose = {
+                        showApplyButton = false
+                        if (showScoreboardOverlay) {
+                            showTeamPlayersOverlay = false
+                        }
+                    }
                 )
 
                 // Auxiliary Teams Overlay Menu
@@ -1388,10 +1398,17 @@ fun CameraScreenContent() {
                     screenWidth = screenWidth,
                     screenHeight = screenHeight,
                     showTeamsOverlay = showTeamPlayersOverlay,
-                    selectedTeamsOverlayDuration = "10s",
+                    selectedTeamsOverlayDuration = selectedTeamsOverlayDuration,
                     onTeamsOverlayDurationChange = { selectedTeamsOverlayDuration = it },
-                    onToggleTeamsOverlay = { showTeamPlayersOverlay = it },
-                    onClose = { showTeamPlayersOverlayMenu = false }
+                    onToggleTeamsOverlay = {
+                        showTeamPlayersOverlay = it
+                    },
+                    onClose = {
+                        showTeamPlayersOverlayMenu = false
+                        if (showTeamPlayersOverlay) {
+                            showScoreboardOverlay = false
+                        }
+                    }
                 )
 
                 // Place the recording timer at the very top with a high z-index.
@@ -1926,7 +1943,7 @@ fun OverlayMenu(
                         color = Color.White,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
-                    Divider(color = Color.White.copy(alpha = 0.3f), thickness = 1.dp)
+                    HorizontalDivider(thickness = 1.dp, color = Color.White.copy(alpha = 0.3f))
 
                     Row(
                         modifier = Modifier
