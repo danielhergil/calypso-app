@@ -233,6 +233,8 @@ fun CameraScreenContent() {
     var showSettingsSubMenu  by rememberSaveable { mutableStateOf(false) }
     var showCameraSubSettings  by rememberSaveable { mutableStateOf(false) }
     var showTeamPlayersOverlayMenu by rememberSaveable { mutableStateOf(false) }
+    var showLineUpOverlay by rememberSaveable { mutableStateOf(false) }
+    var wasScoreboardActive by remember { mutableStateOf(true) }
 
     // State for recording timer (in seconds).
     var streamingTimerSeconds by remember { mutableStateOf(0L) }
@@ -339,9 +341,6 @@ fun CameraScreenContent() {
 
     // 1) State to track whether we want to show the team players overlay
     var showTeamPlayersOverlay by rememberSaveable { mutableStateOf(false) }
-
-    // 2) Keep track if scoreboard was active so we can restore it after
-    var wasScoreboardActive by remember { mutableStateOf(false) }
 
     // Example player data (in a real app, you might load from Firestore, etc.)
     val teamAPlayers = listOf(
@@ -658,7 +657,7 @@ fun CameraScreenContent() {
                 Log.d("PixelsHeight", LocalContext.current.resources.displayMetrics.heightPixels.toString())
 
                 TeamPlayersOverlay(
-                    visible = showTeamPlayersOverlay && !showTeamPlayersOverlayMenu,
+                    visible = showLineUpOverlay && !showTeamPlayersOverlayMenu,
                     genericStream = genericStream,
                     screenWidth = LocalContext.current.resources.displayMetrics.widthPixels,
                     screenHeight = LocalContext.current.resources.displayMetrics.heightPixels,
@@ -670,7 +669,33 @@ fun CameraScreenContent() {
                     rightLogo = finalRightLogo,
                     selectedTeamsOverlayDuration = selectedTeamsOverlayDuration,
                     lineUpFilter = lineUpFilter,
-                    context = context
+                    context = context,
+                    onLineUpFinished = {
+                        showLineUpOverlay = false
+                        if (wasScoreboardActive) {
+                            CoroutineScope(Dispatchers.Main).launch {
+                                genericStream.getGlInterface().clearFilters()
+                                showScoreboardOverlay = false
+                                delay(50)
+                                showScoreboardOverlay = true
+
+//                                drawOverlay(
+//                                    context = context,
+//                                    leftLogoBitmap = finalLeftLogo,
+//                                    rightLogoBitmap = finalRightLogo,
+//                                    leftTeamGoals = leftTeamGoals,
+//                                    rightTeamGoals = rightTeamGoals,
+//                                    leftTeamAlias = team1Alias,
+//                                    rightTeamAlias = team2Alias,
+//                                    leftTeamColor = leftTeamColor,
+//                                    rightTeamColor = rightTeamColor,
+//                                    backgroundColor = selectedBackgroundColor,
+//                                    imageObjectFilterRender = imageObjectFilterRender,
+//                                    isOnPreview = genericStream.isOnPreview
+//                                )
+                            }
+                        }
+                    }
                 )
 
                 // Scoreboard overlay.
@@ -763,6 +788,32 @@ fun CameraScreenContent() {
                     rightTeamGoals = 0
                 }
 
+                if (showTeamPlayersOverlay && !showLineUpOverlay) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                            .padding(top = 10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            AuxButton(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .zIndex(2f),
+                                painter = painterResource(id = R.drawable.ic_line_up),
+                                onClick = {
+                                    wasScoreboardActive = showScoreboardOverlay
+                                    showScoreboardOverlay = false
+                                    showLineUpOverlay = true
+                                }
+                            )
+                        }
+                    }
+                }
+
                 // Right-side action buttons.
                 Box(
                     modifier = Modifier
@@ -815,14 +866,14 @@ fun CameraScreenContent() {
                                             showApplyButton = !showApplyButton
                                         }
                                     )
-                                    Spacer(modifier = Modifier.width(22.dp))
-                                    AuxButton(
-                                        modifier = Modifier.size(40.dp),
-                                        painter = painterResource(id = R.drawable.ic_del_2),
-                                        onClick = {
-                                            showTeamPlayersOverlayMenu = !showTeamPlayersOverlayMenu
-                                        }
-                                    )
+//                                    Spacer(modifier = Modifier.width(22.dp))
+//                                    AuxButton(
+//                                        modifier = Modifier.size(40.dp),
+//                                        painter = painterResource(id = R.drawable.ic_del_2),
+//                                        onClick = {
+//                                            showTeamPlayersOverlayMenu = !showTeamPlayersOverlayMenu
+//                                        }
+//                                    )
                                 }
                             }
                         }
@@ -1354,6 +1405,7 @@ fun CameraScreenContent() {
                                 } else {
                                     genericStream.changeAudioSource(audio)
                                 }
+                                showScoreboardOverlay = false
                             } else {
                                 videoBitrate = selectedBitrate
                                 genericStream.setVideoBitrateOnFly(videoBitrate)
@@ -1386,9 +1438,22 @@ fun CameraScreenContent() {
                     onRightColorChange = { rightTeamColor = it },
                     onClose = {
                         showApplyButton = false
-                        if (showScoreboardOverlay) {
-                            showTeamPlayersOverlay = false
-                        }
+                        showOverlaySubMenu = false
+//                        if (showScoreboardOverlay) {
+//                            wasScoreboardActive = true
+//                        }
+//                        else {
+//                            wasScoreboardActive = false
+//                        }
+//                        if (showTeamPlayersOverlay) {
+//                            showScoreboardOverlay = false
+//                        }
+                    },
+                    selectedTeamsOverlayDuration = selectedTeamsOverlayDuration,
+                    onTeamsOverlayDurationChange = { selectedTeamsOverlayDuration = it },
+                    showLineUpOverlay = showTeamPlayersOverlay,
+                    onToggleLineUp = {
+                        showTeamPlayersOverlay = it
                     }
                 )
 
@@ -1823,7 +1888,8 @@ fun TeamPlayersOverlay(
     rightLogo: Bitmap,
     selectedTeamsOverlayDuration: String,
     lineUpFilter: ImageObjectFilterRender,
-    context: Context
+    context: Context,
+    onLineUpFinished: () -> Unit
 ){
     // Add or remove the overlay filter based on visibility.
     Log.d("TeamPlayersOverlay", "Visibility: $visible")
@@ -1854,6 +1920,7 @@ fun TeamPlayersOverlay(
             val teamPlayersOverlayDelay = selectedTeamsOverlayDuration.split("s").first()
             delay(teamPlayersOverlayDelay.toLong() * 1000)
             genericStream.getGlInterface().removeFilter(lineUpFilter)
+            onLineUpFinished()
         }
     }
 }
@@ -1872,6 +1939,10 @@ fun OverlayMenu(
     onRightLogoUrlChange: (String?) -> Unit, // New parameter to update logo URL
     showScoreboardOverlay: Boolean,
     onToggleScoreboard: (Boolean) -> Unit,
+    selectedTeamsOverlayDuration: String,
+    onTeamsOverlayDurationChange: (String) -> Unit,
+    showLineUpOverlay: Boolean,
+    onToggleLineUp: (Boolean) -> Unit,
     selectedLeftColor: String,
     onLeftColorChange: (String) -> Unit,
     selectedRightColor: String,
@@ -2039,6 +2110,65 @@ fun OverlayMenu(
                                 onColorChange = onRightColorChange
                             )
                         }
+                    }
+
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    // Scoreboard Toggle (Header)
+                    Text(
+                        text = "Line Up Configuration",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    HorizontalDivider(thickness = 1.dp, color = Color.White.copy(alpha = 0.3f))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Show Line Up",
+                            fontSize = 18.sp,
+                            color = Color.White
+                        )
+                        Switch(
+                            checked = showLineUpOverlay,
+                            onCheckedChange = onToggleLineUp,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = CalypsoRed,
+                                uncheckedThumbColor = Color.Gray
+                            )
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Line Up Duration",
+                            fontSize = 18.sp,
+                            color = Color.White,
+                            modifier = Modifier.align(
+                                Alignment.CenterVertically
+                            )
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        ModernDropdown(
+                            items = listOf("5s", "10s", "15s", "20s", "25s", "30s"),
+                            selectedValue = selectedTeamsOverlayDuration,
+                            displayMapper = { it },
+                            onValueChange = {
+                                onTeamsOverlayDurationChange(it)
+                            }
+                        )
                     }
                 }
             }
