@@ -156,7 +156,7 @@ fun ScoreboardActionButtons(
         Row(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(start = 120.dp, top = 50.dp),
+                .padding(start = 85.dp, top = 50.dp),
             horizontalArrangement = Arrangement.spacedBy(55.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {

@@ -103,8 +103,10 @@ fun createTeamPlayersBitmapSequential(
         val y = screenHeight / 6
         drawStaticBitmap(canvas, lb, x, y, scaledWidth, scaledHeight)
         leftLogoBitmap?.let { logo ->
-            val logoScaledWidth = (logo.width * scaleFactorLogo).toInt()
-            val logoScaledHeight = (logo.height * scaleFactorLogo).toInt()
+//            val logoScaledWidth = (logo.width * scaleFactorLogo).toInt()
+//            val logoScaledHeight = (logo.height * scaleFactorLogo).toInt()
+            val logoScaledWidth = 50
+            val logoScaledHeight = 50
             val logoX = x + 50
             val logoY = y + 15
             drawStaticBitmap(canvas, logo, logoX, logoY, logoScaledWidth, logoScaledHeight)
@@ -129,9 +131,11 @@ fun createTeamPlayersBitmapSequential(
         val y = screenHeight / 6
         drawStaticBitmap(canvas, rb, x, y, scaledWidth, scaledHeight)
         rightLogoBitmap?.let { logo ->
-            val logoScaledWidth = (logo.width * scaleFactorLogo).toInt()
-            val logoScaledHeight = (logo.height * scaleFactorLogo).toInt()
-            val logoX = x + scaledWidth - logoScaledWidth - 70
+//            val logoScaledWidth = (logo.width * scaleFactorLogo).toInt()
+//            val logoScaledHeight = (logo.height * scaleFactorLogo).toInt()
+            val logoScaledWidth = 50
+            val logoScaledHeight = 50
+            val logoX = x + scaledWidth - logoScaledWidth - 50
             val logoY = y + 15
             drawStaticBitmap(canvas, logo, logoX, logoY, logoScaledWidth, logoScaledHeight)
             val bigTextPaintRight = Paint(Paint.ANTI_ALIAS_FLAG).apply {
