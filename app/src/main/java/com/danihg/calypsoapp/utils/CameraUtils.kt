@@ -319,7 +319,7 @@ fun ExposureSlider(
     exposureLevel: Float,
     onValueChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
-    valueRange: ClosedFloatingPointRange<Float> = -55f..55f
+    valueRange: ClosedFloatingPointRange<Float> = -150f..150f
 ) {
     // A standard horizontal slider.
     Slider(
