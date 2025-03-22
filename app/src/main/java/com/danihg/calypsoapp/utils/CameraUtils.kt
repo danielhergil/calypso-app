@@ -53,12 +53,14 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.sp
 import com.danihg.calypsoapp.R
 import com.danihg.calypsoapp.ui.theme.CalypsoRed
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 @Composable
 fun rememberToast(): (String) -> Unit {
@@ -287,32 +289,38 @@ fun ZoomControls(
     }
 }
 
-
 @Composable
-fun ZoomSlider(
-    zoomLevel: Float,
+fun IsoSlider(
+    isoIndex: Float,
     onValueChange: (Float) -> Unit,
+    isoOptions: List<Int> = listOf(100, 200, 400, 800, 1600, 3200),
     modifier: Modifier = Modifier
 ) {
-    // A horizontal slider rotated to appear vertical.
-    // The fixed width (150.dp) becomes the vertical length after rotation,
-    // and the fixed height (40.dp) sets the track thickness.
+    // The slider’s range is from 0 to (number of options - 1)
+    val minIndex = 0f
+    val maxIndex = (isoOptions.size - 1).toFloat()
+
+    // Use a Slider with discrete steps. Steps is the number of values between the min and max (excluding endpoints).
     Slider(
-        value = zoomLevel,
-        onValueChange = onValueChange,
-        valueRange = 1f..5f,  // Adjust the max zoom as needed.
-        // Remove steps for a smooth continuous slider.
+        value = isoIndex,
+        onValueChange = { value ->
+            // Snap to the nearest integer index
+            val newIndex = value.toInt().toFloat()
+            onValueChange(newIndex)
+        },
+        valueRange = minIndex..maxIndex,
+        steps = isoOptions.size - 2,
         modifier = modifier
-            .width(150.dp)  // This becomes the vertical length after rotation.
-            .height(40.dp)  // Track thickness.
-            .rotate(-90f),
-        colors = SliderDefaults.colors(
-            thumbColor = CalypsoRed,        // Customize as needed.
-            activeTrackColor = CalypsoRed,
-            inactiveTrackColor = Color.Gray
-        )
+    )
+
+    Text(
+        text = "ISO: ${isoOptions[isoIndex.toInt()]}",
+        color = Color.White,
+        fontSize = 16.sp,
+        modifier = Modifier.padding(top = 4.dp)
     )
 }
+
 
 @Composable
 fun ExposureSlider(
@@ -435,23 +443,62 @@ fun OpticalStabilizationModeSelector(
 
 @Composable
 fun ExposureCompensationSlider(
-    compensation: Float,
-    onValueChange: (Float) -> Unit,
+    compensation: Int, // Current exposure compensation value (-2, -1, 0, 1, or 2)
+    onValueChange: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Slider(
-        value = compensation,
-        onValueChange = onValueChange,
-        valueRange = -3f..3f,
-        steps = 6,
-        modifier = modifier,
-        colors = SliderDefaults.colors(
-            thumbColor = MaterialTheme.colorScheme.primary,
-            activeTrackColor = MaterialTheme.colorScheme.primary,
-            inactiveTrackColor = Color.LightGray
+    // Define the allowed discrete values.
+    val sliderPositions = listOf(-2, -1, 0, 1, 2)
+    // Determine the initial index for the slider (if compensation not found, default to 0)
+    val initialIndex = sliderPositions.indexOf(compensation).takeIf { it != -1 } ?: 2
+    // Local state to track the slider's current float position (which corresponds to an index in sliderPositions)
+    var sliderValue by remember { mutableStateOf(initialIndex.toFloat()) }
+
+    // Layout that shows the text label and the slider.
+    Column(modifier = modifier) {
+        // Show the current compensation value as text.
+        Text(
+            text = "${sliderPositions[sliderValue.toInt()]}",
+            fontSize = 16.sp,
+            color = Color.White,
+            modifier = Modifier.align(Alignment.CenterHorizontally)
         )
-    )
+        // Slider with a value range corresponding to the indices [0, 4]
+        Slider(
+            value = sliderValue,
+            onValueChange = { sliderValue = it },
+            onValueChangeFinished = {
+                // When the user stops dragging, round the slider value and report the discrete value.
+                val newIndex = sliderValue.toInt()
+                onValueChange(sliderPositions[newIndex])
+            },
+            valueRange = 0f..4f, // Because we have 5 discrete positions (0,1,2,3,4)
+            steps = 3, // 4 intervals between 5 positions, so steps = intervals - 1
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
 }
+
+
+//@Composable
+//fun ExposureCompensationSlider(
+//    compensation: Float,
+//    onValueChange: (Float) -> Unit,
+//    modifier: Modifier = Modifier
+//) {
+//    Slider(
+//        value = compensation,
+//        onValueChange = onValueChange,
+//        valueRange = -3f..3f,
+//        steps = 6,
+//        modifier = modifier,
+//        colors = SliderDefaults.colors(
+//            thumbColor = MaterialTheme.colorScheme.primary,
+//            activeTrackColor = MaterialTheme.colorScheme.primary,
+//            inactiveTrackColor = Color.LightGray
+//        )
+//    )
+//}
 
 @Composable
 fun SensorExposureTimeSlider(
@@ -493,7 +540,7 @@ fun SensorExposureTimeSlider(
         value = index,
         onValueChange = onValueChange,
         valueRange = 0f..(exposureOptions.size - 1).toFloat(),
-        steps = exposureOptions.size - 2,
+        steps = exposureOptions.size - 1,
         colors = SliderDefaults.colors(
             thumbColor = MaterialTheme.colorScheme.primary,
             activeTrackColor = MaterialTheme.colorScheme.primary,
