@@ -135,6 +135,26 @@ class CameraCalypsoSource(context: Context) : VideoSource() {
 
     fun getSupportedISORange(): Range<Int>? = camera.getSupportedISORange()
 
+    fun setIsoAuto() {
+        savedSensorSensitivity = null
+        // Optionally notify the API manager to re-enable auto mode.
+        if (isRunning()) {
+            camera.enableAutoExposure() // Or a dedicated function if available.
+        }
+    }
+
+    fun setSensorExposureAuto() {
+        savedSensorExposureTime = null
+        if (isRunning()) {
+            camera.enableAutoExposure()
+        }
+    }
+
+    /** Returns true if both ISO and sensor exposure time are set to auto */
+    fun isExposureCompensationAvailable(): Boolean {
+        return savedSensorExposureTime == null || savedSensorSensitivity == null
+    }
+
     // ─── MANUAL EXPOSURE COMPENSATION ───────────────────────────────
     /**
      * Set the manual exposure compensation value.

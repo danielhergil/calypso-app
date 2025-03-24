@@ -1151,6 +1151,7 @@ fun CameraScreenContent() {
                                     onModeChange = { newMode ->
                                         exposureMode = newMode
                                         if (newMode == "AUTO") {
+                                            activeCameraSource.setIsoAuto()
                                             activeCameraSource.enableAutoExposure()
                                             val isAutoExposure = activeCameraSource.isAutoExposureEnabled()
                                             activeCameraSource.setExposure(defaultExposure)
@@ -1254,6 +1255,9 @@ fun CameraScreenContent() {
                     if (showExposureCompensationSlider) {
                         val configuration = LocalConfiguration.current
                         val screenWidth = configuration.screenWidthDp.dp
+                        // Use the helper to determine if compensation should be enabled.
+                        val isExposureCompAvailable = activeCameraSource.isExposureCompensationAvailable()
+
                         Box(modifier = Modifier.fillMaxSize()) {
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -1262,20 +1266,35 @@ fun CameraScreenContent() {
                                     .padding(bottom = 100.dp)
                                     .width(screenWidth * 0.7f)
                             ) {
-                                Text(
-                                    text = "Exposure Compensation",
-                                    color = Color.White,
-                                    fontSize = 16.sp
-                                )
-                                ExposureCompensationSlider(
-                                    // Get the current manual compensation from your camera source
-                                    compensation = activeCameraSource.getExposureCompensation(),
-                                    onValueChange = { newComp ->
-                                        // This function calls your API manager function to apply the new compensation.
-                                        activeCameraSource.setExposureCompensation(newComp)
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                )
+                                if (isExposureCompAvailable) {
+                                    Text(
+                                        text = "Exposure Compensation",
+                                        color = Color.White,
+                                        fontSize = 16.sp
+                                    )
+                                    ExposureCompensationSlider(
+                                        // The slider shows discrete values -2, -1, 0, 1, 2.
+                                        // It will update the compensation value on drag (or when released, depending on your slider implementation)
+                                        compensation = activeCameraSource.getExposureCompensationManual(),
+                                        onValueChange = { newComp ->
+                                            activeCameraSource.setExposureCompensationManual(newComp)
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                    // Optionally, you can show a label displaying the current compensation value:
+                                    Text(
+                                        text = "EV: ${activeCameraSource.getExposureCompensationManual()}",
+                                        color = Color.White,
+                                        fontSize = 14.sp
+                                    )
+                                } else {
+                                    Text(
+                                        text = "Exposure compensation is disabled\nbecause both ISO and sensor exposure time are set to manual.",
+                                        color = Color.Gray,
+                                        fontSize = 16.sp,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                }
                             }
                         }
                     }
@@ -1299,6 +1318,7 @@ fun CameraScreenContent() {
                                     onModeChange = { newMode ->
                                         sensorExposureTimeMode = newMode
                                         if (newMode == "AUTO") {
+                                            activeCameraSource.setSensorExposureAuto()
                                             sensorExposureTimeIndex = null
                                             // Re-enable auto exposure (letting the camera decide the sensor exposure time)
                                             activeCameraSource.enableAutoExposure()
