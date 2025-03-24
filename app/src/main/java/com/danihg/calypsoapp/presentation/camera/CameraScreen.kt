@@ -19,6 +19,7 @@ import android.media.MediaRecorder
 import android.net.Uri
 import android.os.Build
 import android.util.Log
+import android.util.Range
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.ViewGroup
@@ -103,6 +104,7 @@ import com.danihg.calypsoapp.utils.ColorDropdown
 import com.danihg.calypsoapp.utils.ExposureCompensationSlider
 import com.danihg.calypsoapp.utils.ExposureModeSelector
 import com.danihg.calypsoapp.utils.ExposureSlider
+import com.danihg.calypsoapp.utils.IsoSlider
 import com.danihg.calypsoapp.utils.ManualWhiteBalanceSlider
 import com.danihg.calypsoapp.utils.ModernDropdown
 import com.danihg.calypsoapp.utils.OpticalStabilizationModeSelector
@@ -398,6 +400,10 @@ fun CameraScreenContent() {
     var exposureLevel by rememberSaveable { mutableStateOf(0f) }
     var exposureMode by rememberSaveable { mutableStateOf("AUTO") } // "AUTO" or "MANUAL"
     val defaultExposure by remember { mutableStateOf(activeCameraSource.getExposure()) }
+    var baseExposureLevel by remember { mutableStateOf(exposureLevel) }
+
+    var isoIndex by rememberSaveable { mutableStateOf(0f) }
+    val isoOptions = listOf(100, 200, 400, 800, 1600, 3200)
 
     // State variables for white balance
     var showWhiteBalanceSlider by rememberSaveable { mutableStateOf(false) }
@@ -411,10 +417,18 @@ fun CameraScreenContent() {
     // States for exposure compensation and sensor exposure time
     var showExposureCompensationSlider by rememberSaveable { mutableStateOf(false) }
     var exposureCompensation by rememberSaveable { mutableStateOf(0f) }
+    // Define the discrete exposure compensation options.
+    val exposureCompOptions = listOf(-2, -1, 0, 1, 2)
+    // Start at index 2 (which corresponds to 0 compensation)
+    var exposureCompIndex by rememberSaveable { mutableStateOf(2f) }
+
     var showSensorExposureTimeSlider by rememberSaveable { mutableStateOf(false) }
     var sensorExposureTimeIndex by rememberSaveable { mutableStateOf<Float?>(null) }
     val defaultSensorExposureIndex = 3f
     var sensorExposureTimeMode by rememberSaveable { mutableStateOf("AUTO") }
+    var currentSensorExposureTime by rememberSaveable { mutableStateOf(20000000L) }
+    val minSensorExposure = 2000000L
+    val maxSensorExposure = 33333333L
 
     // Define your common sensor exposure options.
     val sensorExposureTimeOptions = listOf(
@@ -469,11 +483,33 @@ fun CameraScreenContent() {
 
                         // Zoom
                         activeCameraSource.setZoom(zoomLevel)
-                        if (exposureMode == "MANUAL") {
-                            activeCameraSource.setExposure(exposureLevel.toInt())
-                        } else {
-                            activeCameraSource.enableAutoExposure()
-                        }
+                        activeCameraSource.reapplySettings()
+//                        if (sensorExposureTimeMode == "MANUAL") {
+//                            // Reapply the exact sensor exposure time that was stored.
+//                            activeCameraSource.setSensorExposureTime(currentSensorExposureTime)
+//                            // Update the slider state accordingly.
+//                            exposureLevel = ((currentSensorExposureTime - minSensorExposure).toFloat() / (maxSensorExposure - minSensorExposure))
+//                            baseExposureLevel = exposureLevel
+//                        } else if (exposureMode == "MANUAL") {
+//                            activeCameraSource.setExposure(exposureLevel.toInt())
+//                            baseExposureLevel = exposureLevel
+//                        } else {
+//                            activeCameraSource.enableAutoExposure()
+//                        }
+//                        if (sensorExposureTimeMode == "MANUAL" && sensorExposureTimeIndex != null) {
+//                            val idx = sensorExposureTimeIndex!!.toInt().coerceIn(0, sensorExposureTimeOptions.size - 1)
+//                            val sensorTime = sensorExposureTimeOptions[idx].second
+//                            activeCameraSource.setSensorExposureTime(sensorTime)
+//                            currentSensorExposureTime = sensorTime
+//                            // Update the exposureLevel slider value so it reflects the current sensor time:
+//                            exposureLevel = ((sensorTime - minSensorExposure).toFloat() / (maxSensorExposure - minSensorExposure))
+//                            baseExposureLevel = exposureLevel
+//                        } else if (exposureMode == "MANUAL") {
+//                            activeCameraSource.setExposure(exposureLevel.toInt())
+//                            baseExposureLevel = exposureLevel
+//                        } else {
+//                            activeCameraSource.enableAutoExposure()
+//                        }
 
                         // Reapply White Balance
                         if (whiteBalanceMode == "MANUAL") {
@@ -489,10 +525,10 @@ fun CameraScreenContent() {
                         }
 
                         // Reapply sensor exposure time if separately controlled (only if needed)
-                        if (sensorExposureTimeMode == "MANUAL" && sensorExposureTimeIndex != null) {
-                            val idx = sensorExposureTimeIndex!!.toInt().coerceIn(0, sensorExposureTimeOptions.size - 1)
-                            activeCameraSource.setSensorExposureTime(sensorExposureTimeOptions[idx].second)
-                        }
+//                        if (sensorExposureTimeMode == "MANUAL" && sensorExposureTimeIndex != null) {
+//                            val idx = sensorExposureTimeIndex!!.toInt().coerceIn(0, sensorExposureTimeOptions.size - 1)
+//                            activeCameraSource.setSensorExposureTime(sensorExposureTimeOptions[idx].second)
+//                        }
 
                         // Optionally, reapply exposure compensation if needed:
 //                        activeCameraSource.setExposure(exposureCompensation.toInt())
@@ -1083,6 +1119,7 @@ fun CameraScreenContent() {
                                     onModeChange = { newMode ->
                                         exposureMode = newMode
                                         if (newMode == "AUTO") {
+                                            activeCameraSource.setIsoAuto()
                                             activeCameraSource.enableAutoExposure()
                                             val isAutoExposure = activeCameraSource.isAutoExposureEnabled()
                                             activeCameraSource.setExposure(defaultExposure)
@@ -1093,25 +1130,19 @@ fun CameraScreenContent() {
                                     modifier = Modifier.fillMaxWidth()
                                 )
                                 if (exposureMode == "MANUAL") {
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    val sliderRange = if (sensorExposureTimeMode == "MANUAL") 0f..1f else -55f..55f
-                                    ExposureSlider(
-                                        exposureLevel = exposureLevel,
-                                        onValueChange = { newExposure ->
-                                            exposureLevel = newExposure
-                                            Log.d("ExposureCheck", "New exposure level: $exposureLevel")
-                                            if (sensorExposureTimeMode == "MANUAL") {
-                                                val minExposure = 4000000L
-                                                val maxExposure = 33333333L
-                                                val newSensorExposure = (minExposure + (maxExposure - minExposure) * newExposure).toLong()
-                                                activeCameraSource.setSensorExposureTime(newSensorExposure)
-                                            }
-                                            else {
-                                                activeCameraSource.setExposure(newExposure.toInt())
-                                            }
+                                    LaunchedEffect(isoIndex) {
+                                        activeCameraSource.disableAutoExposure()
+                                        val selectedISO = isoOptions[isoIndex.toInt()]
+                                        activeCameraSource.setSensorSensitivity(selectedISO)
+                                    }
+                                    IsoSlider(
+                                        isoIndex = isoIndex,
+                                        onValueChange = { newIndex ->
+                                            isoIndex = newIndex
+                                            // When slider moves, the LaunchedEffect above will update ISO.
                                         },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        valueRange = sliderRange
+                                        isoOptions = isoOptions,
+                                        modifier = Modifier.fillMaxWidth()
                                     )
                                 }
                             }
@@ -1192,6 +1223,9 @@ fun CameraScreenContent() {
                     if (showExposureCompensationSlider) {
                         val configuration = LocalConfiguration.current
                         val screenWidth = configuration.screenWidthDp.dp
+                        // Use the helper to determine if compensation should be enabled.
+                        val isExposureCompAvailable = activeCameraSource.isExposureCompensationAvailable()
+
                         Box(modifier = Modifier.fillMaxSize()) {
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -1200,23 +1234,39 @@ fun CameraScreenContent() {
                                     .padding(bottom = 100.dp)
                                     .width(screenWidth * 0.7f)
                             ) {
-                                Text(
-                                    text = "Exposure Compensation",
-                                    color = Color.White,
-                                    fontSize = 16.sp
-                                )
-                                ExposureCompensationSlider(
-                                    compensation = exposureCompensation,
-                                    onValueChange = { newValue ->
-                                        exposureCompensation = newValue
-                                        exposureLevel += newValue
-                                        activeCameraSource.setExposure(newValue.toInt())
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                )
+                                if (isExposureCompAvailable) {
+                                    Text(
+                                        text = "Exposure Compensation",
+                                        color = Color.White,
+                                        fontSize = 16.sp
+                                    )
+                                    ExposureCompensationSlider(
+                                        // The slider shows discrete values -2, -1, 0, 1, 2.
+                                        // It will update the compensation value on drag (or when released, depending on your slider implementation)
+                                        compensation = activeCameraSource.getExposureCompensationManual(),
+                                        onValueChange = { newComp ->
+                                            activeCameraSource.setExposureCompensationManual(newComp)
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                    // Optionally, you can show a label displaying the current compensation value:
+                                    Text(
+                                        text = "EV: ${activeCameraSource.getExposureCompensationManual()}",
+                                        color = Color.White,
+                                        fontSize = 14.sp
+                                    )
+                                } else {
+                                    Text(
+                                        text = "Exposure compensation is disabled\nbecause both ISO and sensor exposure time are set to manual.",
+                                        color = Color.Gray,
+                                        fontSize = 16.sp,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                }
                             }
                         }
                     }
+
                     // New overlay: Sensor Exposure Time Slider.
                     if (showSensorExposureTimeSlider) {
                         val configuration = LocalConfiguration.current
@@ -1236,6 +1286,7 @@ fun CameraScreenContent() {
                                     onModeChange = { newMode ->
                                         sensorExposureTimeMode = newMode
                                         if (newMode == "AUTO") {
+                                            activeCameraSource.setSensorExposureAuto()
                                             sensorExposureTimeIndex = null
                                             // Re-enable auto exposure (letting the camera decide the sensor exposure time)
                                             activeCameraSource.enableAutoExposure()
@@ -1254,9 +1305,15 @@ fun CameraScreenContent() {
                                     SensorExposureTimeSlider(
                                         index = sliderValue,
                                         onValueChange = { newIndex ->
-                                            sensorExposureTimeIndex = newIndex  // User has chosen a manual value.
+                                            sensorExposureTimeIndex = newIndex
                                             val idx = newIndex.toInt().coerceIn(0, sensorExposureTimeOptions.size - 1)
-                                            activeCameraSource.setSensorExposureTime(sensorExposureTimeOptions[idx].second)
+                                            val newSensorTime = sensorExposureTimeOptions[idx].second
+                                            activeCameraSource.setSensorExposureTime(newSensorTime)
+                                            // Store the exact value for later reapplication.
+                                            currentSensorExposureTime = newSensorTime
+                                            // Update the normalized exposure slider value.
+                                            exposureLevel = ((newSensorTime - minSensorExposure).toFloat() / (maxSensorExposure - minSensorExposure))
+                                            baseExposureLevel = exposureLevel
                                         },
                                         modifier = Modifier.fillMaxWidth(),
                                         exposureOptions = sensorExposureTimeOptions
