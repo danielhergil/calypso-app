@@ -80,24 +80,24 @@ fun HomeScreen(
             onClick = navigateToAddTeam,
             modifier = Modifier.fillMaxWidth()
         )
-        ModernCard(
-            title = "Library",
-            icon = R.drawable.ic_library,
-            onClick = navigateToLibrary,
-            modifier = Modifier.fillMaxWidth()
-        )
-        ModernCard(
-            title = "Settings",
-            icon = R.drawable.ic_settings,
-            onClick = navigateToSettings,
-            modifier = Modifier.fillMaxWidth()
-        )
-        ModernCard(
-            title = "Overlay",
-            icon = R.drawable.ic_overlay,
-            onClick = navigateToOverlay,
-            modifier = Modifier.fillMaxWidth()
-        )
+//        ModernCard(
+//            title = "Library",
+//            icon = R.drawable.ic_library,
+//            onClick = navigateToLibrary,
+//            modifier = Modifier.fillMaxWidth()
+//        )
+//        ModernCard(
+//            title = "Settings",
+//            icon = R.drawable.ic_settings,
+//            onClick = navigateToSettings,
+//            modifier = Modifier.fillMaxWidth()
+//        )
+//        ModernCard(
+//            title = "Overlay",
+//            icon = R.drawable.ic_overlay,
+//            onClick = navigateToOverlay,
+//            modifier = Modifier.fillMaxWidth()
+//        )
         Spacer(modifier = Modifier.weight(1f))
     }
 }
@@ -106,7 +106,8 @@ fun HomeScreen(
 fun ModernCard(title: String, icon: Int, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier
-            .height(130.dp)
+            // Before the height was 130.dp
+            .height(200.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(

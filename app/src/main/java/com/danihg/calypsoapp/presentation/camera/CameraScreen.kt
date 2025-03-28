@@ -123,6 +123,7 @@ import com.danihg.calypsoapp.utils.rememberToast
 import com.pedro.common.AudioCodec
 import com.pedro.common.ConnectChecker
 import com.pedro.common.VideoCodec
+import com.pedro.encoder.TimestampMode
 import com.pedro.encoder.input.gl.render.filters.`object`.GifObjectFilterRender
 import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
 import com.pedro.encoder.input.sources.audio.AudioSource
@@ -143,6 +144,8 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlin.math.pow
+import kotlin.math.roundToInt
 
 class CameraViewModel(context: Context) : ViewModel() {
     // Create the camera instance once and keep it here.
@@ -207,7 +210,7 @@ fun CameraScreenContent() {
     }
     var videoBitrate = sharedPreferences.getInt("videoBitrate", 5000 * 1000)
     val videoFPS = sharedPreferences.getInt("videoFPS", 30)
-    val audioSampleRate = sharedPreferences.getInt("audioSampleRate", 32000)
+    val audioSampleRate = sharedPreferences.getInt("audioSampleRate", 48000)
     val audioIsStereo = sharedPreferences.getBoolean("audioIsStereo", true)
     val audioBitrate = sharedPreferences.getInt("audioBitrate", 128 * 1000)
 
@@ -311,9 +314,11 @@ fun CameraScreenContent() {
     var rightLogoUrl by rememberSaveable { mutableStateOf<String?>(null) }
 
     // For default logos in case no team is selected or loading fails.
-    val defaultOptions = BitmapFactory.Options().apply { inScaled = false }
+    val defaultOptions = BitmapFactory.Options()
     val defaultLeftLogo = BitmapFactory.decodeResource(context.resources, R.drawable.rivas_50, defaultOptions)
+    defaultLeftLogo.setDensity(context.resources.displayMetrics.densityDpi)
     val defaultRightLogo = BitmapFactory.decodeResource(context.resources, R.drawable.alcorcon_50, defaultOptions)
+    defaultRightLogo.setDensity(context.resources.displayMetrics.densityDpi)
 
     // The selected team names for scoreboard overlay.
     var selectedTeam1 by rememberSaveable { mutableStateOf(if (teams.isNotEmpty()) teams.first().name else "Rivas") }
@@ -385,7 +390,7 @@ fun CameraScreenContent() {
     var activeCameraSource by remember { mutableStateOf(cameraViewModel.activeCameraSource) }
 
 //    var activeCameraSource by remember { mutableStateOf(CameraCalypsoSource(context)) }
-    val micSource: MicrophoneSource = remember { MicrophoneSource() }
+    val micSource: MicrophoneSource = remember { MicrophoneSource(MediaRecorder.AudioSource.DEFAULT) }
     val audio: AudioSource = remember { micSource }
     val externalAudio: AudioSource = remember { MicrophoneSource(MediaRecorder.AudioSource.MIC) }
     var isMicMuted by remember { mutableStateOf(false) }
@@ -404,6 +409,7 @@ fun CameraScreenContent() {
 
     var isoIndex by rememberSaveable { mutableStateOf(0f) }
     val isoOptions = listOf(100, 200, 400, 800, 1600, 3200)
+    var isoSliderValue by rememberSaveable { mutableStateOf(0f) }
 
     // State variables for white balance
     var showWhiteBalanceSlider by rememberSaveable { mutableStateOf(false) }
@@ -455,6 +461,7 @@ fun CameraScreenContent() {
         }, activeCameraSource, audio).apply {
             prepareVideo(videoWidth, videoHeight, videoBitrate, videoFPS)
             prepareAudio(audioSampleRate, audioIsStereo, audioBitrate)
+            setTimestampMode(TimestampMode.CLOCK, TimestampMode.BUFFER)
             getGlInterface().autoHandleOrientation = true
         }
     }
@@ -788,24 +795,26 @@ fun CameraScreenContent() {
                                     .zIndex(2f),
                                 painter = painterResource(id = R.drawable.ic_replay),
                                 onClick = {
-                                    coroutineScope.launch {
-                                        backgroundRecordPath?.let { path ->
-                                            try {
-                                                // Wait for FFmpegKit to finish processing.
-                                                val savedReplay = handleReplaySuspended(context, genericStream, path, selectedReplayDuration)
-                                                val replayUri = Uri.fromFile(File(savedReplay))
-                                                genericStream.changeVideoSource(VideoFileSource(context, replayUri, false) {})
-                                                // Keep the replay on screen for the selected duration.
-                                                val time = selectedReplayDuration.split("s")[0].toLong() * 1000
-                                                delay(time)
-                                                genericStream.changeVideoSource(activeCameraSource)
-                                            } catch (e: Exception) {
-                                                Log.e("Replay", "Error processing replay: ${e.message}")
-                                            }
-                                        } ?: run {
-                                            Log.e("Replay", "No background recording found!")
-                                        }
-                                    }
+//                                    coroutineScope.launch {
+//                                        backgroundRecordPath?.let { path ->
+//                                            try {
+//                                                // Wait for FFmpegKit to finish processing.
+//                                                val savedReplay = handleReplaySuspended(context, genericStream, path, selectedReplayDuration)
+//                                                val replayUri = Uri.fromFile(File(savedReplay))
+//                                                genericStream.changeVideoSource(VideoFileSource(context, replayUri, false) {})
+//                                                // Keep the replay on screen for the selected duration.
+//                                                val time = selectedReplayDuration.split("s")[0].toLong() * 1000
+//                                                delay(time)
+//                                                genericStream.changeVideoSource(activeCameraSource)
+//                                            } catch (e: Exception) {
+//                                                Log.e("Replay", "Error processing replay: ${e.message}")
+//                                            }
+//                                        } ?: run {
+//                                            Log.e("Replay", "No background recording found!")
+//                                        }
+//                                    }
+
+                                        //ESTO ERA OTRO CODIGO COMENTADO
 //                                    coroutineScope.launch {
 //                                        backgroundRecordPath?.let { path ->
 //                                            val savedReplay = handleReplay(context, genericStream, path, selectedReplayDuration)
@@ -852,32 +861,33 @@ fun CameraScreenContent() {
                                     .zIndex(2f),
                                 painter = painterResource(id = R.drawable.ic_rocket),
                                 onClick = {
-                                    showOverlaySubMenu = !showOverlaySubMenu
+                                    showApplyButton = !showApplyButton
                                 }
                             )
-                            androidx.compose.animation.AnimatedVisibility(
-                                visible = showOverlaySubMenu,
-                                enter = fadeIn(tween(200)) + slideInHorizontally (initialOffsetX = { it / 2 }),
-                                exit = fadeOut(tween(200)) + slideOutHorizontally (targetOffsetX = { it / 2 }),
-                                modifier = Modifier
-                                    .align(Alignment.CenterEnd)
-                                    .offset(x = (-100).dp) // Adjust offset to align with button
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .wrapContentWidth()
-                                        .padding(6.dp),
-                                    horizontalArrangement = Arrangement.End
-                                ) {
-                                    AuxButton(
-                                        modifier = Modifier.size(40.dp),
-                                        painter = painterResource(id = R.drawable.ic_del_1),
-                                        onClick = {
-                                            showApplyButton = !showApplyButton
-                                        }
-                                    )
-                                }
-                            }
+                            // Comment the overlays sumbenu
+//                            androidx.compose.animation.AnimatedVisibility(
+//                                visible = showOverlaySubMenu,
+//                                enter = fadeIn(tween(200)) + slideInHorizontally (initialOffsetX = { it / 2 }),
+//                                exit = fadeOut(tween(200)) + slideOutHorizontally (targetOffsetX = { it / 2 }),
+//                                modifier = Modifier
+//                                    .align(Alignment.CenterEnd)
+//                                    .offset(x = (-100).dp) // Adjust offset to align with button
+//                            ) {
+//                                Row(
+//                                    modifier = Modifier
+//                                        .wrapContentWidth()
+//                                        .padding(6.dp),
+//                                    horizontalArrangement = Arrangement.End
+//                                ) {
+//                                    AuxButton(
+//                                        modifier = Modifier.size(40.dp),
+//                                        painter = painterResource(id = R.drawable.ic_del_1),
+//                                        onClick = {
+//                                            showApplyButton = !showApplyButton
+//                                        }
+//                                    )
+//                                }
+//                            }
                         }
 
 
@@ -899,9 +909,9 @@ fun CameraScreenContent() {
 
                         Spacer(modifier = Modifier.height(5.dp))
 
-                        if (isStreaming && backgroundRecordPath == null) {
-                            backgroundRecordPath = startBackgroundRecording(context, genericStream)
-                        }
+//                        if (isStreaming && backgroundRecordPath == null) {
+//                            backgroundRecordPath = startBackgroundRecording(context, genericStream)
+//                        }
 
                         if (isStreaming) {
                             // Recording button
@@ -947,6 +957,8 @@ fun CameraScreenContent() {
                                     showWhiteBalanceSlider = false
                                     showOpticalVideoStabilization = false
                                     showExposureSlider = false
+                                    showExposureCompensationSlider = false
+                                    showSensorExposureTimeSlider = false
 //                                    showZoomSlider = false
                                 }
                             )
@@ -1136,12 +1148,11 @@ fun CameraScreenContent() {
                                         activeCameraSource.setSensorSensitivity(selectedISO)
                                     }
                                     IsoSlider(
-                                        isoIndex = isoIndex,
-                                        onValueChange = { newIndex ->
-                                            isoIndex = newIndex
-                                            // When slider moves, the LaunchedEffect above will update ISO.
+                                        isoValue = isoSliderValue,
+                                        onValueChange = { newValue -> isoSliderValue = newValue },
+                                        updateSensorSensitivity = { newIso ->
+                                            activeCameraSource.setSensorSensitivity(newIso)
                                         },
-                                        isoOptions = isoOptions,
                                         modifier = Modifier.fillMaxWidth()
                                     )
                                 }
@@ -1371,7 +1382,7 @@ fun CameraScreenContent() {
                                 genericStream.stopPreview()
 
                                 // Introduce a delay (e.g., 500ms) to allow the GL context to settle.
-//                                delay(500)
+                                delay(1000)
 
                                 // Apply new resolution settings.
                                 when (selectedResolution) {
@@ -1382,6 +1393,10 @@ fun CameraScreenContent() {
                                     "720p" -> {
                                         videoWidth = 1280
                                         videoHeight = 720
+                                    }
+                                    "2k" -> {
+                                        videoWidth = 2560
+                                        videoHeight = 1440
                                     }
                                 }
                                 videoBitrate = selectedBitrate
@@ -1709,7 +1724,7 @@ fun SettingsMenu(
                     )
                     SectionSubtitle("Resolution")
                     ModernDropdown(
-                        items = listOf("1080p", "720p"),
+                        items = listOf("1080p", "720p", "2k"),
                         selectedValue = selectedResolution,
                         displayMapper = { it },
                         onValueChange = onResolutionChange,
@@ -2354,53 +2369,53 @@ fun recordVideoStreaming(context: Context, genericStream: GenericStream, state: 
     }
 }
 
-fun startBackgroundRecording(context: Context, genericStream: GenericStream): String {
-    val folder = PathUtils.getRecordPath()
-    if (!folder.exists()) folder.mkdir()
-    val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
-    val path = "${folder.absolutePath}/background_${sdf.format(Date())}.mp4"
-    genericStream.startRecord(path) { status ->
-        // You might want to handle status updates if needed.
-    }
-    return path
-}
-
-suspend fun handleReplaySuspended(
-    context: Context,
-    genericStream: GenericStream,
-    backgroundRecordPath: String,
-    secondsClip: String,
-): String = suspendCancellableCoroutine { continuation ->
-    // Stop background recording if it is still running.
-    if (genericStream.isRecording) {
-        genericStream.stopRecord()
-    }
-
-    // Define the output path for the replay clip.
-    val folder = PathUtils.getRecordPath()
-    if (!folder.exists()) folder.mkdir()
-    val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
-    val replayPath = "${folder.absolutePath}/replay_${sdf.format(Date())}.mp4"
-
-    // Build the FFmpeg command to clip the last `secondsClip` seconds.
-//    val command = """-sseof -"$secondsClip" -i "$backgroundRecordPath" -filter_complex '[0:v]setpts=1.25*PTS[v];[0:a]atempo=0.8[a]' -map "[v]" -map "[a]" -c:v h264 -preset ultrafast -tune zerolatency "$replayPath""""
-    val command = "-sseof -\"$secondsClip\" -i \"$backgroundRecordPath\" -c copy \"$replayPath\""
-
-    // Execute the FFmpeg command asynchronously.
-    FFmpegKit.executeAsync(command) { session ->
-        val returnCode = session.returnCode
-        if (ReturnCode.isSuccess(returnCode)) {
-            Log.d("Replay", "Replay saved at $replayPath")
-            // Optionally, delete the original background recording file.
-            File(backgroundRecordPath).delete()
-            // Resume with the replay path once processing is complete.
-            continuation.resume(replayPath)
-        } else {
-            Log.e("Replay", "FFmpegKit failed to clip video, return code: $returnCode")
-            continuation.resumeWithException(Exception("FFmpegKit failed"))
-        }
-    }
-}
+//fun startBackgroundRecording(context: Context, genericStream: GenericStream): String {
+//    val folder = PathUtils.getRecordPath()
+//    if (!folder.exists()) folder.mkdir()
+//    val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
+//    val path = "${folder.absolutePath}/background_${sdf.format(Date())}.mp4"
+//    genericStream.startRecord(path) { status ->
+//        // You might want to handle status updates if needed.
+//    }
+//    return path
+//}
+//
+//suspend fun handleReplaySuspended(
+//    context: Context,
+//    genericStream: GenericStream,
+//    backgroundRecordPath: String,
+//    secondsClip: String,
+//): String = suspendCancellableCoroutine { continuation ->
+//    // Stop background recording if it is still running.
+//    if (genericStream.isRecording) {
+//        genericStream.stopRecord()
+//    }
+//
+//    // Define the output path for the replay clip.
+//    val folder = PathUtils.getRecordPath()
+//    if (!folder.exists()) folder.mkdir()
+//    val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
+//    val replayPath = "${folder.absolutePath}/replay_${sdf.format(Date())}.mp4"
+//
+//    // Build the FFmpeg command to clip the last `secondsClip` seconds.
+////    val command = """-sseof -"$secondsClip" -i "$backgroundRecordPath" -filter_complex '[0:v]setpts=1.25*PTS[v];[0:a]atempo=0.8[a]' -map "[v]" -map "[a]" -c:v h264 -preset ultrafast -tune zerolatency "$replayPath""""
+//    val command = "-sseof -\"$secondsClip\" -i \"$backgroundRecordPath\" -c copy \"$replayPath\""
+//
+//    // Execute the FFmpeg command asynchronously.
+//    FFmpegKit.executeAsync(command) { session ->
+//        val returnCode = session.returnCode
+//        if (ReturnCode.isSuccess(returnCode)) {
+//            Log.d("Replay", "Replay saved at $replayPath")
+//            // Optionally, delete the original background recording file.
+//            File(backgroundRecordPath).delete()
+//            // Resume with the replay path once processing is complete.
+//            continuation.resume(replayPath)
+//        } else {
+//            Log.e("Replay", "FFmpegKit failed to clip video, return code: $returnCode")
+//            continuation.resumeWithException(Exception("FFmpegKit failed"))
+//        }
+//    }
+//}
 
 //fun handleReplay(context: Context, genericStream: GenericStream, backgroundRecordPath: String, secondsClip: String): String {
 //    // Stop background recording if it is still running.
