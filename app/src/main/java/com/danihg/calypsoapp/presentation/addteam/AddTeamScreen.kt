@@ -11,15 +11,19 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -317,102 +321,27 @@ fun EditTeamDialog(
         onResult = { uri -> logoUri = uri }
     )
 
+    // FocusRequester for the new player's name input.
+    val nameFocusRequester = remember { FocusRequester() }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit Team", color = Color.White) },
         text = {
-            Column {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { if (it.length <= 20) name = it },
-                    label = { Text("Team Name") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = CalypsoRed,
-                        unfocusedBorderColor = Color.Gray,
-                        focusedLabelColor = CalypsoRed,
-                        unfocusedLabelColor = Color.Gray
-                    )
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = alias,
-                    onValueChange = { if (it.length <= 3) alias = it.uppercase() },
-                    label = { Text("Alias (3 characters)") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = CalypsoRed,
-                        unfocusedBorderColor = Color.Gray,
-                        focusedLabelColor = CalypsoRed,
-                        unfocusedLabelColor = Color.Gray
-                    )
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Players:", color = Color.LightGray, fontWeight = FontWeight.Medium)
-                // Display each player as two editable fields.
-                playersData.forEachIndexed { index, playerData ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                    ) {
-                        OutlinedTextField(
-                            value = playerData.name,
-                            onValueChange = { newName ->
-                                playersData[index] = playerData.copy(name = newName)
-                            },
-                            label = { Text("Name") },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                focusedBorderColor = CalypsoRed,
-                                unfocusedBorderColor = Color.Gray,
-                                focusedLabelColor = CalypsoRed,
-                                unfocusedLabelColor = Color.Gray
-                            )
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        OutlinedTextField(
-                            value = playerData.number,
-                            onValueChange = { newNumber ->
-                                playersData[index] = playerData.copy(number = newNumber)
-                            },
-                            label = { Text("Number") },
-                            singleLine = true,
-                            modifier = Modifier.width(80.dp),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                focusedBorderColor = CalypsoRed,
-                                unfocusedBorderColor = Color.Gray,
-                                focusedLabelColor = CalypsoRed,
-                                unfocusedLabelColor = Color.Gray
-                            )
-                        )
-                    }
-                }
-                // Row to add a new player in edit mode.
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+            // Use a Box with fixed height and vertical scroll.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(400.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(
-                        value = newPlayerNameInput,
-                        onValueChange = { if (it.length <= 20) newPlayerNameInput = it },
-                        label = { Text("Player Name") },
+                        value = name,
+                        onValueChange = { if (it.length <= 20) name = it },
+                        label = { Text("Team Name") },
                         singleLine = true,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
@@ -422,14 +351,14 @@ fun EditTeamDialog(
                             unfocusedLabelColor = Color.Gray
                         )
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
-                        value = newPlayerNumberInput,
-                        onValueChange = { if (it.length <= 4) newPlayerNumberInput = it },
-                        label = { Text("Number") },
+                        value = alias,
+                        onValueChange = { if (it.length <= 3) alias = it.uppercase() },
+                        label = { Text("Alias (3 characters)") },
                         singleLine = true,
-                        modifier = Modifier.width(80.dp),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                        modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
@@ -439,46 +368,144 @@ fun EditTeamDialog(
                             unfocusedLabelColor = Color.Gray
                         )
                     )
-                    IconButton(
-                        onClick = {
-                            if (newPlayerNameInput.isNotBlank() && newPlayerNumberInput.isNotBlank()) {
-                                playersData.add(
-                                    PlayerData(
-                                        newPlayerNameInput.trim(),
-                                        newPlayerNumberInput.trim()
-                                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Players:", color = Color.LightGray, fontWeight = FontWeight.Medium)
+                    // Existing players list.
+                    playersData.forEachIndexed { index, playerData ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = playerData.name,
+                                onValueChange = { newName ->
+                                    playersData[index] = playerData.copy(name = newName)
+                                },
+                                label = { Text("Name") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    focusedBorderColor = CalypsoRed,
+                                    unfocusedBorderColor = Color.Gray,
+                                    focusedLabelColor = CalypsoRed,
+                                    unfocusedLabelColor = Color.Gray
                                 )
-                                newPlayerNameInput = ""
-                                newPlayerNumberInput = ""
-                            }
-                        },
-                        modifier = Modifier.padding(start = 8.dp)
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = "Add Player", tint = CalypsoRed)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            OutlinedTextField(
+                                value = playerData.number,
+                                onValueChange = { newNumber ->
+                                    playersData[index] = playerData.copy(number = newNumber)
+                                },
+                                label = { Text("Number") },
+                                singleLine = true,
+                                modifier = Modifier.width(80.dp),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    focusedBorderColor = CalypsoRed,
+                                    unfocusedBorderColor = Color.Gray,
+                                    focusedLabelColor = CalypsoRed,
+                                    unfocusedLabelColor = Color.Gray
+                                )
+                            )
+                        }
                     }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = { launcher.launch("image/*") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = CalypsoRed)
-                ) {
-                    Text("Change Logo")
-                }
-                logoUri?.let {
+                    // Show the row to add a new player only if under the limit.
+                    if (playersData.size < 12) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = newPlayerNameInput,
+                                onValueChange = { if (it.length <= 20) newPlayerNameInput = it },
+                                label = { Text("Player Name") },
+                                singleLine = true,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .focusRequester(nameFocusRequester),
+                                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    focusedBorderColor = CalypsoRed,
+                                    unfocusedBorderColor = Color.Gray,
+                                    focusedLabelColor = CalypsoRed,
+                                    unfocusedLabelColor = Color.Gray
+                                )
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            OutlinedTextField(
+                                value = newPlayerNumberInput,
+                                onValueChange = { if (it.length <= 4) newPlayerNumberInput = it },
+                                label = { Text("Number") },
+                                singleLine = true,
+                                modifier = Modifier.width(80.dp),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    focusedBorderColor = CalypsoRed,
+                                    unfocusedBorderColor = Color.Gray,
+                                    focusedLabelColor = CalypsoRed,
+                                    unfocusedLabelColor = Color.Gray
+                                )
+                            )
+                            IconButton(
+                                onClick = {
+                                    if (newPlayerNameInput.isNotBlank() && newPlayerNumberInput.isNotBlank()) {
+                                        playersData.add(
+                                            PlayerData(
+                                                newPlayerNameInput.trim(),
+                                                newPlayerNumberInput.trim()
+                                            )
+                                        )
+                                        newPlayerNameInput = ""
+                                        newPlayerNumberInput = ""
+                                        // Request focus again if still under the limit.
+                                        if (playersData.size < 12) {
+                                            nameFocusRequester.requestFocus()
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.padding(start = 8.dp)
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = "Add Player", tint = CalypsoRed)
+                            }
+                        }
+                    }
+                    if (playersData.size >= 12) {
+                        Text("Maximum players reached", color = Color.Red, fontSize = 12.sp)
+                    }
                     Spacer(modifier = Modifier.height(8.dp))
-                    AsyncImage(
-                        model = it,
-                        contentDescription = "Logo Preview",
-                        modifier = Modifier
-                            .size(100.dp)
-                            .padding(8.dp),
-                        contentScale = ContentScale.Crop
-                    )
-                }
-                if (isUploading) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    CircularProgressIndicator(color = CalypsoRed)
+                    Button(
+                        onClick = { launcher.launch("image/*") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = CalypsoRed)
+                    ) {
+                        Text("Change Logo")
+                    }
+                    logoUri?.let {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        AsyncImage(
+                            model = it,
+                            contentDescription = "Logo Preview",
+                            modifier = Modifier
+                                .size(100.dp)
+                                .padding(8.dp),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                    if (isUploading) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        CircularProgressIndicator(color = CalypsoRed)
+                    }
                 }
             }
         },
@@ -488,7 +515,7 @@ fun EditTeamDialog(
                     if (name.isNotBlank() && alias.isNotBlank()) {
                         coroutineScope.launch {
                             isUploading = true
-                            // Convert the list of PlayerData back into a list of "name,number" strings.
+                            // Convert playersData to a list of "name,number" strings.
                             val updatedPlayers = playersData.map { "${it.name},${it.number}" }
                             val success = firestoreManager.updateTeam(
                                 context = context,
@@ -502,7 +529,7 @@ fun EditTeamDialog(
                             if (success) {
                                 onTeamUpdated()
                             } else {
-                                // Handle failure (e.g. show a toast)
+                                // Handle failure (e.g., show a toast)
                             }
                         }
                     }
@@ -522,6 +549,8 @@ fun EditTeamDialog(
         textContentColor = Color.White
     )
 }
+
+
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -554,51 +583,19 @@ fun AddTeamDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add New Team", color = Color.White) },
         text = {
-            Column {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { if (it.length <= 20) name = it },
-                    label = { Text("Team Name") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = CalypsoRed,
-                        unfocusedBorderColor = Color.Gray,
-                        focusedLabelColor = CalypsoRed,
-                        unfocusedLabelColor = Color.Gray
-                    )
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = alias,
-                    onValueChange = { if (it.length <= 3) alias = it.uppercase() },
-                    label = { Text("Alias (3 characters)") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = CalypsoRed,
-                        unfocusedBorderColor = Color.Gray,
-                        focusedLabelColor = CalypsoRed,
-                        unfocusedLabelColor = Color.Gray
-                    )
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                // Row for adding a player (name and number)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+            // Make the dialog content scrollable:
+            Box(
+                modifier = Modifier
+                    .verticalScroll(rememberScrollState())
+                    .heightIn(max = 400.dp)
+            ) {
+                Column {
                     OutlinedTextField(
-                        value = playerNameInput,
-                        onValueChange = { if (it.length <= 20) playerNameInput = it },
-                        label = { Text("Player Name") },
+                        value = name,
+                        onValueChange = { if (it.length <= 20) name = it },
+                        label = { Text("Team Name") },
                         singleLine = true,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
@@ -608,14 +605,14 @@ fun AddTeamDialog(
                             unfocusedLabelColor = Color.Gray
                         )
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
-                        value = playerNumberInput,
-                        onValueChange = { if (it.length <= 4) playerNumberInput = it },
-                        label = { Text("Number") },
+                        value = alias,
+                        onValueChange = { if (it.length <= 3) alias = it.uppercase() },
+                        label = { Text("Alias (3 characters)") },
                         singleLine = true,
-                        modifier = Modifier.width(80.dp),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                        modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
@@ -625,54 +622,98 @@ fun AddTeamDialog(
                             unfocusedLabelColor = Color.Gray
                         )
                     )
-                    IconButton(
-                        onClick = {
-                            if (playerNameInput.isNotBlank() && playerNumberInput.isNotBlank()) {
-                                // Save the player as "name,number"
-                                players = players + "${playerNameInput.trim()},${playerNumberInput.trim()}"
-                                playerNameInput = ""
-                                playerNumberInput = ""
-                            }
-                        },
-                        modifier = Modifier.padding(start = 8.dp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    // Row for adding a player (name and number)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = "Add Player", tint = CalypsoRed)
+                        OutlinedTextField(
+                            value = playerNameInput,
+                            onValueChange = { if (it.length <= 20) playerNameInput = it },
+                            label = { Text("Player Name") },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = CalypsoRed,
+                                unfocusedBorderColor = Color.Gray,
+                                focusedLabelColor = CalypsoRed,
+                                unfocusedLabelColor = Color.Gray
+                            )
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        OutlinedTextField(
+                            value = playerNumberInput,
+                            onValueChange = { if (it.length <= 4) playerNumberInput = it },
+                            label = { Text("Number") },
+                            singleLine = true,
+                            modifier = Modifier.width(80.dp),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = CalypsoRed,
+                                unfocusedBorderColor = Color.Gray,
+                                focusedLabelColor = CalypsoRed,
+                                unfocusedLabelColor = Color.Gray
+                            )
+                        )
+                        IconButton(
+                            onClick = {
+                                if (playerNameInput.isNotBlank() && playerNumberInput.isNotBlank() && players.size < 12) {
+                                    // Save the player as "name,number"
+                                    players = players + "${playerNameInput.trim()},${playerNumberInput.trim()}"
+                                    playerNameInput = ""
+                                    playerNumberInput = ""
+                                }
+                            },
+                            modifier = Modifier.padding(start = 8.dp),
+                            enabled = players.size < 12 // disable if already 12 players
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "Add Player", tint = CalypsoRed)
+                        }
                     }
-                }
-                // Display added players in a friendly format.
-                LazyColumn(
-                    modifier = Modifier.height(100.dp)
-                ) {
-                    items(players) { player ->
-                        val parts = player.split(",")
-                        val displayText = if (parts.size == 2) {
-                            "Name: ${parts[0]} – Number: ${parts[1]}"
-                        } else player
-                        Text(displayText, color = Color.White)
+                    // Optionally, show a message when maximum is reached:
+                    if (players.size >= 12) {
+                        Text("Maximum players reached", color = Color.Red, fontSize = 12.sp)
                     }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = { launcher.launch("image/*") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = CalypsoRed)
-                ) {
-                    Text("Upload Logo")
-                }
-                logoUri?.let {
+                    // Display added players in a friendly format.
+                    LazyColumn(
+                        modifier = Modifier.height(100.dp)
+                    ) {
+                        items(players) { player ->
+                            val parts = player.split(",")
+                            val displayText = if (parts.size == 2) {
+                                "Name: ${parts[0]} – Number: ${parts[1]}"
+                            } else player
+                            Text(displayText, color = Color.White)
+                        }
+                    }
                     Spacer(modifier = Modifier.height(8.dp))
-                    AsyncImage(
-                        model = it,
-                        contentDescription = "Logo Preview",
-                        modifier = Modifier
-                            .size(100.dp)
-                            .padding(8.dp),
-                        contentScale = ContentScale.Crop
-                    )
-                }
-                if (isUploading) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    CircularProgressIndicator(color = CalypsoRed)
+                    Button(
+                        onClick = { launcher.launch("image/*") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = CalypsoRed)
+                    ) {
+                        Text("Upload Logo")
+                    }
+                    logoUri?.let {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        AsyncImage(
+                            model = it,
+                            contentDescription = "Logo Preview",
+                            modifier = Modifier
+                                .size(100.dp)
+                                .padding(8.dp),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                    if (isUploading) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        CircularProgressIndicator(color = CalypsoRed)
+                    }
                 }
             }
         },

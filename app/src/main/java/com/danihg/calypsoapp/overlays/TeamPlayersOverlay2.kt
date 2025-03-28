@@ -95,6 +95,13 @@ fun createTeamPlayersBitmapSequential(
     val scaleFactor = 0.3f
     val scaleFactorLogo = 0.4f
 
+    var teamNameSize = 50f
+
+    if (leftTeamName.length > 10 || rightTeamName.length > 10) {
+        teamNameSize = 40f
+    }
+
+
     // --- Left Side Main Section ---
     leftBackground?.let { lb ->
         val scaledWidth = (lb.width * scaleFactor).toInt()
@@ -115,7 +122,7 @@ fun createTeamPlayersBitmapSequential(
             color = Color.White.toArgb()
             textAlign = Paint.Align.CENTER
             typeface = ResourcesCompat.getFont(context, R.font.roboto_medium)
-            textSize = 50f
+            textSize = teamNameSize
             setShadowLayer(4f, 2f, 2f, Color(0x80000000).toArgb())
         }
         val textX = x + scaledWidth / 2f
@@ -142,7 +149,7 @@ fun createTeamPlayersBitmapSequential(
                 color = Color.White.toArgb()
                 textAlign = Paint.Align.CENTER
                 typeface = ResourcesCompat.getFont(context, R.font.roboto_medium)
-                textSize = 50f
+                textSize = teamNameSize
                 setShadowLayer(4f, 2f, 2f, Color(0x80000000).toArgb())
             }
             val textX = x + scaledWidth / 2f
@@ -194,6 +201,17 @@ fun createTeamPlayersBitmapSequential(
                         leftTeamPlayers[i].name.uppercase(Locale.ROOT)
                     } else ""
                     drawStaticText(canvas, leftPlayerName, textX, textY, bigTextPaintLeft, currentAlpha)
+
+                    val leftPlayerNumber = if (i < leftTeamPlayers.size) {
+                        leftTeamPlayers[i].number
+                    } else ""
+
+                    val numberXPos = 50
+
+                    val numberX = x + (numberGap + numberXPos) / 2f
+                    val numberY = y + (scaledHeight + initialGap - 10) / 2f
+
+                    drawStaticText(canvas, leftPlayerNumber, numberX, numberY, bigTextPaintLeft, currentAlpha)
                 }
                 rightPlayerRow_1?.let {
                     val scaledWidth = (it.width * scaleFactor).toInt()
@@ -214,6 +232,17 @@ fun createTeamPlayersBitmapSequential(
                         rightTeamPlayers[i].name.uppercase(Locale.ROOT)
                     } else ""
                     drawStaticText(canvas, rightPlayerName, textX, textY, bigTextPaintLeft, currentAlpha)
+
+                    val rightPlayerNumber = if (i < rightTeamPlayers.size) {
+                        rightTeamPlayers[i].number
+                    } else ""
+
+                    val numberXPos = 45
+
+                    val numberX = x + (scaledWidth - numberXPos) / 1f
+                    val numberY = y + (scaledHeight + initialGap - 10) / 2f
+
+                    drawStaticText(canvas, rightPlayerNumber, numberX, numberY, bigTextPaintLeft, currentAlpha)
                 }
             } else {
                 // Row type 2.
@@ -237,6 +266,17 @@ fun createTeamPlayersBitmapSequential(
                         leftTeamPlayers[i].name.uppercase(Locale.ROOT)
                     } else ""
                     drawStaticText(canvas, leftPlayerName, textX, textY, bigTextPaintLeft, currentAlpha)
+
+                    val leftPlayerNumber = if (i < leftTeamPlayers.size) {
+                        leftTeamPlayers[i].number
+                    } else ""
+
+                    val numberXPos = 50
+
+                    val numberX = x + (numberGap + numberXPos) / 2f
+                    val numberY = y + (scaledHeight + initialGap - 10) / 2f
+
+                    drawStaticText(canvas, leftPlayerNumber, numberX, numberY, bigTextPaintLeft, currentAlpha)
                 }
                 rightPlayerRow_2?.let {
                     val scaledWidth = (it.width * scaleFactor).toInt()
@@ -257,6 +297,17 @@ fun createTeamPlayersBitmapSequential(
                         rightTeamPlayers[i].name.uppercase(Locale.ROOT)
                     } else ""
                     drawStaticText(canvas, rightPlayerName, textX, textY, bigTextPaintLeft, currentAlpha)
+
+                    val rightPlayerNumber = if (i < rightTeamPlayers.size) {
+                        rightTeamPlayers[i].number
+                    } else ""
+
+                    val numberXPos = 45
+
+                    val numberX = x + (scaledWidth - numberXPos) / 1f
+                    val numberY = y + (scaledHeight + initialGap - 10) / 2f
+
+                    drawStaticText(canvas, rightPlayerNumber, numberX, numberY, bigTextPaintLeft, currentAlpha)
                 }
             }
         }

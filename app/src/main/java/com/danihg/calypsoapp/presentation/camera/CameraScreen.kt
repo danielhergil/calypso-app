@@ -16,6 +16,7 @@ import android.graphics.PixelFormat
 import android.graphics.drawable.BitmapDrawable
 import android.hardware.camera2.CaptureRequest
 import android.media.MediaRecorder
+import android.net.Uri
 import android.os.Build
 import android.util.Log
 import android.util.Range
@@ -86,6 +87,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.ImageLoader
 import coil.request.ImageRequest
+import com.arthenica.ffmpegkit.FFmpegKit
+import com.arthenica.ffmpegkit.ReturnCode
 import com.danihg.calypsoapp.R
 import com.danihg.calypsoapp.data.FirestoreManager
 import com.danihg.calypsoapp.data.Team
@@ -120,10 +123,12 @@ import com.danihg.calypsoapp.utils.rememberToast
 import com.pedro.common.AudioCodec
 import com.pedro.common.ConnectChecker
 import com.pedro.common.VideoCodec
+import com.pedro.encoder.TimestampMode
 import com.pedro.encoder.input.gl.render.filters.`object`.GifObjectFilterRender
 import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
 import com.pedro.encoder.input.sources.audio.AudioSource
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
+import com.pedro.encoder.input.sources.video.VideoFileSource
 import com.pedro.encoder.utils.gl.TranslateTo
 import java.util.Date
 import com.pedro.extrasources.CameraUvcSource
@@ -133,8 +138,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Locale
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlin.math.pow
+import kotlin.math.roundToInt
 
 class CameraViewModel(context: Context) : ViewModel() {
     // Create the camera instance once and keep it here.
@@ -199,7 +210,7 @@ fun CameraScreenContent() {
     }
     var videoBitrate = sharedPreferences.getInt("videoBitrate", 5000 * 1000)
     val videoFPS = sharedPreferences.getInt("videoFPS", 30)
-    val audioSampleRate = sharedPreferences.getInt("audioSampleRate", 32000)
+    val audioSampleRate = sharedPreferences.getInt("audioSampleRate", 48000)
     val audioIsStereo = sharedPreferences.getBoolean("audioIsStereo", true)
     val audioBitrate = sharedPreferences.getInt("audioBitrate", 128 * 1000)
 
@@ -212,6 +223,8 @@ fun CameraScreenContent() {
     var selectedResolution by remember { mutableStateOf("1080p") }
     var selectedBitrate by remember { mutableIntStateOf(5000 * 1000) }
     var selectedTeamsOverlayDuration by remember { mutableStateOf("10s") }
+    var selectedReplayDuration by remember { mutableStateOf("10s") }
+
 
     // Map string values to codec objects.
     val enumAudioMapping = mapOf(
@@ -236,7 +249,12 @@ fun CameraScreenContent() {
     var showCameraSubSettings  by rememberSaveable { mutableStateOf(false) }
     var showTeamPlayersOverlayMenu by rememberSaveable { mutableStateOf(false) }
     var showLineUpOverlay by rememberSaveable { mutableStateOf(false) }
+    var showTeamPlayersOverlay by rememberSaveable { mutableStateOf(false) }
+    var showReplays by rememberSaveable { mutableStateOf(false) }
     var wasScoreboardActive by remember { mutableStateOf(true) }
+
+    var backgroundRecordPath by remember { mutableStateOf<String?>(null) }
+
 
     // State for recording timer (in seconds).
     var streamingTimerSeconds by remember { mutableStateOf(0L) }
@@ -296,9 +314,11 @@ fun CameraScreenContent() {
     var rightLogoUrl by rememberSaveable { mutableStateOf<String?>(null) }
 
     // For default logos in case no team is selected or loading fails.
-    val defaultOptions = BitmapFactory.Options().apply { inScaled = false }
+    val defaultOptions = BitmapFactory.Options()
     val defaultLeftLogo = BitmapFactory.decodeResource(context.resources, R.drawable.rivas_50, defaultOptions)
+    defaultLeftLogo.setDensity(context.resources.displayMetrics.densityDpi)
     val defaultRightLogo = BitmapFactory.decodeResource(context.resources, R.drawable.alcorcon_50, defaultOptions)
+    defaultRightLogo.setDensity(context.resources.displayMetrics.densityDpi)
 
     // The selected team names for scoreboard overlay.
     var selectedTeam1 by rememberSaveable { mutableStateOf(if (teams.isNotEmpty()) teams.first().name else "Rivas") }
@@ -341,9 +361,6 @@ fun CameraScreenContent() {
     } ?: emptyList()
 
 
-    // 1) State to track whether we want to show the team players overlay
-    var showTeamPlayersOverlay by rememberSaveable { mutableStateOf(false) }
-
     // Example player data (in a real app, you might load from Firestore, etc.)
     val teamAPlayers = listOf(
         PlayerEntry("1", "John Keeper"),
@@ -373,7 +390,10 @@ fun CameraScreenContent() {
     var activeCameraSource by remember { mutableStateOf(cameraViewModel.activeCameraSource) }
 
 //    var activeCameraSource by remember { mutableStateOf(CameraCalypsoSource(context)) }
-    val audio: AudioSource = remember { MicrophoneSource() }
+    val micSource: MicrophoneSource = remember { MicrophoneSource(MediaRecorder.AudioSource.DEFAULT) }
+    val audio: AudioSource = remember { micSource }
+    val externalAudio: AudioSource = remember { MicrophoneSource(MediaRecorder.AudioSource.MIC) }
+    var isMicMuted by remember { mutableStateOf(false) }
 
     // For showing/hiding the zoom slider overlay
     var showZoomSlider by rememberSaveable { mutableStateOf(false) }
@@ -389,6 +409,7 @@ fun CameraScreenContent() {
 
     var isoIndex by rememberSaveable { mutableStateOf(0f) }
     val isoOptions = listOf(100, 200, 400, 800, 1600, 3200)
+    var isoSliderValue by rememberSaveable { mutableStateOf(0f) }
 
     // State variables for white balance
     var showWhiteBalanceSlider by rememberSaveable { mutableStateOf(false) }
@@ -421,6 +442,7 @@ fun CameraScreenContent() {
         "1/40" to 25000000L,
         "1/50" to 20000000L,
         "1/60" to 16666667L, // We'll use this as the default.
+        "1/100" to 10000000L,
         "1/120" to 8333333L,
         "1/250" to 4000000L,
         "1/500" to 2000000L
@@ -439,45 +461,10 @@ fun CameraScreenContent() {
         }, activeCameraSource, audio).apply {
             prepareVideo(videoWidth, videoHeight, videoBitrate, videoFPS)
             prepareAudio(audioSampleRate, audioIsStereo, audioBitrate)
+            setTimestampMode(TimestampMode.CLOCK, TimestampMode.BUFFER)
             getGlInterface().autoHandleOrientation = true
         }
     }
-
-
-//    // Launch effect to animate the team players overlay when toggled.
-//    LaunchedEffect(showTeamPlayersOverlay) {
-//        if (showTeamPlayersOverlay) {
-//            // If scoreboard overlay is active, remove it first.
-//            if (showScoreboardOverlay) {
-//                wasScoreboardActive = true
-//                showScoreboardOverlay = false
-//                genericStream.getGlInterface().removeFilter(imageObjectFilterRender)
-//            } else {
-//                wasScoreboardActive = false
-//            }
-//            genericStream.getGlInterface().addFilter(imageObjectFilterRender)
-//            // Call the animateTeamPlayersOverlay function from TeamPlayersUtils.
-//            // This will reveal the players row by row.
-//            animateTeamPlayersOverlay(
-//                context = context,
-//                teamAName = "TEAM A",
-//                teamBName = "TEAM B",
-//                teamAPlayers = teamAPlayers,
-//                teamBPlayers = teamBPlayers,
-//                imageObjectFilterRender = imageObjectFilterRender
-//            )
-//            // Wait for 15 seconds after the animation finishes.
-//            delay(15000)
-//            // Remove team players overlay.
-//            genericStream.getGlInterface().removeFilter(imageObjectFilterRender)
-//            // Restore scoreboard overlay if it was active.
-//            if (wasScoreboardActive) {
-//                showScoreboardOverlay = true
-//            }
-//            // Reset toggle.
-//            showTeamPlayersOverlay = false
-//        }
-//    }
 
     // Track lifecycle changes
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -655,38 +642,6 @@ fun CameraScreenContent() {
                     context = context,
                     videoSource = activeCameraSource
                 )
-//                AndroidView(
-//                    factory = { ctx ->
-//                        SurfaceView(ctx).apply {
-//
-//
-//                            layoutParams = ViewGroup.LayoutParams(
-//                                ViewGroup.LayoutParams.MATCH_PARENT,
-//                                ViewGroup.LayoutParams.MATCH_PARENT
-//                            )
-//                            surfaceViewRef.value = this
-//
-//                            holder.setFormat(PixelFormat.TRANSLUCENT)
-//
-//                            holder.addCallback(object : SurfaceHolder.Callback {
-//                                override fun surfaceCreated(holder: SurfaceHolder) {
-//                                    if (!genericStream.isOnPreview) {
-//                                        genericStream.startPreview(this@apply)
-//                                    }
-//                                }
-//                                override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
-//                                    genericStream.getGlInterface().setPreviewResolution(width, height)
-//                                }
-//                                override fun surfaceDestroyed(holder: SurfaceHolder) {
-//                                    if (genericStream.isOnPreview) {
-//                                        genericStream.stopPreview()
-//                                    }
-//                                }
-//                            })
-//                        }
-//                    },
-//                    modifier = Modifier.fillMaxSize()
-//                )
 
                 // Team Players Overlay.
                 Log.d("PixelsWidth", LocalContext.current.resources.displayMetrics.widthPixels.toString())
@@ -699,8 +654,8 @@ fun CameraScreenContent() {
                     screenHeight = LocalContext.current.resources.displayMetrics.heightPixels,
                     team1Name = selectedTeam1,
                     team2Name = selectedTeam2,
-                    team1Players = teamAPlayers,
-                    team2Players = teamBPlayers,
+                    team1Players = team1Players,
+                    team2Players = team2Players,
                     leftLogo = finalLeftLogo,
                     rightLogo = finalRightLogo,
                     selectedTeamsOverlayDuration = selectedTeamsOverlayDuration,
@@ -714,21 +669,6 @@ fun CameraScreenContent() {
                                 showScoreboardOverlay = false
                                 delay(50)
                                 showScoreboardOverlay = true
-
-//                                drawOverlay(
-//                                    context = context,
-//                                    leftLogoBitmap = finalLeftLogo,
-//                                    rightLogoBitmap = finalRightLogo,
-//                                    leftTeamGoals = leftTeamGoals,
-//                                    rightTeamGoals = rightTeamGoals,
-//                                    leftTeamAlias = team1Alias,
-//                                    rightTeamAlias = team2Alias,
-//                                    leftTeamColor = leftTeamColor,
-//                                    rightTeamColor = rightTeamColor,
-//                                    backgroundColor = selectedBackgroundColor,
-//                                    imageObjectFilterRender = imageObjectFilterRender,
-//                                    isOnPreview = genericStream.isOnPreview
-//                                )
                             }
                         }
                     }
@@ -824,17 +764,17 @@ fun CameraScreenContent() {
                     rightTeamGoals = 0
                 }
 
-                if (showTeamPlayersOverlay && !showLineUpOverlay) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp)
-                            .padding(top = 10.dp)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(100.dp)
+                        .padding(top = 30.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.Center
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxSize(),
-                            horizontalArrangement = Arrangement.Center
-                        ) {
+                        if (showTeamPlayersOverlay && !showLineUpOverlay) {
                             AuxButton(
                                 modifier = Modifier
                                     .size(40.dp)
@@ -844,6 +784,49 @@ fun CameraScreenContent() {
                                     wasScoreboardActive = showScoreboardOverlay
                                     showScoreboardOverlay = false
                                     showLineUpOverlay = true
+                                }
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        if (showReplays) {
+                            AuxButton(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .zIndex(2f),
+                                painter = painterResource(id = R.drawable.ic_replay),
+                                onClick = {
+//                                    coroutineScope.launch {
+//                                        backgroundRecordPath?.let { path ->
+//                                            try {
+//                                                // Wait for FFmpegKit to finish processing.
+//                                                val savedReplay = handleReplaySuspended(context, genericStream, path, selectedReplayDuration)
+//                                                val replayUri = Uri.fromFile(File(savedReplay))
+//                                                genericStream.changeVideoSource(VideoFileSource(context, replayUri, false) {})
+//                                                // Keep the replay on screen for the selected duration.
+//                                                val time = selectedReplayDuration.split("s")[0].toLong() * 1000
+//                                                delay(time)
+//                                                genericStream.changeVideoSource(activeCameraSource)
+//                                            } catch (e: Exception) {
+//                                                Log.e("Replay", "Error processing replay: ${e.message}")
+//                                            }
+//                                        } ?: run {
+//                                            Log.e("Replay", "No background recording found!")
+//                                        }
+//                                    }
+
+                                        //ESTO ERA OTRO CODIGO COMENTADO
+//                                    coroutineScope.launch {
+//                                        backgroundRecordPath?.let { path ->
+//                                            val savedReplay = handleReplay(context, genericStream, path, selectedReplayDuration)
+//                                            val replayUri = Uri.fromFile(File(savedReplay))
+//                                            genericStream.changeVideoSource(VideoFileSource(context, replayUri, false) {})
+//                                            val time = selectedReplayDuration.split("s")[0].toLong() * 1000
+//                                            delay(time)
+//                                            genericStream.changeVideoSource(activeCameraSource)
+//                                        } ?: run {
+//                                            Log.e("Replay", "No background recording found!")
+//                                        }
+//                                    }
                                 }
                             )
                         }
@@ -878,40 +861,33 @@ fun CameraScreenContent() {
                                     .zIndex(2f),
                                 painter = painterResource(id = R.drawable.ic_rocket),
                                 onClick = {
-                                    showOverlaySubMenu = !showOverlaySubMenu
+                                    showApplyButton = !showApplyButton
                                 }
                             )
-                            androidx.compose.animation.AnimatedVisibility(
-                                visible = showOverlaySubMenu,
-                                enter = fadeIn(tween(200)) + slideInHorizontally (initialOffsetX = { it / 2 }),
-                                exit = fadeOut(tween(200)) + slideOutHorizontally (targetOffsetX = { it / 2 }),
-                                modifier = Modifier
-                                    .align(Alignment.CenterEnd)
-                                    .offset(x = (-100).dp) // Adjust offset to align with button
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .wrapContentWidth()
-                                        .padding(6.dp),
-                                    horizontalArrangement = Arrangement.End
-                                ) {
-                                    AuxButton(
-                                        modifier = Modifier.size(40.dp),
-                                        painter = painterResource(id = R.drawable.ic_del_1),
-                                        onClick = {
-                                            showApplyButton = !showApplyButton
-                                        }
-                                    )
-//                                    Spacer(modifier = Modifier.width(22.dp))
+                            // Comment the overlays sumbenu
+//                            androidx.compose.animation.AnimatedVisibility(
+//                                visible = showOverlaySubMenu,
+//                                enter = fadeIn(tween(200)) + slideInHorizontally (initialOffsetX = { it / 2 }),
+//                                exit = fadeOut(tween(200)) + slideOutHorizontally (targetOffsetX = { it / 2 }),
+//                                modifier = Modifier
+//                                    .align(Alignment.CenterEnd)
+//                                    .offset(x = (-100).dp) // Adjust offset to align with button
+//                            ) {
+//                                Row(
+//                                    modifier = Modifier
+//                                        .wrapContentWidth()
+//                                        .padding(6.dp),
+//                                    horizontalArrangement = Arrangement.End
+//                                ) {
 //                                    AuxButton(
 //                                        modifier = Modifier.size(40.dp),
-//                                        painter = painterResource(id = R.drawable.ic_del_2),
+//                                        painter = painterResource(id = R.drawable.ic_del_1),
 //                                        onClick = {
-//                                            showTeamPlayersOverlayMenu = !showTeamPlayersOverlayMenu
+//                                            showApplyButton = !showApplyButton
 //                                        }
 //                                    )
-                                }
-                            }
+//                                }
+//                            }
                         }
 
 
@@ -932,6 +908,10 @@ fun CameraScreenContent() {
                         }
 
                         Spacer(modifier = Modifier.height(5.dp))
+
+//                        if (isStreaming && backgroundRecordPath == null) {
+//                            backgroundRecordPath = startBackgroundRecording(context, genericStream)
+//                        }
 
                         if (isStreaming) {
                             // Recording button
@@ -977,6 +957,8 @@ fun CameraScreenContent() {
                                     showWhiteBalanceSlider = false
                                     showOpticalVideoStabilization = false
                                     showExposureSlider = false
+                                    showExposureCompensationSlider = false
+                                    showSensorExposureTimeSlider = false
 //                                    showZoomSlider = false
                                 }
                             )
@@ -1012,6 +994,21 @@ fun CameraScreenContent() {
                                         )
                                     }
                                     else {
+                                        ToggleAuxButton(
+                                            modifier = Modifier.size(40.dp),
+                                            painter = painterResource(id = R.drawable.ic_mute),
+                                            toggled = isMicMuted,
+                                            onToggle = {
+                                                // Toggle the zoom slider overlay
+                                                isMicMuted = !isMicMuted
+                                                if(isMicMuted) {
+                                                    micSource.mute()
+                                                } else {
+                                                    micSource.unMute()
+                                                }
+                                            }
+                                        )
+                                        Spacer(modifier = Modifier.width(22.dp))
                                         ToggleAuxButton(
                                             modifier = Modifier.size(40.dp),
                                             painter = painterResource(id = R.drawable.ic_zoom),
@@ -1097,23 +1094,6 @@ fun CameraScreenContent() {
                         }
                     }
 
-                    // Later in your Scaffold (for example, inside the root Box), add the slider overlay:
-//                    if (showZoomSlider) {
-//                        Box(modifier = Modifier.fillMaxSize()) {
-//                            ZoomSlider(
-//                                zoomLevel = zoomLevel,
-//                                onValueChange = { newZoom ->
-//                                    zoomLevel = newZoom
-//                                    // Update the camera zoom directly.
-//                                    activeCameraSource.setZoom(newZoom)
-//                                },
-//                                modifier = Modifier
-//                                    .padding(start = 16.dp, top = 50.dp) // adjust padding as needed
-//                                    .align(Alignment.CenterStart)
-//                            )
-//                        }
-//                    }
-
                     if (showZoomSlider) {
                         Box(modifier = Modifier
                             .fillMaxSize()
@@ -1168,12 +1148,11 @@ fun CameraScreenContent() {
                                         activeCameraSource.setSensorSensitivity(selectedISO)
                                     }
                                     IsoSlider(
-                                        isoIndex = isoIndex,
-                                        onValueChange = { newIndex ->
-                                            isoIndex = newIndex
-                                            // When slider moves, the LaunchedEffect above will update ISO.
+                                        isoValue = isoSliderValue,
+                                        onValueChange = { newValue -> isoSliderValue = newValue },
+                                        updateSensorSensitivity = { newIso ->
+                                            activeCameraSource.setSensorSensitivity(newIso)
                                         },
-                                        isoOptions = isoOptions,
                                         modifier = Modifier.fillMaxWidth()
                                     )
                                 }
@@ -1403,7 +1382,7 @@ fun CameraScreenContent() {
                                 genericStream.stopPreview()
 
                                 // Introduce a delay (e.g., 500ms) to allow the GL context to settle.
-//                                delay(500)
+                                delay(1000)
 
                                 // Apply new resolution settings.
                                 when (selectedResolution) {
@@ -1414,6 +1393,10 @@ fun CameraScreenContent() {
                                     "720p" -> {
                                         videoWidth = 1280
                                         videoHeight = 720
+                                    }
+                                    "2k" -> {
+                                        videoWidth = 2560
+                                        videoHeight = 1440
                                     }
                                 }
                                 videoBitrate = selectedBitrate
@@ -1458,7 +1441,7 @@ fun CameraScreenContent() {
                                 }
                                 // Update audio source.
                                 if (selectedAudioSource == "USB Mic") {
-                                    genericStream.changeAudioSource(MicrophoneSource(MediaRecorder.AudioSource.MIC))
+                                    genericStream.changeAudioSource(externalAudio)
                                 } else {
                                     genericStream.changeAudioSource(audio)
                                 }
@@ -1486,31 +1469,22 @@ fun CameraScreenContent() {
                     onLeftLogoUrlChange = { leftLogoUrl = it }, // Save the new left logo URL
                     onRightLogoUrlChange = { rightLogoUrl = it }, // Save the new right logo URL
                     showScoreboardOverlay = showScoreboardOverlay,
-                    onToggleScoreboard = {
-                        showScoreboardOverlay = it
-                    },
+                    onToggleScoreboard = { showScoreboardOverlay = it },
                     selectedLeftColor = leftTeamColor,
                     onLeftColorChange = { leftTeamColor = it },
                     selectedRightColor = rightTeamColor,
                     onRightColorChange = { rightTeamColor = it },
-                    onClose = {
-                        showApplyButton = false
-                        showOverlaySubMenu = false
-//                        if (showScoreboardOverlay) {
-//                            wasScoreboardActive = true
-//                        }
-//                        else {
-//                            wasScoreboardActive = false
-//                        }
-//                        if (showTeamPlayersOverlay) {
-//                            showScoreboardOverlay = false
-//                        }
-                    },
                     selectedTeamsOverlayDuration = selectedTeamsOverlayDuration,
                     onTeamsOverlayDurationChange = { selectedTeamsOverlayDuration = it },
                     showLineUpOverlay = showTeamPlayersOverlay,
-                    onToggleLineUp = {
-                        showTeamPlayersOverlay = it
+                    onToggleLineUp = { showTeamPlayersOverlay = it },
+                    showReplays = showReplays,
+                    onToggleReplays = { showReplays = it },
+                    selectedReplaysDuration = selectedReplayDuration,
+                    onReplaysDurationChange = { selectedReplayDuration = it },
+                    onClose = {
+                        showApplyButton = false
+                        showOverlaySubMenu = false
                     }
                 )
 
@@ -1587,31 +1561,6 @@ fun CameraPreview(
                 )
                 surfaceViewRef.value = this
 
-//                setOnTouchListener { _, event ->
-//                    when (event.actionMasked) {
-//                        MotionEvent.ACTION_POINTER_DOWN -> {
-//                            if (event.pointerCount >= 2) {
-//                                // Compute the current finger spacing.
-//                                val currentSpacing = CameraHelper.getFingerSpacing(event)
-//                                // Set the internal fingerSpacing field using the cached field.
-//                                fingerSpacingField?.setFloat(videoSource, currentSpacing)
-//                            }
-//                        }
-//                        MotionEvent.ACTION_MOVE -> {
-//                            if (event.pointerCount >= 2) {
-//                                // Call your setZoom method.
-//                                videoSource.setZoom(event, 0.1f)
-//                            }
-//                        }
-//                        MotionEvent.ACTION_UP -> {
-//                            // Trigger tap-to-focus only for a single-finger tap.
-//                            if (event.pointerCount == 1) {
-//                                videoSource.tapToFocus(event)
-//                            }
-//                        }
-//                    }
-//                    true
-//                }
                 holder.setFormat(PixelFormat.TRANSLUCENT)
 
                 holder.addCallback(object : SurfaceHolder.Callback {
@@ -1775,7 +1724,7 @@ fun SettingsMenu(
                     )
                     SectionSubtitle("Resolution")
                     ModernDropdown(
-                        items = listOf("1080p", "720p"),
+                        items = listOf("1080p", "720p", "2k"),
                         selectedValue = selectedResolution,
                         displayMapper = { it },
                         onValueChange = onResolutionChange,
@@ -2000,6 +1949,10 @@ fun OverlayMenu(
     onTeamsOverlayDurationChange: (String) -> Unit,
     showLineUpOverlay: Boolean,
     onToggleLineUp: (Boolean) -> Unit,
+    showReplays: Boolean,
+    onToggleReplays: (Boolean) -> Unit,
+    selectedReplaysDuration: String,
+    onReplaysDurationChange: (String) -> Unit,
     selectedLeftColor: String,
     onLeftColorChange: (String) -> Unit,
     selectedRightColor: String,
@@ -2171,7 +2124,7 @@ fun OverlayMenu(
 
                     Spacer(modifier = Modifier.height(32.dp))
 
-                    // Scoreboard Toggle (Header)
+                    // Line Up Config
                     Text(
                         text = "Line Up Configuration",
                         fontSize = 22.sp,
@@ -2224,6 +2177,65 @@ fun OverlayMenu(
                             displayMapper = { it },
                             onValueChange = {
                                 onTeamsOverlayDurationChange(it)
+                            }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Replays Config
+                    Text(
+                        text = "Replays Configuration",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    HorizontalDivider(thickness = 1.dp, color = Color.White.copy(alpha = 0.3f))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Show Replays",
+                            fontSize = 18.sp,
+                            color = Color.White
+                        )
+                        Switch(
+                            checked = showReplays,
+                            onCheckedChange = onToggleReplays,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = CalypsoRed,
+                                uncheckedThumbColor = Color.Gray
+                            )
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Replays Duration",
+                            fontSize = 18.sp,
+                            color = Color.White,
+                            modifier = Modifier.align(
+                                Alignment.CenterVertically
+                            )
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        ModernDropdown(
+                            items = listOf("5s", "10s", "15s", "20s"),
+                            selectedValue = selectedReplaysDuration,
+                            displayMapper = { it },
+                            onValueChange = {
+                                onReplaysDurationChange(it)
                             }
                         )
                     }
@@ -2356,3 +2368,82 @@ fun recordVideoStreaming(context: Context, genericStream: GenericStream, state: 
         PathUtils.updateGallery(context, recordPath)
     }
 }
+
+//fun startBackgroundRecording(context: Context, genericStream: GenericStream): String {
+//    val folder = PathUtils.getRecordPath()
+//    if (!folder.exists()) folder.mkdir()
+//    val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
+//    val path = "${folder.absolutePath}/background_${sdf.format(Date())}.mp4"
+//    genericStream.startRecord(path) { status ->
+//        // You might want to handle status updates if needed.
+//    }
+//    return path
+//}
+//
+//suspend fun handleReplaySuspended(
+//    context: Context,
+//    genericStream: GenericStream,
+//    backgroundRecordPath: String,
+//    secondsClip: String,
+//): String = suspendCancellableCoroutine { continuation ->
+//    // Stop background recording if it is still running.
+//    if (genericStream.isRecording) {
+//        genericStream.stopRecord()
+//    }
+//
+//    // Define the output path for the replay clip.
+//    val folder = PathUtils.getRecordPath()
+//    if (!folder.exists()) folder.mkdir()
+//    val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
+//    val replayPath = "${folder.absolutePath}/replay_${sdf.format(Date())}.mp4"
+//
+//    // Build the FFmpeg command to clip the last `secondsClip` seconds.
+////    val command = """-sseof -"$secondsClip" -i "$backgroundRecordPath" -filter_complex '[0:v]setpts=1.25*PTS[v];[0:a]atempo=0.8[a]' -map "[v]" -map "[a]" -c:v h264 -preset ultrafast -tune zerolatency "$replayPath""""
+//    val command = "-sseof -\"$secondsClip\" -i \"$backgroundRecordPath\" -c copy \"$replayPath\""
+//
+//    // Execute the FFmpeg command asynchronously.
+//    FFmpegKit.executeAsync(command) { session ->
+//        val returnCode = session.returnCode
+//        if (ReturnCode.isSuccess(returnCode)) {
+//            Log.d("Replay", "Replay saved at $replayPath")
+//            // Optionally, delete the original background recording file.
+//            File(backgroundRecordPath).delete()
+//            // Resume with the replay path once processing is complete.
+//            continuation.resume(replayPath)
+//        } else {
+//            Log.e("Replay", "FFmpegKit failed to clip video, return code: $returnCode")
+//            continuation.resumeWithException(Exception("FFmpegKit failed"))
+//        }
+//    }
+//}
+
+//fun handleReplay(context: Context, genericStream: GenericStream, backgroundRecordPath: String, secondsClip: String): String {
+//    // Stop background recording if it is still running.
+//    if (genericStream.isRecording) {
+//        genericStream.stopRecord()
+//    }
+//
+//    // Define the output path for the replay clip.
+//    val folder = PathUtils.getRecordPath()
+//    if (!folder.exists()) folder.mkdir()
+//    val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
+//    val replayPath = "${folder.absolutePath}/replay_${sdf.format(Date())}.mp4"
+//
+//    // Build the FFmpeg command to clip the last 10 seconds.
+//    // The -sseof -10 flag seeks 10 seconds from the end.
+//    val command = "-sseof -\"$secondsClip\" -i \"$backgroundRecordPath\" -c copy \"$replayPath\""
+//
+//    // Execute the FFmpeg command asynchronously.
+//    FFmpegKit.executeAsync(command) { session ->
+//        val returnCode = session.returnCode
+//        if (ReturnCode.isSuccess(returnCode)) {
+//            Log.d("Replay", "Replay saved at $replayPath")
+//            // Optionally, delete the original background recording file.
+//            File(backgroundRecordPath).delete()
+//        } else {
+//            Log.e("Replay", "FFmpegKit failed to clip video, return code: $returnCode")
+//        }
+//    }
+//
+//    return replayPath
+//}

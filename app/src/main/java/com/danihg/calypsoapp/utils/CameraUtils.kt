@@ -60,6 +60,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.math.pow
 import kotlin.math.roundToInt
 
 @Composable
@@ -198,10 +199,10 @@ fun getAvailableAudioCodecs(): List<String> {
     val supportedAudioCodecs = getSupportedAudioCodecs()
 
     val codecMapping = mapOf(
-        "audio/mp4a-latm" to "AAC",
-        "audio/opus" to "OPUS",
-        "audio/g711-alaw" to "G711",
-        "audio/g711-ulaw" to "G711"
+        "audio/mp4a-latm" to "AAC"
+//        "audio/opus" to "OPUS",
+//        "audio/g711-alaw" to "G711",
+//        "audio/g711-ulaw" to "G711"
     )
 
     val availableCodecs = codecMapping.filter { (deviceCodec, _) ->
@@ -289,45 +290,72 @@ fun ZoomControls(
     }
 }
 
+/**
+ * A continuous ISO slider.
+ *
+ * The slider’s continuous value (0f..1f) is mapped on a logarithmic scale to produce ISO values
+ * between isoBase (default 100) and isoBase * 2^(steps) (default 3200 if steps = 5).
+ *
+ * Below the slider, markers indicate the standard ISO values (100, 200, 400, 800, 1600, 3200).
+ *
+ * The updateSensorSensitivity lambda will be called every time the slider value changes.
+ */
 @Composable
 fun IsoSlider(
-    isoIndex: Float,
+    isoValue: Float,
     onValueChange: (Float) -> Unit,
-    isoOptions: List<Int> = listOf(100, 200, 400, 800, 1600, 3200),
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
+    isoBase: Int = 100,
+    steps: Int = 5, // 0 -> 100, 1 -> 200, 2 -> 400, ..., 5 -> 3200
+    updateSensorSensitivity: (Int) -> Unit
 ) {
-    // The slider’s range is from 0 to (number of options - 1)
-    val minIndex = 0f
-    val maxIndex = (isoOptions.size - 1).toFloat()
+    Column(modifier = modifier) {
+        // The continuous slider:
+        Slider(
+            value = isoValue,
+            onValueChange = onValueChange,
+            valueRange = valueRange,
+            colors = SliderDefaults.colors(
+                thumbColor = Color.Red, // Replace with your CalypsoRed if defined
+                activeTrackColor = Color.Red,
+                inactiveTrackColor = Color.Gray
+            )
+        )
+        // Markers row: shows standard ISO values at positions corresponding to their log-scale
+        Row(modifier = Modifier.fillMaxWidth()) {
+            for (i in 0..steps) {
+                // The standard ISO value: 100 * 2^i
+                val standardIso = (isoBase * 2.0.pow(i.toDouble())).roundToInt()
+                // Calculate the relative position as a fraction (i / steps)
+                // Here you might need a more advanced layout if you want perfect alignment.
+                Text(
+                    text = standardIso.toString(),
+                    fontSize = 12.sp,
+                    color = Color.White,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
 
-    // Use a Slider with discrete steps. Steps is the number of values between the min and max (excluding endpoints).
-    Slider(
-        value = isoIndex,
-        onValueChange = { value ->
-            // Snap to the nearest integer index
-            val newIndex = value.toInt().toFloat()
-            onValueChange(newIndex)
-        },
-        valueRange = minIndex..maxIndex,
-        steps = isoOptions.size - 2,
-        modifier = modifier
-    )
-
-    Text(
-        text = "ISO: ${isoOptions[isoIndex.toInt()]}",
-        color = Color.White,
-        fontSize = 16.sp,
-        modifier = Modifier.padding(top = 4.dp)
-    )
+    // Use a LaunchedEffect to update sensor sensitivity smoothly.
+    // You can add a small delay if needed to reduce too-frequent updates.
+    LaunchedEffect(isoValue) {
+        // Calculate new ISO using logarithmic mapping:
+        // When isoValue = 0 => ISO = isoBase
+        // When isoValue = 1 => ISO = isoBase * 2^(steps)
+        val newIso = (isoBase * 2.0.pow(isoValue.toDouble() * steps)).roundToInt()
+        updateSensorSensitivity(newIso)
+    }
 }
-
 
 @Composable
 fun ExposureSlider(
     exposureLevel: Float,
     onValueChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
-    valueRange: ClosedFloatingPointRange<Float> = -55f..55f
+    valueRange: ClosedFloatingPointRange<Float> = -150f..150f
 ) {
     // A standard horizontal slider.
     Slider(
