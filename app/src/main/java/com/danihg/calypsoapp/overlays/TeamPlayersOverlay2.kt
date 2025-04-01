@@ -18,6 +18,7 @@ import java.util.Locale
 // Global object to hold row animation state (only row index is needed)
 object TeamPlayersAnimationState {
     var currentRow: Int = -1
+    var animationJob: Job? = null
 }
 
 data class PlayerEntry(
@@ -326,6 +327,8 @@ private fun getBitmapFromResource(context: Context, resId: Int): Bitmap? {
 /**
  * Updates the team players overlay sequentially: first the main overlay is shown,
  * then each row fades in fast.
+ *
+ * Before starting, any previous animation is canceled, and the filter image is cleared.
  */
 @SuppressLint("DiscouragedApi")
 fun updateTeamPlayersOverlaySequential(
@@ -340,10 +343,14 @@ fun updateTeamPlayersOverlaySequential(
     rightTeamPlayers: List<PlayerEntry>,
     imageObjectFilterRender: ImageObjectFilterRender
 ) {
-    // Launch a coroutine on the Main dispatcher.
-    CoroutineScope(Dispatchers.Main).launch {
+    // Cancel any ongoing animation.
+    TeamPlayersAnimationState.animationJob?.cancel()
+    // Reset state and clear any previous image.
+    TeamPlayersAnimationState.currentRow = -1
+    imageObjectFilterRender.setImage(null)
+
+    TeamPlayersAnimationState.animationJob = CoroutineScope(Dispatchers.Main).launch {
         // Immediately show the main overlay (without rows).
-        TeamPlayersAnimationState.currentRow = -1
         val mainOverlay = withContext(Dispatchers.Default) {
             createTeamPlayersBitmapSequential(
                 context, screenWidth, screenHeight,

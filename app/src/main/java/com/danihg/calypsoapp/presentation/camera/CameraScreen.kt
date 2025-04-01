@@ -191,6 +191,7 @@ fun CameraScreen() {
     }
 }
 
+
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
 fun CameraScreenContent() {
@@ -487,36 +488,10 @@ fun CameraScreenContent() {
                             delay(100) // Wait for surface to be recreated
                         }
                         // Reapply the saved settings:
-
                         // Zoom
                         activeCameraSource.setZoom(zoomLevel)
                         activeCameraSource.reapplySettings()
-//                        if (sensorExposureTimeMode == "MANUAL") {
-//                            // Reapply the exact sensor exposure time that was stored.
-//                            activeCameraSource.setSensorExposureTime(currentSensorExposureTime)
-//                            // Update the slider state accordingly.
-//                            exposureLevel = ((currentSensorExposureTime - minSensorExposure).toFloat() / (maxSensorExposure - minSensorExposure))
-//                            baseExposureLevel = exposureLevel
-//                        } else if (exposureMode == "MANUAL") {
-//                            activeCameraSource.setExposure(exposureLevel.toInt())
-//                            baseExposureLevel = exposureLevel
-//                        } else {
-//                            activeCameraSource.enableAutoExposure()
-//                        }
-//                        if (sensorExposureTimeMode == "MANUAL" && sensorExposureTimeIndex != null) {
-//                            val idx = sensorExposureTimeIndex!!.toInt().coerceIn(0, sensorExposureTimeOptions.size - 1)
-//                            val sensorTime = sensorExposureTimeOptions[idx].second
-//                            activeCameraSource.setSensorExposureTime(sensorTime)
-//                            currentSensorExposureTime = sensorTime
-//                            // Update the exposureLevel slider value so it reflects the current sensor time:
-//                            exposureLevel = ((sensorTime - minSensorExposure).toFloat() / (maxSensorExposure - minSensorExposure))
-//                            baseExposureLevel = exposureLevel
-//                        } else if (exposureMode == "MANUAL") {
-//                            activeCameraSource.setExposure(exposureLevel.toInt())
-//                            baseExposureLevel = exposureLevel
-//                        } else {
-//                            activeCameraSource.enableAutoExposure()
-//                        }
+
 
                         // Reapply White Balance
                         if (whiteBalanceMode == "MANUAL") {
@@ -531,14 +506,6 @@ fun CameraScreenContent() {
                             "DISABLE" -> activeCameraSource.disableOpticalVideoStabilization()
                         }
 
-                        // Reapply sensor exposure time if separately controlled (only if needed)
-//                        if (sensorExposureTimeMode == "MANUAL" && sensorExposureTimeIndex != null) {
-//                            val idx = sensorExposureTimeIndex!!.toInt().coerceIn(0, sensorExposureTimeOptions.size - 1)
-//                            activeCameraSource.setSensorExposureTime(sensorExposureTimeOptions[idx].second)
-//                        }
-
-                        // Optionally, reapply exposure compensation if needed:
-//                        activeCameraSource.setExposure(exposureCompensation.toInt())
                     }
                     coroutineScope.launch {
                         // Wait until the preview is ready.
@@ -1569,9 +1536,16 @@ fun CameraPreview(
                             genericStream.startPreview(this@apply)
                         }
                     }
-                    override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+
+                    override fun surfaceChanged(
+                        holder: SurfaceHolder,
+                        format: Int,
+                        width: Int,
+                        height: Int
+                    ) {
                         genericStream.getGlInterface().setPreviewResolution(width, height)
                     }
+
                     override fun surfaceDestroyed(holder: SurfaceHolder) {
                         if (genericStream.isOnPreview) {
                             genericStream.stopPreview()
@@ -1583,6 +1557,7 @@ fun CameraPreview(
         modifier = Modifier.fillMaxSize()
     )
 }
+
 
 @Composable
 fun SettingsMenu(
@@ -1898,17 +1873,17 @@ fun TeamPlayersOverlay(
     onLineUpFinished: () -> Unit
 ){
     // Add or remove the overlay filter based on visibility.
-    Log.d("TeamPlayersOverlay", "Visibility: $visible")
-    Log.d("TeamPlayersOverlay", "isOnPreview: ${genericStream.isOnPreview}")
     LaunchedEffect(visible) {
         if (visible && genericStream.isOnPreview) {
             genericStream.getGlInterface().clearFilters()
+            delay(100)
             genericStream.getGlInterface().addFilter(lineUpFilter)
         } else {
             genericStream.getGlInterface().removeFilter(lineUpFilter)
         }
 
-        if (visible && genericStream.isOnPreview) {
+
+        if (visible) {
             drawTeamPlayersOverlay(
                 context = context,
                 screenWidth = screenWidth,
@@ -2273,6 +2248,7 @@ fun ScoreboardOverlay(
     LaunchedEffect(visible) {
         if (visible) {
             genericStream.getGlInterface().clearFilters()
+            delay(100)
             genericStream.getGlInterface().addFilter(imageObjectFilterRender)
         } else {
             genericStream.getGlInterface().removeFilter(imageObjectFilterRender)
