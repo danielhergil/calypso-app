@@ -20,8 +20,10 @@ import android.net.Uri
 import android.os.Build
 import android.util.Log
 import android.util.Range
+import android.view.KeyEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import android.view.View
 import android.view.ViewGroup
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -48,6 +50,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -66,13 +69,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -100,6 +107,7 @@ import com.danihg.calypsoapp.sources.CameraCalypsoSource
 import com.danihg.calypsoapp.ui.theme.CalypsoRed
 import com.danihg.calypsoapp.ui.theme.Gray
 import com.danihg.calypsoapp.utils.AuxButton
+import com.danihg.calypsoapp.utils.AuxButtonSquare
 import com.danihg.calypsoapp.utils.ColorDropdown
 import com.danihg.calypsoapp.utils.ExposureCompensationSlider
 import com.danihg.calypsoapp.utils.ExposureModeSelector
@@ -115,8 +123,10 @@ import com.danihg.calypsoapp.utils.SectionSubtitle
 import com.danihg.calypsoapp.utils.SensorExposureTimeModeSelector
 import com.danihg.calypsoapp.utils.SensorExposureTimeSlider
 import com.danihg.calypsoapp.utils.ToggleAuxButton
+import com.danihg.calypsoapp.utils.ToggleAuxButtonSquare
 import com.danihg.calypsoapp.utils.WhiteBalanceModeSelector
 import com.danihg.calypsoapp.utils.ZoomControls
+import com.danihg.calypsoapp.utils.ZoomKeyHandler
 import com.danihg.calypsoapp.utils.getAvailableAudioCodecs
 import com.danihg.calypsoapp.utils.getAvailableVideoCodecs
 import com.danihg.calypsoapp.utils.rememberToast
@@ -392,7 +402,8 @@ fun CameraScreenContent() {
 //    var activeCameraSource by remember { mutableStateOf(CameraCalypsoSource(context)) }
     val micSource: MicrophoneSource = remember { MicrophoneSource(MediaRecorder.AudioSource.DEFAULT) }
     val audio: AudioSource = remember { micSource }
-    val externalAudio: AudioSource = remember { MicrophoneSource(MediaRecorder.AudioSource.MIC) }
+    val externalAudioSource: MicrophoneSource = remember { MicrophoneSource(MediaRecorder.AudioSource.MIC) }
+    val externalAudio: AudioSource = remember { externalAudioSource }
     var isMicMuted by remember { mutableStateOf(false) }
 
     // For showing/hiding the zoom slider overlay
@@ -427,6 +438,13 @@ fun CameraScreenContent() {
     val exposureCompOptions = listOf(-2, -1, 0, 1, 2)
     // Start at index 2 (which corresponds to 0 compensation)
     var exposureCompIndex by rememberSaveable { mutableStateOf(2f) }
+
+    var showCameraModeSelection by rememberSaveable { mutableStateOf(false) }
+    var showManualSubMenu by rememberSaveable { mutableStateOf(false) }
+    var showAutoSubMenu by rememberSaveable { mutableStateOf(false) }
+    var showIsoSlider by rememberSaveable { mutableStateOf(false) }
+    var cameraMode by rememberSaveable { mutableStateOf("AUTO") }
+    var isVolumeMenuVisible by rememberSaveable { mutableStateOf(false) }
 
     var showSensorExposureTimeSlider by rememberSaveable { mutableStateOf(false) }
     var sensorExposureTimeIndex by rememberSaveable { mutableStateOf<Float?>(null) }
@@ -939,12 +957,59 @@ fun CameraScreenContent() {
                                 )
                             }
                         }
+
+                        // Assume these state variables are declared (using remember { mutableStateOf(...) }):
+                        // showSettingsSubMenu, showCameraModeSelection, showManualSubMenu, showAutoSubMenu,
+                        // showIsoSlider, showExposureCompensationSlider, showExposureSlider, showSensorExposureTimeSlider,
+                        // cameraMode (e.g., "MANUAL" or "AUTO")
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .size(50.dp)
+                                .size(60.dp)
                                 .zIndex(3f) // Ensure submenu appears above
                         ) {
+                            Row(
+                                modifier = Modifier
+                                    .align(Alignment.CenterStart)
+                                    .offset(x = 80.dp), // Shift both buttons together
+                                horizontalArrangement = Arrangement.spacedBy(22.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                ToggleAuxButtonSquare(
+                                    modifier = Modifier.size(50.dp),
+                                    painter = painterResource(id = R.drawable.ic_zoom),
+                                    toggled = showZoomSlider,
+                                    onToggle = {
+                                        showZoomSlider = !showZoomSlider
+                                    }
+                                )
+                                AuxButtonSquare(
+                                    modifier = Modifier.size(50.dp),
+                                    iconModifier = Modifier.fillMaxSize().scale(0.9f),
+                                    painter = painterResource(id = if (isMicMuted) R.drawable.ic_volume_off else R.drawable.ic_volume),
+                                    onClick = {
+                                        isVolumeMenuVisible = !isVolumeMenuVisible
+                                    }
+                                )
+                                if (isVolumeMenuVisible) {
+                                    ToggleAuxButtonSquare(
+                                        modifier = Modifier.size(50.dp),
+                                        painter = painterResource(id = R.drawable.ic_mute_letters),
+                                        toggled = isMicMuted,
+                                        onToggle = {
+                                            isMicMuted = !isMicMuted
+                                            if(isMicMuted) {
+                                                micSource.mute()
+                                                externalAudioSource.mute()
+                                            } else {
+                                                micSource.unMute()
+                                                externalAudioSource.unMute()
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                            // Settings (gear) button at top level
                             AuxButton(
                                 modifier = Modifier
                                     .size(50.dp)
@@ -952,143 +1017,188 @@ fun CameraScreenContent() {
                                 painter = painterResource(id = R.drawable.ic_settings),
                                 onClick = {
                                     showSettingsSubMenu = !showSettingsSubMenu
-                                    showCameraSubSettings = false
-                                    isSettingsMenuVisible = false
-                                    showWhiteBalanceSlider = false
-                                    showOpticalVideoStabilization = false
-                                    showExposureSlider = false
+                                    // Reset all nested menus when toggling settings
+                                    showCameraModeSelection = false
+                                    showManualSubMenu = false
+                                    showAutoSubMenu = false
+                                    showIsoSlider = false
                                     showExposureCompensationSlider = false
+                                    showExposureSlider = false
                                     showSensorExposureTimeSlider = false
-//                                    showZoomSlider = false
                                 }
                             )
+                            // Top-level submenu: Camera and Stream options, only visible when no lower menu is showing.
                             androidx.compose.animation.AnimatedVisibility(
-                                visible = showSettingsSubMenu,
-                                enter = fadeIn(tween(200)) + slideInHorizontally (initialOffsetX = { it / 2 }),
-                                exit = fadeOut(tween(200)) + slideOutHorizontally (targetOffsetX = { it / 2 }),
+                                visible = showSettingsSubMenu && !showCameraModeSelection && !showManualSubMenu && !showAutoSubMenu,
+                                enter = fadeIn(tween(200)) + slideInHorizontally(initialOffsetX = { it / 2 }),
+                                exit = fadeOut(tween(200)) + slideOutHorizontally(targetOffsetX = { it / 2 }),
                                 modifier = Modifier
                                     .align(Alignment.CenterEnd)
-                                    .offset(x = (-100).dp) // Adjust offset to align with button
+                                    .offset(x = (-100).dp)
                             ) {
                                 Row(
-                                    modifier = Modifier
-                                        .wrapContentWidth()
-                                        .padding(6.dp),
+                                    modifier = Modifier.wrapContentWidth().padding(6.dp),
                                     horizontalArrangement = Arrangement.End
                                 ) {
-                                    if (!showCameraSubSettings) {
-                                        AuxButton(
-                                            modifier = Modifier.size(40.dp),
-                                            painter = painterResource(id = R.drawable.ic_camera),
-                                            onClick = {
-                                                showCameraSubSettings = !showCameraSubSettings
-                                            }
-                                        )
-                                        Spacer(modifier = Modifier.width(22.dp))
-                                        AuxButton(
-                                            modifier = Modifier.size(40.dp),
-                                            painter = painterResource(id = R.drawable.ic_record),
-                                            onClick = {
-                                                isSettingsMenuVisible = !isSettingsMenuVisible
-                                            }
-                                        )
-                                    }
-                                    else {
-                                        ToggleAuxButton(
-                                            modifier = Modifier.size(40.dp),
-                                            painter = painterResource(id = R.drawable.ic_mute),
-                                            toggled = isMicMuted,
-                                            onToggle = {
-                                                // Toggle the zoom slider overlay
-                                                isMicMuted = !isMicMuted
-                                                if(isMicMuted) {
-                                                    micSource.mute()
-                                                } else {
-                                                    micSource.unMute()
-                                                }
-                                            }
-                                        )
-                                        Spacer(modifier = Modifier.width(22.dp))
-                                        ToggleAuxButton(
-                                            modifier = Modifier.size(40.dp),
-                                            painter = painterResource(id = R.drawable.ic_zoom),
-                                            toggled = showZoomSlider,
-                                            onToggle = {
-                                                // Toggle the zoom slider overlay
-                                                showZoomSlider = !showZoomSlider
-                                                showExposureSlider = false
-                                                showWhiteBalanceSlider = false
-                                                showOpticalVideoStabilization = false
-                                                showExposureCompensationSlider = false
-                                                showSensorExposureTimeSlider = false
-                                            }
-                                        )
-                                        Spacer(modifier = Modifier.width(22.dp))
-                                        AuxButton(
-                                            modifier = Modifier.size(40.dp),
-                                            painter = painterResource(id = R.drawable.ic_iso),
-                                            onClick = {
-//                                                showZoomSlider = false
-                                                showExposureSlider = !showExposureSlider
-                                                showWhiteBalanceSlider = false
-                                                showOpticalVideoStabilization = false
-                                                showExposureCompensationSlider = false
-                                                showSensorExposureTimeSlider = false
-                                            }
-                                        )
-                                        Spacer(modifier = Modifier.width(22.dp))
-                                        AuxButton(
-                                            modifier = Modifier.size(40.dp),
-                                            painter = painterResource(id = R.drawable.ic_wb),
-                                            onClick = {
-                                                showWhiteBalanceSlider = !showWhiteBalanceSlider
-//                                                showZoomSlider = false
-                                                showExposureSlider = false
-                                                showOpticalVideoStabilization = false
-                                                showExposureCompensationSlider = false
-                                                showSensorExposureTimeSlider = false
-                                            }
-                                        )
-                                        Spacer(modifier = Modifier.width(22.dp))
-                                        AuxButton(
-                                            modifier = Modifier.size(40.dp),
-                                            painter = painterResource(id = R.drawable.ic_optical_stabilization),
-                                            onClick = {
-                                                showOpticalVideoStabilization = !showOpticalVideoStabilization
-//                                                showZoomSlider = false
-                                                showExposureSlider = false
-                                                showWhiteBalanceSlider = false
-                                                showExposureCompensationSlider = false
-                                                showSensorExposureTimeSlider = false
-                                            }
-                                        )
-                                        Spacer(modifier = Modifier.width(22.dp))
-                                        AuxButton(
-                                            modifier = Modifier.size(40.dp),
-                                            painter = painterResource(id = R.drawable.ic_exposure_compensation),
-                                            onClick = {
-                                                showExposureCompensationSlider = !showExposureCompensationSlider
-//                                                showZoomSlider = false
-                                                showExposureSlider = false
-                                                showWhiteBalanceSlider = false
-                                                showOpticalVideoStabilization = false
-                                                showSensorExposureTimeSlider = false
-                                            }
-                                        )
-                                        Spacer(modifier = Modifier.width(22.dp))
-                                        AuxButton(
-                                            modifier = Modifier.size(40.dp),
-                                            painter = painterResource(id = R.drawable.ic_exposure_time),
-                                            onClick = {
-                                                showSensorExposureTimeSlider = !showSensorExposureTimeSlider
-//                                                showZoomSlider = false
-                                                showExposureSlider = false
-                                                showWhiteBalanceSlider = false
-                                                showOpticalVideoStabilization = false
-                                                showExposureCompensationSlider = false
-                                            }
-                                        )
-                                    }
+                                    AuxButtonSquare(
+                                        iconModifier = Modifier.fillMaxSize().scale(1.1f),
+                                        painter = painterResource(id = R.drawable.ic_settings_camera),
+                                        onClick = {
+                                            showCameraModeSelection = !showCameraModeSelection
+                                            // Reset any lower-level menus
+                                            showManualSubMenu = false
+                                            showAutoSubMenu = false
+                                            showIsoSlider = false
+                                            showExposureCompensationSlider = false
+                                            showExposureSlider = false
+                                            showSensorExposureTimeSlider = false
+                                        }
+                                    )
+                                    Spacer(modifier = Modifier.width(22.dp))
+                                    AuxButtonSquare(
+                                        iconModifier = Modifier.fillMaxSize().scale(1.1f),
+                                        painter = painterResource(id = R.drawable.ic_settings_stream),
+                                        onClick = {
+                                            isSettingsMenuVisible = !isSettingsMenuVisible
+                                        }
+                                    )
+                                }
+                            }
+
+                            // Camera mode selection: Manual or Auto
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = showCameraModeSelection,
+                                enter = fadeIn(tween(200)) + slideInHorizontally(initialOffsetX = { it / 2 }),
+                                exit = fadeOut(tween(200)) + slideOutHorizontally(targetOffsetX = { it / 2 }),
+                                modifier = Modifier
+                                    .align(Alignment.CenterEnd)
+                                    .offset(x = (-100).dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.wrapContentWidth().padding(6.dp),
+                                    horizontalArrangement = Arrangement.End
+                                ) {
+                                    // Manual mode button
+                                    AuxButtonSquare(
+                                        iconModifier = Modifier.fillMaxSize().scale(1.1f),
+                                        painter = painterResource(id = R.drawable.ic_camera_settings_manual),
+                                        onClick = {
+                                            cameraMode = "MANUAL"
+                                            showCameraModeSelection = false  // Hide the parent menu
+                                            showManualSubMenu = true
+                                            showAutoSubMenu = false
+//                                            showManualSubMenu = !showManualSubMenu
+//                                            showAutoSubMenu = false
+                                        }
+                                    )
+                                    Spacer(modifier = Modifier.width(22.dp))
+                                    // Auto mode button
+                                    AuxButtonSquare(
+                                        iconModifier = Modifier.fillMaxSize().scale(1.1f),
+                                        painter = painterResource(id = R.drawable.ic_camera_settings_auto),
+                                        onClick = {
+                                            cameraMode = "AUTO"
+                                            showCameraModeSelection = false  // Hide the parent menu
+                                            showAutoSubMenu = true
+                                            showManualSubMenu = false
+
+                                            activeCameraSource.setIsoAuto()
+                                            activeCameraSource.enableAutoExposure()
+                                            val isAutoExposure = activeCameraSource.isAutoExposureEnabled()
+                                            activeCameraSource.setExposure(defaultExposure)
+                                            exposureLevel = defaultExposure.toFloat()
+//                                            showAutoSubMenu = !showAutoSubMenu
+//                                            showManualSubMenu = false
+                                        }
+                                    )
+                                    Spacer(modifier = Modifier.width(22.dp))
+                                    // Back button to return to the top-level settings menu
+                                    AuxButtonSquare(
+                                        iconModifier = Modifier.fillMaxSize().scale(0.9f),
+                                        painter = painterResource(id = R.drawable.ic_settings_back),
+                                        onClick = { showCameraModeSelection = false }
+                                    )
+                                }
+                            }
+
+                            // Manual mode submenu: Choose between ISO and Sensor Exposure Time adjustments
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = showManualSubMenu,
+                                enter = fadeIn(tween(200)) + slideInHorizontally(initialOffsetX = { it / 2 }),
+                                exit = fadeOut(tween(200)) + slideOutHorizontally(targetOffsetX = { it / 2 }),
+                                modifier = Modifier
+                                    .align(Alignment.CenterEnd)
+                                    .offset(x = (-100).dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.wrapContentWidth().padding(6.dp),
+                                    horizontalArrangement = Arrangement.End
+                                ) {
+                                    // ISO adjustment button: on click, show the ISO slider
+                                    AuxButtonSquare(
+                                        iconModifier = Modifier.fillMaxSize().scale(1.1f),
+                                        painter = painterResource(id = R.drawable.ic_iso),
+                                        onClick = {
+                                            showIsoSlider = true
+                                            showManualSubMenu = false
+                                        }
+                                    )
+                                    Spacer(modifier = Modifier.width(22.dp))
+                                    // Sensor Exposure Time button: on click, show its slider
+                                    AuxButtonSquare(
+                                        iconModifier = Modifier.fillMaxSize().scale(0.9f),
+                                        painter = painterResource(id = R.drawable.ic_exposure_time),
+                                        onClick = {
+                                            sensorExposureTimeMode = "MANUAL"
+                                            showSensorExposureTimeSlider = true
+                                            showManualSubMenu = false
+                                        }
+                                    )
+                                    Spacer(modifier = Modifier.width(22.dp))
+                                    // Back button to return to Camera Mode selection
+                                    AuxButtonSquare(
+                                        iconModifier = Modifier.fillMaxSize().scale(0.9f),
+                                        painter = painterResource(id = R.drawable.ic_settings_back),
+                                        onClick = {
+                                            showManualSubMenu = false
+                                            showCameraModeSelection = true
+                                        }
+                                    )
+                                }
+                            }
+
+                            // Auto mode submenu: Adjust compensation values
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = showAutoSubMenu,
+                                enter = fadeIn(tween(200)) + slideInHorizontally(initialOffsetX = { it / 2 }),
+                                exit = fadeOut(tween(200)) + slideOutHorizontally(targetOffsetX = { it / 2 }),
+                                modifier = Modifier
+                                    .align(Alignment.CenterEnd)
+                                    .offset(x = (-100).dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.wrapContentWidth().padding(6.dp),
+                                    horizontalArrangement = Arrangement.End
+                                ) {
+                                    // Exposure Time Compensation button
+                                    AuxButtonSquare(
+                                        iconModifier = Modifier.fillMaxSize().scale(0.9f),
+                                        painter = painterResource(id = R.drawable.ic_exposure_compensation),
+                                        onClick = {
+                                            showExposureCompensationSlider = true
+                                            showAutoSubMenu = false
+                                        }
+                                    )
+                                    Spacer(modifier = Modifier.width(22.dp))
+                                    // Back button to return to Camera Mode selection
+                                    AuxButtonSquare(
+                                        iconModifier = Modifier.fillMaxSize().scale(0.9f),
+                                        painter = painterResource(id = R.drawable.ic_settings_back),
+                                        onClick = {
+                                            showAutoSubMenu = false
+                                            showCameraModeSelection = true
+                                        }
+                                    )
                                 }
                             }
                         }
@@ -1097,7 +1207,7 @@ fun CameraScreenContent() {
                     if (showZoomSlider) {
                         Box(modifier = Modifier
                             .fillMaxSize()
-                            .padding(start = 50.dp)) {
+                            .padding(start = 50.dp, bottom = 50.dp)) {
                             // Assume zoomLevel is a mutable state.
                             ZoomControls(
                                 zoomLevel = zoomLevel,
@@ -1113,8 +1223,58 @@ fun CameraScreenContent() {
                         }
                     }
 
-                    // Inside your Scaffold's root Box (or similar), add this block:
-                    if (showExposureSlider) {
+                    if (isVolumeMenuVisible && !isMicMuted) {
+                        AnimatedVisibility(
+                            visible = isVolumeMenuVisible,
+                            enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(tween(200)),
+                            exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(tween(200))
+                        ) {
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                Column(
+                                    modifier = Modifier
+                                        .align(Alignment.CenterStart)
+                                        .padding(start = 60.dp) // Ensure the slider is aligned with the shifted volume button
+                                        .padding(start = 40.dp), // Optional additional spacing if needed
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    // Decorative plus icon at the top (indicating maximum volume)
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_add),
+                                        contentDescription = "Increase Volume",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    var volume by remember { mutableStateOf(micSource.microphoneVolume) }
+                                    Slider(
+                                        value = volume,
+                                        onValueChange = { newValue ->
+                                            volume = newValue
+                                            micSource.microphoneVolume = newValue
+                                            externalAudioSource.microphoneVolume = newValue
+                                        },
+                                        valueRange = 0f..1f,
+                                        modifier = Modifier
+                                            .width(150.dp)
+                                            .rotate(-90f)
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    // Decorative minus icon at the bottom (indicating minimum volume)
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_less),
+                                        contentDescription = "Decrease Volume",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+
+                    // --- ISO Slider Overlay (for Manual Mode) ---
+                    if (showIsoSlider) {
                         val configuration = LocalConfiguration.current
                         val screenWidth = configuration.screenWidthDp.dp
 
@@ -1123,162 +1283,32 @@ fun CameraScreenContent() {
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 modifier = Modifier
                                     .align(Alignment.BottomCenter)
-                                    .padding(bottom = 100.dp) // Adjust so it sits above your ic_add buttons.
-                                    .width(screenWidth * 0.7f) // 70% of the screen width.
+                                    .padding(bottom = 100.dp) // Adjust padding as needed
+                                    .width(screenWidth * 0.7f) // 70% of the screen width
                             ) {
-                                ExposureModeSelector(
-                                    selectedMode = exposureMode,
-                                    onModeChange = { newMode ->
-                                        exposureMode = newMode
-                                        if (newMode == "AUTO") {
-                                            activeCameraSource.setIsoAuto()
-                                            activeCameraSource.enableAutoExposure()
-                                            val isAutoExposure = activeCameraSource.isAutoExposureEnabled()
-                                            activeCameraSource.setExposure(defaultExposure)
-                                            exposureLevel = defaultExposure.toFloat()
-                                            Log.d("ExposureCheck", "Auto exposure enabled? $isAutoExposure")
-                                        }
+                                // Optionally add a title or label here (e.g. "ISO Adjustment")
+                                IsoSlider(
+                                    isoValue = isoSliderValue,
+                                    onValueChange = { newValue -> isoSliderValue = newValue },
+                                    updateSensorSensitivity = { newIso ->
+                                        activeCameraSource.setSensorSensitivity(newIso)
                                     },
                                     modifier = Modifier.fillMaxWidth()
                                 )
-                                if (exposureMode == "MANUAL") {
-                                    LaunchedEffect(isoIndex) {
-                                        activeCameraSource.disableAutoExposure()
-                                        val selectedISO = isoOptions[isoIndex.toInt()]
-                                        activeCameraSource.setSensorSensitivity(selectedISO)
+                                // Back button to return to the Manual submenu
+                                AuxButton(
+                                    modifier = Modifier.size(40.dp),
+                                    painter = painterResource(id = R.drawable.ic_settings_back),
+                                    onClick = {
+                                        showIsoSlider = false
+                                        showManualSubMenu = true
                                     }
-                                    IsoSlider(
-                                        isoValue = isoSliderValue,
-                                        onValueChange = { newValue -> isoSliderValue = newValue },
-                                        updateSensorSensitivity = { newIso ->
-                                            activeCameraSource.setSensorSensitivity(newIso)
-                                        },
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    // White balance controls UI:
-                    if (showWhiteBalanceSlider) {
-                        val configuration = LocalConfiguration.current
-                        val screenWidth = configuration.screenWidthDp.dp
-
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .padding(bottom = 100.dp)
-                                    .width(screenWidth * 0.7f)
-                            ) {
-                                // White Balance Mode Selector
-                                WhiteBalanceModeSelector(
-                                    selectedMode = whiteBalanceMode,
-                                    onModeChange = { newMode ->
-                                        whiteBalanceMode = newMode
-                                        if (newMode == "AUTO") {
-                                            // Update the camera immediately with auto mode.
-                                            activeCameraSource.setWhiteBalance(CaptureRequest.CONTROL_AWB_MODE_AUTO)
-                                        }
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                                // Show the manual slider only in MANUAL mode.
-                                if (whiteBalanceMode == "MANUAL") {
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    ManualWhiteBalanceSlider(
-                                        temperature = manualWhiteBalanceTemperature,
-                                        onValueChange = { newTemperature ->
-                                            manualWhiteBalanceTemperature = newTemperature
-                                            // Update the camera with manual white balance settings.
-                                            activeCameraSource.setManualWhiteBalance(newTemperature)
-                                        },
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    if (showOpticalVideoStabilization) {
-                        val configuration = LocalConfiguration.current
-                        val screenWidth = configuration.screenWidthDp.dp
-
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .padding(bottom = 100.dp)
-                                    .width(screenWidth * 0.7f)
-                            ) {
-                                OpticalStabilizationModeSelector(
-                                    selectedMode = opticalVideoStabilizationMode,
-                                    onModeChange = { newMode ->
-                                        opticalVideoStabilizationMode = newMode
-                                        when (newMode) {
-                                            "ENABLE" -> {
-                                                activeCameraSource.enableOpticalVideoStabilization()
-                                            }
-                                            "DISABLE" -> {
-                                                activeCameraSource.disableOpticalVideoStabilization()
-                                            }
-                                        }
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
                                 )
                             }
                         }
                     }
-                    // New overlay: Exposure Compensation Slider.
-                    if (showExposureCompensationSlider) {
-                        val configuration = LocalConfiguration.current
-                        val screenWidth = configuration.screenWidthDp.dp
-                        // Use the helper to determine if compensation should be enabled.
-                        val isExposureCompAvailable = activeCameraSource.isExposureCompensationAvailable()
 
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .padding(bottom = 100.dp)
-                                    .width(screenWidth * 0.7f)
-                            ) {
-                                if (isExposureCompAvailable) {
-                                    Text(
-                                        text = "Exposure Compensation",
-                                        color = Color.White,
-                                        fontSize = 16.sp
-                                    )
-                                    ExposureCompensationSlider(
-                                        // The slider shows discrete values -2, -1, 0, 1, 2.
-                                        // It will update the compensation value on drag (or when released, depending on your slider implementation)
-                                        compensation = activeCameraSource.getExposureCompensationManual(),
-                                        onValueChange = { newComp ->
-                                            activeCameraSource.setExposureCompensationManual(newComp)
-                                        },
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                    // Optionally, you can show a label displaying the current compensation value:
-                                    Text(
-                                        text = "EV: ${activeCameraSource.getExposureCompensationManual()}",
-                                        color = Color.White,
-                                        fontSize = 14.sp
-                                    )
-                                } else {
-                                    Text(
-                                        text = "Exposure compensation is disabled\nbecause both ISO and sensor exposure time are set to manual.",
-                                        color = Color.Gray,
-                                        fontSize = 16.sp,
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // New overlay: Sensor Exposure Time Slider.
+                    // --- Sensor Exposure Time Slider Overlay (for Manual Mode) ---
                     if (showSensorExposureTimeSlider) {
                         val configuration = LocalConfiguration.current
                         val screenWidth = configuration.screenWidthDp.dp
@@ -1291,22 +1321,9 @@ fun CameraScreenContent() {
                                     .padding(bottom = 100.dp)
                                     .width(screenWidth * 0.7f)
                             ) {
-                                // Sensor Exposure Time mode selector (Auto/Manual)
-                                SensorExposureTimeModeSelector(
-                                    selectedMode = sensorExposureTimeMode,
-                                    onModeChange = { newMode ->
-                                        sensorExposureTimeMode = newMode
-                                        if (newMode == "AUTO") {
-                                            activeCameraSource.setSensorExposureAuto()
-                                            sensorExposureTimeIndex = null
-                                            // Re-enable auto exposure (letting the camera decide the sensor exposure time)
-                                            activeCameraSource.enableAutoExposure()
-                                        }
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                )
+                                // Show sensor exposure controls based on the current mode.
                                 if (sensorExposureTimeMode == "MANUAL") {
-                                    // Determine the slider value (if no manual change yet, use default)
+                                    // Use a default slider value if no manual change has been made.
                                     val sliderValue = sensorExposureTimeIndex ?: defaultSensorExposureIndex
                                     Text(
                                         text = "Sensor Exposure Time: ${sensorExposureTimeOptions[sliderValue.toInt()].first}",
@@ -1330,16 +1347,161 @@ fun CameraScreenContent() {
                                         exposureOptions = sensorExposureTimeOptions
                                     )
                                 } else {
-                                    // In auto mode, display the auto label.
                                     Text(
                                         text = "Sensor Exposure Time: AUTO",
                                         color = Color.White,
                                         fontSize = 16.sp
                                     )
                                 }
+                                // Back button to return to the Manual submenu
+                                AuxButton(
+                                    modifier = Modifier.size(40.dp),
+                                    painter = painterResource(id = R.drawable.ic_settings_back),
+                                    onClick = {
+                                        showSensorExposureTimeSlider = false
+                                        showManualSubMenu = true
+                                    }
+                                )
                             }
                         }
                     }
+
+                    if (showExposureCompensationSlider) {
+                        val configuration = LocalConfiguration.current
+                        val screenWidth = configuration.screenWidthDp.dp
+                        // Determine if exposure compensation is available.
+                        val isExposureCompAvailable = activeCameraSource.isExposureCompensationAvailable()
+
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(bottom = 100.dp) // Adjust padding as needed
+                                    .width(screenWidth * 0.7f)  // 70% of the screen width
+                            ) {
+                                if (isExposureCompAvailable) {
+                                    Text(
+                                        text = "Exposure Compensation",
+                                        color = Color.White,
+                                        fontSize = 16.sp
+                                    )
+                                    ExposureCompensationSlider(
+                                        compensation = activeCameraSource.getExposureCompensationManual(),
+                                        onValueChange = { newComp ->
+                                            activeCameraSource.setExposureCompensationManual(newComp)
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                    Text(
+                                        text = "EV: ${activeCameraSource.getExposureCompensationManual()}",
+                                        color = Color.White,
+                                        fontSize = 14.sp
+                                    )
+                                } else {
+                                    Text(
+                                        text = "Exposure compensation is disabled\nbecause both ISO and sensor exposure time are set to manual.",
+                                        color = Color.Gray,
+                                        fontSize = 16.sp,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                                // Back button to return to the Auto submenu
+                                AuxButton(
+                                    modifier = Modifier.size(40.dp),
+                                    painter = painterResource(id = R.drawable.ic_settings_back),
+                                    onClick = {
+                                        showExposureCompensationSlider = false
+                                        showAutoSubMenu = true
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    /*
+                    // --- White Balance Controls Overlay (Commented out for now) ---
+                    if (showWhiteBalanceSlider) {
+                        val configuration = LocalConfiguration.current
+                        val screenWidth = configuration.screenWidthDp.dp
+
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(bottom = 100.dp)
+                                    .width(screenWidth * 0.7f)
+                            ) {
+                                WhiteBalanceModeSelector(
+                                    selectedMode = whiteBalanceMode,
+                                    onModeChange = { newMode ->
+                                        whiteBalanceMode = newMode
+                                        if (newMode == "AUTO") {
+                                            activeCameraSource.setWhiteBalance(CaptureRequest.CONTROL_AWB_MODE_AUTO)
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                if (whiteBalanceMode == "MANUAL") {
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    ManualWhiteBalanceSlider(
+                                        temperature = manualWhiteBalanceTemperature,
+                                        onValueChange = { newTemperature ->
+                                            manualWhiteBalanceTemperature = newTemperature
+                                            activeCameraSource.setManualWhiteBalance(newTemperature)
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    */
+
+
+//                    // White balance controls UI:
+//                    if (showWhiteBalanceSlider) {
+//                        val configuration = LocalConfiguration.current
+//                        val screenWidth = configuration.screenWidthDp.dp
+//
+//                        Box(modifier = Modifier.fillMaxSize()) {
+//                            Column(
+//                                horizontalAlignment = Alignment.CenterHorizontally,
+//                                modifier = Modifier
+//                                    .align(Alignment.BottomCenter)
+//                                    .padding(bottom = 100.dp)
+//                                    .width(screenWidth * 0.7f)
+//                            ) {
+//                                // White Balance Mode Selector
+//                                WhiteBalanceModeSelector(
+//                                    selectedMode = whiteBalanceMode,
+//                                    onModeChange = { newMode ->
+//                                        whiteBalanceMode = newMode
+//                                        if (newMode == "AUTO") {
+//                                            // Update the camera immediately with auto mode.
+//                                            activeCameraSource.setWhiteBalance(CaptureRequest.CONTROL_AWB_MODE_AUTO)
+//                                        }
+//                                    },
+//                                    modifier = Modifier.fillMaxWidth()
+//                                )
+//                                // Show the manual slider only in MANUAL mode.
+//                                if (whiteBalanceMode == "MANUAL") {
+//                                    Spacer(modifier = Modifier.height(16.dp))
+//                                    ManualWhiteBalanceSlider(
+//                                        temperature = manualWhiteBalanceTemperature,
+//                                        onValueChange = { newTemperature ->
+//                                            manualWhiteBalanceTemperature = newTemperature
+//                                            // Update the camera with manual white balance settings.
+//                                            activeCameraSource.setManualWhiteBalance(newTemperature)
+//                                        },
+//                                        modifier = Modifier.fillMaxWidth()
+//                                    )
+//                                }
+//                            }
+//                        }
+//                    }
+
                 }
 
                 // Calculate dimensions for the settings menu.
