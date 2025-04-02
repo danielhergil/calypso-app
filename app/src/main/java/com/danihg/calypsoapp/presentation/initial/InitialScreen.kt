@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -126,9 +127,10 @@ fun InitialScreen(
     ) {
         Spacer(modifier = Modifier.weight(1f))
         Image(
-            painter = painterResource(id = R.drawable.calypso_logo),
+            painter = painterResource(id = R.drawable.logo_calypso),
             contentDescription = "Calypso Logo",
-            modifier = Modifier.size(300.dp, 150.dp)
+            modifier = Modifier.size(300.dp, 150.dp),
+            colorFilter = ColorFilter.tint(CalypsoRed)
         )
         Spacer(modifier = Modifier.weight(1f))
         Text(
