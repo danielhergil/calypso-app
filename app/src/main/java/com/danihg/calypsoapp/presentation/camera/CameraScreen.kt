@@ -1886,7 +1886,7 @@ fun SettingsMenu(
                     )
                     SectionSubtitle("Resolution")
                     ModernDropdown(
-                        items = listOf("1080p", "720p", "2k"),
+                        items = listOf("1440p", "1080p", "720p"),
                         selectedValue = selectedResolution,
                         displayMapper = { it },
                         onValueChange = onResolutionChange,
