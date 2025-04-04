@@ -47,6 +47,7 @@ import androidx.compose.material3.Divider
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -218,6 +219,8 @@ fun CameraScreenContent() {
             sharedPreferences.getString("streamUrl", "") ?: ""
         )
     }
+    var rtmpUrl by remember { mutableStateOf("") }
+    var streamKey by remember { mutableStateOf("") }
     var videoBitrate = sharedPreferences.getInt("videoBitrate", 5000 * 1000)
     val videoFPS = sharedPreferences.getInt("videoFPS", 30)
     val audioSampleRate = sharedPreferences.getInt("audioSampleRate", 48000)
@@ -912,14 +915,22 @@ fun CameraScreenContent() {
                         Spacer(modifier = Modifier.height(5.dp))
 
                         // Streaming button
+                        val validStreamUrl = streamUrl.isNotBlank() &&
+                                (streamUrl.startsWith("rtmp://") || streamUrl.startsWith("rtmps://")) &&
+                                !streamUrl.contains(" ") &&
+                                streamUrl.split("/").filter { it.isNotBlank() }.size >= 4
                         Button(
                             onClick = {
                                 if (isStreaming) stopForegroundService() else startForegroundService()
                             },
+                            enabled = validStreamUrl,
                             modifier = Modifier
                                 .size(70.dp)
                                 .border(3.dp, Color.White, CircleShape),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                            colors = if (validStreamUrl)
+                                ButtonDefaults.buttonColors(containerColor = Color.Red)
+                            else
+                                ButtonDefaults.buttonColors(containerColor = Color.Gray),
                             shape = CircleShape
                         ) {
                             // Optional button content
@@ -1528,11 +1539,15 @@ fun CameraScreenContent() {
                     onFPSChange = { selectedFPS = it },
                     selectedResolution = selectedResolution,
                     onResolutionChange = { selectedResolution = it },
-                    streamUrl = streamUrl,
-                    onStreamUrlChange = { streamUrl = it },
+                    rtmpUrl = rtmpUrl,
+                    onRtmpUrlChange = { rtmpUrl = it },
+                    streamKey = streamKey,
+                    onStreamKeyChange = { streamKey = it },
                     availableVideoCodecs = getAvailableVideoCodecs(),
                     availableAudioCodecs = getAvailableAudioCodecs(),
-                    onApply = {
+                    onApply = { finalStreamUrl ->
+
+                        streamUrl = finalStreamUrl
                         // Launch a coroutine to introduce a delay after stopping the preview.
                         coroutineScope.launch {
                             if (!isStreaming) {
@@ -1568,7 +1583,7 @@ fun CameraScreenContent() {
                                     putInt("videoWidth", videoWidth)
                                     putInt("videoHeight", videoHeight)
                                     putInt("videoBitrate", videoBitrate)
-                                    putString("streamUrl", streamUrl)
+                                    putString("streamUrl", finalStreamUrl)
                                     apply()
                                 }
 
@@ -1766,13 +1781,22 @@ fun SettingsMenu(
     onFPSChange: (String) -> Unit,
     selectedResolution: String,
     onResolutionChange: (String) -> Unit,
-    streamUrl: String,
-    onStreamUrlChange: (String) -> Unit,
+    rtmpUrl: String,
+    onRtmpUrlChange: (String) -> Unit,
+    streamKey: String,
+    onStreamKeyChange: (String) -> Unit,
     availableVideoCodecs: List<String>,
     availableAudioCodecs: List<String>,
-    onApply: () -> Unit,
+    onApply: (constructedStreamUrl: String) -> Unit,
     onClose: () -> Unit
 ) {
+
+    // Validate RTMP URL: must start with "rtmp://" or "rtmps://"
+    // and must not contain any spaces.
+    val isRtmpUrlValid = rtmpUrl.isNotBlank() &&
+        !rtmpUrl.contains(" ") &&
+        (rtmpUrl.startsWith("rtmp://") || rtmpUrl.startsWith("rtmps://"))
+
     AnimatedVisibility(
         visible = visible,
         enter = fadeIn(tween(300)) + slideInVertically(initialOffsetY = { it / 2 }),
@@ -1893,30 +1917,62 @@ fun SettingsMenu(
                         enabled = !isStreaming
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    // New field for the Stream URL.
-                    SectionSubtitle("Stream URL")
+                    SectionSubtitle("RTMP URL")
                     OutlinedTextField(
-                        value = streamUrl,
-                        onValueChange = onStreamUrlChange,
-                        label = { Text("Stream URL") },
+                        value = rtmpUrl,
+                        onValueChange = onRtmpUrlChange,
+                        label = { Text("RTMP URL") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isStreaming,
+                        isError = !isRtmpUrlValid,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color.Red,
+                            unfocusedBorderColor = Color.Gray,
+                            focusedLabelColor = Color.Red,
+                            unfocusedLabelColor = Color.Gray
+                        )
+                    )
+                    if (!isRtmpUrlValid) {
+                        Text(
+                            text = "Invalid RTMP URL. Must start with rtmp:// or rtmps://.",
+                            color = Color.Red,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    SectionSubtitle("Stream Key")
+                    OutlinedTextField(
+                        value = streamKey,
+                        onValueChange = onStreamKeyChange,
+                        label = { Text("Stream Key") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !isStreaming,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
-                            focusedBorderColor = CalypsoRed,
+                            focusedBorderColor = Color.Red,
                             unfocusedBorderColor = Color.Gray,
-                            focusedLabelColor = CalypsoRed,
+                            focusedLabelColor = Color.Red,
                             unfocusedLabelColor = Color.Gray
                         )
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(
-                        onClick = onApply,
+                        onClick = {
+                            // Remove any trailing slash from the RTMP URL.
+                            val sanitizedRtmpUrl = rtmpUrl.trim().removeSuffix("/")
+                            // Construct final stream URL.
+                            val constructedStreamUrl = "$sanitizedRtmpUrl/$streamKey"
+                            onApply(constructedStreamUrl.trim())
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(40.dp),
+                        enabled = !isStreaming && isRtmpUrlValid && streamKey.isNotBlank(),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = CalypsoRed,
                             contentColor = Color.White
