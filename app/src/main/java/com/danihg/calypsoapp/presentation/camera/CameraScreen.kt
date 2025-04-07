@@ -12,53 +12,24 @@ import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.PixelFormat
 import android.graphics.drawable.BitmapDrawable
 import android.hardware.camera2.CaptureRequest
 import android.media.MediaRecorder
-import android.net.Uri
 import android.os.Build
 import android.util.Log
-import android.util.Range
-import android.view.KeyEvent
-import android.view.SurfaceHolder
 import android.view.SurfaceView
-import android.view.View
-import android.view.ViewGroup
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Divider
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -70,21 +41,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -95,52 +57,31 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.ImageLoader
 import coil.request.ImageRequest
-import com.arthenica.ffmpegkit.FFmpegKit
-import com.arthenica.ffmpegkit.ReturnCode
 import com.danihg.calypsoapp.R
 import com.danihg.calypsoapp.data.FirestoreManager
 import com.danihg.calypsoapp.data.Team
 import com.danihg.calypsoapp.overlays.PlayerEntry
 import com.danihg.calypsoapp.overlays.drawOverlay
-import com.danihg.calypsoapp.overlays.drawTeamPlayersOverlay
+import com.danihg.calypsoapp.presentation.camera.menus.OverlayMenu
 import com.danihg.calypsoapp.services.StreamingService
 import com.danihg.calypsoapp.sources.CameraCalypsoSource
-import com.danihg.calypsoapp.ui.theme.CalypsoRed
-import com.danihg.calypsoapp.ui.theme.Gray
 import com.danihg.calypsoapp.utils.AuxButton
-import com.danihg.calypsoapp.utils.AuxButtonSquare
-import com.danihg.calypsoapp.utils.ColorDropdown
-import com.danihg.calypsoapp.utils.ExposureCompensationSlider
-import com.danihg.calypsoapp.utils.ExposureModeSelector
-import com.danihg.calypsoapp.utils.ExposureSlider
-import com.danihg.calypsoapp.utils.IsoSlider
-import com.danihg.calypsoapp.utils.ManualWhiteBalanceSlider
-import com.danihg.calypsoapp.utils.ModernDropdown
-import com.danihg.calypsoapp.utils.OpticalStabilizationModeSelector
 import com.danihg.calypsoapp.utils.PathUtils
 import com.danihg.calypsoapp.utils.PreventScreenLock
-import com.danihg.calypsoapp.utils.ScoreboardActionButtons
-import com.danihg.calypsoapp.utils.SectionSubtitle
-import com.danihg.calypsoapp.utils.SensorExposureTimeModeSelector
-import com.danihg.calypsoapp.utils.SensorExposureTimeSlider
-import com.danihg.calypsoapp.utils.ToggleAuxButton
-import com.danihg.calypsoapp.utils.ToggleAuxButtonSquare
-import com.danihg.calypsoapp.utils.WhiteBalanceModeSelector
-import com.danihg.calypsoapp.utils.ZoomControls
-import com.danihg.calypsoapp.utils.ZoomKeyHandler
 import com.danihg.calypsoapp.utils.getAvailableAudioCodecs
 import com.danihg.calypsoapp.utils.getAvailableVideoCodecs
 import com.danihg.calypsoapp.utils.rememberToast
+import com.danihg.calypsoapp.presentation.camera.menus.SettingsMenu
+import com.danihg.calypsoapp.presentation.camera.overlays.ScoreboardOverlay
+import com.danihg.calypsoapp.presentation.camera.overlays.TeamPlayersOverlay
+import com.danihg.calypsoapp.presentation.camera.ui.CameraUI
 import com.pedro.common.AudioCodec
 import com.pedro.common.ConnectChecker
 import com.pedro.common.VideoCodec
 import com.pedro.encoder.TimestampMode
-import com.pedro.encoder.input.gl.render.filters.`object`.GifObjectFilterRender
 import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
 import com.pedro.encoder.input.sources.audio.AudioSource
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
-import com.pedro.encoder.input.sources.video.VideoFileSource
-import com.pedro.encoder.utils.gl.TranslateTo
 import java.util.Date
 import com.pedro.extrasources.CameraUvcSource
 import com.pedro.library.base.recording.RecordController
@@ -149,19 +90,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
-import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Locale
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
-import kotlin.math.pow
-import kotlin.math.roundToInt
-
-class CameraViewModel(context: Context) : ViewModel() {
-    // Create the camera instance once and keep it here.
-    val activeCameraSource: CameraCalypsoSource = CameraCalypsoSource(context)
-}
 
 @Composable
 fun CameraScreen() {
@@ -214,13 +144,9 @@ fun CameraScreenContent() {
     val sharedPreferences = context.getSharedPreferences("CameraSettings", Context.MODE_PRIVATE)
     var videoWidth by remember { mutableIntStateOf(sharedPreferences.getInt("videoWidth", 1920)) }
     var videoHeight by remember { mutableIntStateOf(sharedPreferences.getInt("videoHeight", 1080)) }
-    var streamUrl by remember {
-        mutableStateOf(
-            sharedPreferences.getString("streamUrl", "") ?: ""
-        )
-    }
-    var rtmpUrl by remember { mutableStateOf("") }
-    var streamKey by remember { mutableStateOf("") }
+    var streamUrl by remember { mutableStateOf(sharedPreferences.getString("streamUrl", "") ?: "") }
+    var rtmpUrl by remember { mutableStateOf(sharedPreferences.getString("rtmpUrl", "") ?: "") }
+    var streamKey by remember { mutableStateOf(sharedPreferences.getString("streamKey", "") ?: "") }
     var videoBitrate = sharedPreferences.getInt("videoBitrate", 5000 * 1000)
     val videoFPS = sharedPreferences.getInt("videoFPS", 30)
     val audioSampleRate = sharedPreferences.getInt("audioSampleRate", 48000)
@@ -259,7 +185,6 @@ fun CameraScreenContent() {
     var showOverlaySubMenu by rememberSaveable { mutableStateOf(false) }
     var showScoreboardOverlay by rememberSaveable { mutableStateOf(false) }
     var showSettingsSubMenu  by rememberSaveable { mutableStateOf(false) }
-    var showCameraSubSettings  by rememberSaveable { mutableStateOf(false) }
     var showTeamPlayersOverlayMenu by rememberSaveable { mutableStateOf(false) }
     var showLineUpOverlay by rememberSaveable { mutableStateOf(false) }
     var showTeamPlayersOverlay by rememberSaveable { mutableStateOf(false) }
@@ -373,23 +298,6 @@ fun CameraScreenContent() {
         }
     } ?: emptyList()
 
-
-    // Example player data (in a real app, you might load from Firestore, etc.)
-    val teamAPlayers = listOf(
-        PlayerEntry("1", "John Keeper"),
-        PlayerEntry("2", "Chris Defender"),
-        PlayerEntry("3", "Alex Midfielder"),
-        PlayerEntry("4", "James Forward"),
-        // etc., up to 11
-    )
-    val teamBPlayers = listOf(
-        PlayerEntry("1", "Mike Keeper"),
-        PlayerEntry("2", "Luke Defender"),
-        PlayerEntry("3", "Ryan Midfielder"),
-        PlayerEntry("4", "David Forward"),
-        // etc.
-    )
-
     // Use a custom factory to pass context to your CameraViewModel.
     val cameraViewModel: CameraViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
@@ -402,7 +310,6 @@ fun CameraScreenContent() {
     // Retrieve the same camera instance
     var activeCameraSource by remember { mutableStateOf(cameraViewModel.activeCameraSource) }
 
-//    var activeCameraSource by remember { mutableStateOf(CameraCalypsoSource(context)) }
     val micSource: MicrophoneSource = remember { MicrophoneSource(MediaRecorder.AudioSource.DEFAULT) }
     val audio: AudioSource = remember { micSource }
     val externalAudioSource: MicrophoneSource = remember { MicrophoneSource(MediaRecorder.AudioSource.MIC) }
@@ -421,8 +328,6 @@ fun CameraScreenContent() {
     val defaultExposure by remember { mutableStateOf(activeCameraSource.getExposure()) }
     var baseExposureLevel by remember { mutableStateOf(exposureLevel) }
 
-    var isoIndex by rememberSaveable { mutableStateOf(0f) }
-    val isoOptions = listOf(100, 200, 400, 800, 1600, 3200)
     var isoSliderValue by rememberSaveable { mutableStateOf(0f) }
 
     // State variables for white balance
@@ -437,10 +342,6 @@ fun CameraScreenContent() {
     // States for exposure compensation and sensor exposure time
     var showExposureCompensationSlider by rememberSaveable { mutableStateOf(false) }
     var exposureCompensation by rememberSaveable { mutableStateOf(0f) }
-    // Define the discrete exposure compensation options.
-    val exposureCompOptions = listOf(-2, -1, 0, 1, 2)
-    // Start at index 2 (which corresponds to 0 compensation)
-    var exposureCompIndex by rememberSaveable { mutableStateOf(2f) }
 
     var showCameraModeSelection by rememberSaveable { mutableStateOf(false) }
     var showManualSubMenu by rememberSaveable { mutableStateOf(false) }
@@ -482,7 +383,6 @@ fun CameraScreenContent() {
         }, activeCameraSource, audio).apply {
             prepareVideo(videoWidth, videoHeight, videoBitrate, videoFPS)
             prepareAudio(audioSampleRate, audioIsStereo, audioBitrate)
-            setTimestampMode(TimestampMode.CLOCK, TimestampMode.BUFFER)
             getGlInterface().autoHandleOrientation = true
         }
     }
@@ -512,32 +412,6 @@ fun CameraScreenContent() {
                         // Zoom
                         activeCameraSource.setZoom(zoomLevel)
                         activeCameraSource.reapplySettings()
-//                        if (sensorExposureTimeMode == "MANUAL") {
-//                            // Reapply the exact sensor exposure time that was stored.
-//                            activeCameraSource.setSensorExposureTime(currentSensorExposureTime)
-//                            // Update the slider state accordingly.
-//                            exposureLevel = ((currentSensorExposureTime - minSensorExposure).toFloat() / (maxSensorExposure - minSensorExposure))
-//                            baseExposureLevel = exposureLevel
-//                        } else if (exposureMode == "MANUAL") {
-//                            activeCameraSource.setExposure(exposureLevel.toInt())
-//                            baseExposureLevel = exposureLevel
-//                        } else {
-//                            activeCameraSource.enableAutoExposure()
-//                        }
-//                        if (sensorExposureTimeMode == "MANUAL" && sensorExposureTimeIndex != null) {
-//                            val idx = sensorExposureTimeIndex!!.toInt().coerceIn(0, sensorExposureTimeOptions.size - 1)
-//                            val sensorTime = sensorExposureTimeOptions[idx].second
-//                            activeCameraSource.setSensorExposureTime(sensorTime)
-//                            currentSensorExposureTime = sensorTime
-//                            // Update the exposureLevel slider value so it reflects the current sensor time:
-//                            exposureLevel = ((sensorTime - minSensorExposure).toFloat() / (maxSensorExposure - minSensorExposure))
-//                            baseExposureLevel = exposureLevel
-//                        } else if (exposureMode == "MANUAL") {
-//                            activeCameraSource.setExposure(exposureLevel.toInt())
-//                            baseExposureLevel = exposureLevel
-//                        } else {
-//                            activeCameraSource.enableAutoExposure()
-//                        }
 
                         // Reapply White Balance
                         if (whiteBalanceMode == "MANUAL") {
@@ -552,14 +426,7 @@ fun CameraScreenContent() {
                             "DISABLE" -> activeCameraSource.disableOpticalVideoStabilization()
                         }
 
-                        // Reapply sensor exposure time if separately controlled (only if needed)
-//                        if (sensorExposureTimeMode == "MANUAL" && sensorExposureTimeIndex != null) {
-//                            val idx = sensorExposureTimeIndex!!.toInt().coerceIn(0, sensorExposureTimeOptions.size - 1)
-//                            activeCameraSource.setSensorExposureTime(sensorExposureTimeOptions[idx].second)
-//                        }
-
-                        // Optionally, reapply exposure compensation if needed:
-//                        activeCameraSource.setExposure(exposureCompensation.toInt())
+                        activeCameraSource.setExposure(exposureCompensation.toInt())
                     }
                     coroutineScope.launch {
                         // Wait until the preview is ready.
@@ -659,9 +526,7 @@ fun CameraScreenContent() {
                 // Camera preview.
                 CameraPreview(
                     genericStream = genericStream,
-                    surfaceViewRef = surfaceViewRef,
-                    context = context,
-                    videoSource = activeCameraSource
+                    surfaceViewRef = surfaceViewRef
                 )
 
                 // Team Players Overlay.
@@ -855,665 +720,152 @@ fun CameraScreenContent() {
                 }
 
                 // Right-side action buttons.
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(), // Outer container now spans the full width
-                    contentAlignment = Alignment.CenterEnd // All children will be placed at the right edge
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .padding(end = 80.dp),  // Keeps the same offset as before
-                        verticalArrangement = Arrangement.SpaceEvenly,
-                        horizontalAlignment = Alignment.End
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .size(50.dp)
-                                .zIndex(3f) // Ensure submenu appears above
-                        ){
-                            // Rocket button (this is the reference position)
-                            AuxButton(
-                                modifier = Modifier
-                                    .size(50.dp)
-                                    .align(Alignment.CenterEnd)
-                                    .zIndex(2f),
-                                painter = painterResource(id = R.drawable.ic_rocket),
-                                onClick = {
-                                    showApplyButton = !showApplyButton
-                                }
-                            )
-                            // Comment the overlays sumbenu
-//                            androidx.compose.animation.AnimatedVisibility(
-//                                visible = showOverlaySubMenu,
-//                                enter = fadeIn(tween(200)) + slideInHorizontally (initialOffsetX = { it / 2 }),
-//                                exit = fadeOut(tween(200)) + slideOutHorizontally (targetOffsetX = { it / 2 }),
-//                                modifier = Modifier
-//                                    .align(Alignment.CenterEnd)
-//                                    .offset(x = (-100).dp) // Adjust offset to align with button
-//                            ) {
-//                                Row(
-//                                    modifier = Modifier
-//                                        .wrapContentWidth()
-//                                        .padding(6.dp),
-//                                    horizontalArrangement = Arrangement.End
-//                                ) {
-//                                    AuxButton(
-//                                        modifier = Modifier.size(40.dp),
-//                                        painter = painterResource(id = R.drawable.ic_del_1),
-//                                        onClick = {
-//                                            showApplyButton = !showApplyButton
-//                                        }
-//                                    )
-//                                }
-//                            }
+                CameraUI(
+                    onShowApplyButton = { showApplyButton = !showApplyButton },
+                    streamUrl = streamUrl,
+                    onStartStreaming = {
+                        if (isStreaming) stopForegroundService() else startForegroundService()
+                    },
+                    isStreaming = isStreaming,
+                    onRecordWhileStreaming = {
+                        if (!isRecording) {
+                            recordVideoStreaming(context, genericStream) { }
+                            isRecording = true
+                        } else {
+                            recordVideoStreaming(context, genericStream) { }
+                            isRecording = false
                         }
-
-
-                        Spacer(modifier = Modifier.height(5.dp))
-
-                        // Streaming button
-                        val validStreamUrl = streamUrl.isNotBlank() &&
-                                (streamUrl.startsWith("rtmp://") || streamUrl.startsWith("rtmps://")) &&
-                                !streamUrl.contains(" ") &&
-                                streamUrl.split("/").filter { it.isNotBlank() }.size >= 4
-                        Button(
-                            onClick = {
-                                if (isStreaming) stopForegroundService() else startForegroundService()
-                            },
-                            enabled = validStreamUrl,
-                            modifier = Modifier
-                                .size(70.dp)
-                                .border(3.dp, Color.White, CircleShape),
-                            colors = if (validStreamUrl)
-                                ButtonDefaults.buttonColors(containerColor = Color.Red)
-                            else
-                                ButtonDefaults.buttonColors(containerColor = Color.Gray),
-                            shape = CircleShape
-                        ) {
-                            // Optional button content
+                    },
+                    isRecording = isRecording,
+                    showZoomSlider = showZoomSlider,
+                    onToggleShowZoomSlider = { showZoomSlider = !showZoomSlider },
+                    isMicMuted = isMicMuted,
+                    onToggleVolumeMenuVisible = { isVolumeMenuVisible = !isVolumeMenuVisible },
+                    isVolumeMenuVisible = isVolumeMenuVisible,
+                    onToggleMuteUnmute = {
+                        isMicMuted = !isMicMuted
+                        if (isMicMuted) {
+                            micSource.mute()
+                            externalAudioSource.mute()
+                        } else {
+                            micSource.unMute()
+                            externalAudioSource.unMute()
                         }
+                    },
+                    onToggleSettingsMenu = {
+                        showSettingsSubMenu = !showSettingsSubMenu
+                        // Reset all nested menus when toggling settings
+                        showCameraModeSelection = false
+                        showManualSubMenu = false
+                        showAutoSubMenu = false
+                        showIsoSlider = false
+                        showExposureCompensationSlider = false
+                        showExposureSlider = false
+                        showSensorExposureTimeSlider = false
+                    },
+                    showSettingsSubMenu = showSettingsSubMenu,
+                    showCameraModeSelection = showCameraModeSelection,
+                    showManualSubMenu = showManualSubMenu,
+                    showAutoSubMenu = showAutoSubMenu,
+                    onShowSettingsCameraMenu = {
+                        showCameraModeSelection = !showCameraModeSelection
+                        // Reset any lower-level menus
+                        showManualSubMenu = false
+                        showAutoSubMenu = false
+                        showIsoSlider = false
+                        showExposureCompensationSlider = false
+                        showExposureSlider = false
+                        showSensorExposureTimeSlider = false
+                    },
+                    onShowSettingsStreamMenu = { isSettingsMenuVisible = !isSettingsMenuVisible },
+                    onShowSettingsCameraManualMenu = {
+                        cameraMode = "MANUAL"
+                        showCameraModeSelection = false
+                        showManualSubMenu = true
+                        showAutoSubMenu = false
+                    },
+                    onShowSettingsCameraAutoMenu = {
+                        cameraMode = "AUTO"
+                        showCameraModeSelection = false
+                        showAutoSubMenu = true
+                        showManualSubMenu = false
 
-                        Spacer(modifier = Modifier.height(5.dp))
-
-//                        if (isStreaming && backgroundRecordPath == null) {
-//                            backgroundRecordPath = startBackgroundRecording(context, genericStream)
-//                        }
-
-                        if (isStreaming) {
-                            // Recording button
-                            Box(
-                                modifier = Modifier
-                                    .size(50.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.Red.copy(alpha = 0.5f))
-                                    .clickable {
-                                        if (!isRecording) {
-                                            recordVideoStreaming(context, genericStream) { }
-                                            isRecording = true
-                                        } else {
-                                            recordVideoStreaming(context, genericStream) { }
-                                            isRecording = false
-                                        }
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    painter = painterResource(id = if (isRecording) R.drawable.ic_stop else R.drawable.ic_record),
-                                    contentDescription = "Button Icon",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(30.dp)
-                                )
-                            }
-                        }
-
-                        // Assume these state variables are declared (using remember { mutableStateOf(...) }):
-                        // showSettingsSubMenu, showCameraModeSelection, showManualSubMenu, showAutoSubMenu,
-                        // showIsoSlider, showExposureCompensationSlider, showExposureSlider, showSensorExposureTimeSlider,
-                        // cameraMode (e.g., "MANUAL" or "AUTO")
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .size(60.dp)
-                                .zIndex(3f) // Ensure submenu appears above
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .align(Alignment.CenterStart)
-                                    .offset(x = 80.dp), // Shift both buttons together
-                                horizontalArrangement = Arrangement.spacedBy(22.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                ToggleAuxButtonSquare(
-                                    modifier = Modifier.size(50.dp),
-                                    painter = painterResource(id = R.drawable.ic_zoom),
-                                    toggled = showZoomSlider,
-                                    onToggle = {
-                                        showZoomSlider = !showZoomSlider
-                                    }
-                                )
-                                AuxButtonSquare(
-                                    modifier = Modifier.size(50.dp),
-                                    iconModifier = Modifier.fillMaxSize().scale(0.9f),
-                                    painter = painterResource(id = if (isMicMuted) R.drawable.ic_volume_off else R.drawable.ic_volume),
-                                    onClick = {
-                                        isVolumeMenuVisible = !isVolumeMenuVisible
-                                    }
-                                )
-                                if (isVolumeMenuVisible) {
-                                    ToggleAuxButtonSquare(
-                                        modifier = Modifier.size(50.dp),
-                                        painter = painterResource(id = R.drawable.ic_mute_letters),
-                                        toggled = isMicMuted,
-                                        onToggle = {
-                                            isMicMuted = !isMicMuted
-                                            if(isMicMuted) {
-                                                micSource.mute()
-                                                externalAudioSource.mute()
-                                            } else {
-                                                micSource.unMute()
-                                                externalAudioSource.unMute()
-                                            }
-                                        }
-                                    )
-                                }
-                            }
-                            // Settings (gear) button at top level
-                            AuxButton(
-                                modifier = Modifier
-                                    .size(50.dp)
-                                    .align(Alignment.CenterEnd),
-                                painter = painterResource(id = R.drawable.ic_settings),
-                                onClick = {
-                                    showSettingsSubMenu = !showSettingsSubMenu
-                                    // Reset all nested menus when toggling settings
-                                    showCameraModeSelection = false
-                                    showManualSubMenu = false
-                                    showAutoSubMenu = false
-                                    showIsoSlider = false
-                                    showExposureCompensationSlider = false
-                                    showExposureSlider = false
-                                    showSensorExposureTimeSlider = false
-                                }
-                            )
-                            // Top-level submenu: Camera and Stream options, only visible when no lower menu is showing.
-                            androidx.compose.animation.AnimatedVisibility(
-                                visible = showSettingsSubMenu && !showCameraModeSelection && !showManualSubMenu && !showAutoSubMenu,
-                                enter = fadeIn(tween(200)) + slideInHorizontally(initialOffsetX = { it / 2 }),
-                                exit = fadeOut(tween(200)) + slideOutHorizontally(targetOffsetX = { it / 2 }),
-                                modifier = Modifier
-                                    .align(Alignment.CenterEnd)
-                                    .offset(x = (-100).dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.wrapContentWidth().padding(6.dp),
-                                    horizontalArrangement = Arrangement.End
-                                ) {
-                                    AuxButtonSquare(
-                                        iconModifier = Modifier.fillMaxSize().scale(1.1f),
-                                        painter = painterResource(id = R.drawable.ic_settings_camera),
-                                        onClick = {
-                                            showCameraModeSelection = !showCameraModeSelection
-                                            // Reset any lower-level menus
-                                            showManualSubMenu = false
-                                            showAutoSubMenu = false
-                                            showIsoSlider = false
-                                            showExposureCompensationSlider = false
-                                            showExposureSlider = false
-                                            showSensorExposureTimeSlider = false
-                                        }
-                                    )
-                                    Spacer(modifier = Modifier.width(22.dp))
-                                    AuxButtonSquare(
-                                        iconModifier = Modifier.fillMaxSize().scale(1.1f),
-                                        painter = painterResource(id = R.drawable.ic_settings_stream),
-                                        onClick = {
-                                            isSettingsMenuVisible = !isSettingsMenuVisible
-                                        }
-                                    )
-                                }
-                            }
-
-                            // Camera mode selection: Manual or Auto
-                            androidx.compose.animation.AnimatedVisibility(
-                                visible = showCameraModeSelection,
-                                enter = fadeIn(tween(200)) + slideInHorizontally(initialOffsetX = { it / 2 }),
-                                exit = fadeOut(tween(200)) + slideOutHorizontally(targetOffsetX = { it / 2 }),
-                                modifier = Modifier
-                                    .align(Alignment.CenterEnd)
-                                    .offset(x = (-100).dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.wrapContentWidth().padding(6.dp),
-                                    horizontalArrangement = Arrangement.End
-                                ) {
-                                    // Manual mode button
-                                    AuxButtonSquare(
-                                        iconModifier = Modifier.fillMaxSize().scale(1.1f),
-                                        painter = painterResource(id = R.drawable.ic_camera_settings_manual),
-                                        onClick = {
-                                            cameraMode = "MANUAL"
-                                            showCameraModeSelection = false  // Hide the parent menu
-                                            showManualSubMenu = true
-                                            showAutoSubMenu = false
-//                                            showManualSubMenu = !showManualSubMenu
-//                                            showAutoSubMenu = false
-                                        }
-                                    )
-                                    Spacer(modifier = Modifier.width(22.dp))
-                                    // Auto mode button
-                                    AuxButtonSquare(
-                                        iconModifier = Modifier.fillMaxSize().scale(1.1f),
-                                        painter = painterResource(id = R.drawable.ic_camera_settings_auto),
-                                        onClick = {
-                                            cameraMode = "AUTO"
-                                            showCameraModeSelection = false  // Hide the parent menu
-                                            showAutoSubMenu = true
-                                            showManualSubMenu = false
-
-                                            activeCameraSource.setIsoAuto()
-                                            activeCameraSource.enableAutoExposure()
-                                            val isAutoExposure = activeCameraSource.isAutoExposureEnabled()
-                                            activeCameraSource.setExposure(defaultExposure)
-                                            exposureLevel = defaultExposure.toFloat()
-//                                            showAutoSubMenu = !showAutoSubMenu
-//                                            showManualSubMenu = false
-                                        }
-                                    )
-                                    Spacer(modifier = Modifier.width(22.dp))
-                                    // Back button to return to the top-level settings menu
-                                    AuxButtonSquare(
-                                        iconModifier = Modifier.fillMaxSize().scale(0.9f),
-                                        painter = painterResource(id = R.drawable.ic_settings_back),
-                                        onClick = { showCameraModeSelection = false }
-                                    )
-                                }
-                            }
-
-                            // Manual mode submenu: Choose between ISO and Sensor Exposure Time adjustments
-                            androidx.compose.animation.AnimatedVisibility(
-                                visible = showManualSubMenu,
-                                enter = fadeIn(tween(200)) + slideInHorizontally(initialOffsetX = { it / 2 }),
-                                exit = fadeOut(tween(200)) + slideOutHorizontally(targetOffsetX = { it / 2 }),
-                                modifier = Modifier
-                                    .align(Alignment.CenterEnd)
-                                    .offset(x = (-100).dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.wrapContentWidth().padding(6.dp),
-                                    horizontalArrangement = Arrangement.End
-                                ) {
-                                    // ISO adjustment button: on click, show the ISO slider
-                                    AuxButtonSquare(
-                                        iconModifier = Modifier.fillMaxSize().scale(1.1f),
-                                        painter = painterResource(id = R.drawable.ic_iso),
-                                        onClick = {
-                                            showIsoSlider = true
-                                            showManualSubMenu = false
-                                        }
-                                    )
-                                    Spacer(modifier = Modifier.width(22.dp))
-                                    // Sensor Exposure Time button: on click, show its slider
-                                    AuxButtonSquare(
-                                        iconModifier = Modifier.fillMaxSize().scale(0.9f),
-                                        painter = painterResource(id = R.drawable.ic_exposure_time),
-                                        onClick = {
-                                            sensorExposureTimeMode = "MANUAL"
-                                            showSensorExposureTimeSlider = true
-                                            showManualSubMenu = false
-                                        }
-                                    )
-                                    Spacer(modifier = Modifier.width(22.dp))
-                                    // Back button to return to Camera Mode selection
-                                    AuxButtonSquare(
-                                        iconModifier = Modifier.fillMaxSize().scale(0.9f),
-                                        painter = painterResource(id = R.drawable.ic_settings_back),
-                                        onClick = {
-                                            showManualSubMenu = false
-                                            showCameraModeSelection = true
-                                        }
-                                    )
-                                }
-                            }
-
-                            // Auto mode submenu: Adjust compensation values
-                            androidx.compose.animation.AnimatedVisibility(
-                                visible = showAutoSubMenu,
-                                enter = fadeIn(tween(200)) + slideInHorizontally(initialOffsetX = { it / 2 }),
-                                exit = fadeOut(tween(200)) + slideOutHorizontally(targetOffsetX = { it / 2 }),
-                                modifier = Modifier
-                                    .align(Alignment.CenterEnd)
-                                    .offset(x = (-100).dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.wrapContentWidth().padding(6.dp),
-                                    horizontalArrangement = Arrangement.End
-                                ) {
-                                    // Exposure Time Compensation button
-                                    AuxButtonSquare(
-                                        iconModifier = Modifier.fillMaxSize().scale(0.9f),
-                                        painter = painterResource(id = R.drawable.ic_exposure_compensation),
-                                        onClick = {
-                                            showExposureCompensationSlider = true
-                                            showAutoSubMenu = false
-                                        }
-                                    )
-                                    Spacer(modifier = Modifier.width(22.dp))
-                                    // Back button to return to Camera Mode selection
-                                    AuxButtonSquare(
-                                        iconModifier = Modifier.fillMaxSize().scale(0.9f),
-                                        painter = painterResource(id = R.drawable.ic_settings_back),
-                                        onClick = {
-                                            showAutoSubMenu = false
-                                            showCameraModeSelection = true
-                                        }
-                                    )
-                                }
-                            }
-                        }
+                        activeCameraSource.setIsoAuto()
+                        activeCameraSource.enableAutoExposure()
+                        val isAutoExposure = activeCameraSource.isAutoExposureEnabled()
+                        activeCameraSource.setExposure(defaultExposure)
+                        exposureLevel = defaultExposure.toFloat()
+                    },
+                    onCameraSettingsManualAutoBack = { showCameraModeSelection = false },
+                    onShowIsoSlider = {
+                        showIsoSlider = true
+                        showManualSubMenu = false
+                    },
+                    onShowSensorExposureTimeSlider = {
+                        sensorExposureTimeMode = "MANUAL"
+                        showSensorExposureTimeSlider = true
+                        showManualSubMenu = false
+                    },
+                    onCameraManualModeBack = {
+                        showManualSubMenu = false
+                        showCameraModeSelection = true
+                    },
+                    onShowExposureCompensationSlider = {
+                        showExposureCompensationSlider = true
+                        showAutoSubMenu = false
+                    },
+                    onCameraAutoModeBack = {
+                        showAutoSubMenu = false
+                        showCameraModeSelection = true
+                    },
+                    zoomLevel = zoomLevel,
+                    onZoomLevelFunction = { delta ->
+                        zoomLevel = (zoomLevel + delta).coerceIn(1f, 5f)
+                        activeCameraSource.setZoom(zoomLevel)
+                    },
+                    micSource = micSource,
+                    externalAudioSource = externalAudioSource,
+                    showIsoSlider = showIsoSlider,
+                    isoSliderValue = isoSliderValue,
+                    onIsoSliderValue = { newValue ->
+                        isoSliderValue = newValue
+                    },
+                    onUpdateSensorSensitivity = { newIso ->
+                        activeCameraSource.setSensorSensitivity(newIso)
+                    },
+                    onIsoSliderBack = {
+                        showIsoSlider = false
+                        showManualSubMenu = true
+                    },
+                    showSensorExposureTimeSlider = showSensorExposureTimeSlider,
+                    sensorExposureTimeMode = sensorExposureTimeMode,
+                    sensorExposureTimeIndex = sensorExposureTimeIndex,
+                    defaultSensorExposureIndex = defaultSensorExposureIndex,
+                    sensorExposureTimeOptions = sensorExposureTimeOptions,
+                    onSensorExposureTimeSliderChange = { newIndex ->
+                        sensorExposureTimeIndex = newIndex
+                        val idx = newIndex.toInt().coerceIn(0, sensorExposureTimeOptions.size - 1)
+                        val newSensorTime = sensorExposureTimeOptions[idx].second
+                        activeCameraSource.setSensorExposureTime(newSensorTime)
+                        // Store the exact value for later reapplication.
+                        currentSensorExposureTime = newSensorTime
+                        // Update the normalized exposure slider value.
+                        exposureLevel =
+                            ((newSensorTime - minSensorExposure).toFloat() / (maxSensorExposure - minSensorExposure))
+                        baseExposureLevel = exposureLevel
+                    },
+                    onSensorExposureTimeSliderBack = {
+                        showSensorExposureTimeSlider = false
+                        showManualSubMenu = true
+                    },
+                    showExposureCompensationSlider = showExposureCompensationSlider,
+                    activeCameraSource = activeCameraSource,
+                    onExposureCompensationBack = {
+                        showExposureCompensationSlider = false
+                        showAutoSubMenu = true
                     }
+                )
 
-                    if (showZoomSlider) {
-                        Box(modifier = Modifier
-                            .fillMaxSize()
-                            .padding(start = 50.dp, bottom = 50.dp)) {
-                            // Assume zoomLevel is a mutable state.
-                            ZoomControls(
-                                zoomLevel = zoomLevel,
-                                onZoomDelta = { delta ->
-                                    // Update the zoom level smoothly and ensure it stays within your bounds (e.g. 1f to 5f)
-                                    zoomLevel = (zoomLevel + delta).coerceIn(1f, 5f)
-                                    activeCameraSource.setZoom(zoomLevel)
-                                },
-                                modifier = Modifier
-                                    .padding(start = 40.dp, top = 50.dp) // adjust padding as needed
-                                    .align(Alignment.CenterStart)
-                            )
-                        }
-                    }
-
-                    if (isVolumeMenuVisible && !isMicMuted) {
-                        AnimatedVisibility(
-                            visible = isVolumeMenuVisible,
-                            enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(tween(200)),
-                            exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(tween(200))
-                        ) {
-                            Box(modifier = Modifier.fillMaxSize()) {
-                                Column(
-                                    modifier = Modifier
-                                        .align(Alignment.CenterStart)
-                                        .padding(start = 60.dp) // Ensure the slider is aligned with the shifted volume button
-                                        .padding(start = 40.dp), // Optional additional spacing if needed
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    // Decorative plus icon at the top (indicating maximum volume)
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.ic_add),
-                                        contentDescription = "Increase Volume",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    var volume by remember { mutableStateOf(micSource.microphoneVolume) }
-                                    Slider(
-                                        value = volume,
-                                        onValueChange = { newValue ->
-                                            volume = newValue
-                                            micSource.microphoneVolume = newValue
-                                            externalAudioSource.microphoneVolume = newValue
-                                        },
-                                        valueRange = 0f..1f,
-                                        modifier = Modifier
-                                            .width(150.dp)
-                                            .rotate(-90f)
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    // Decorative minus icon at the bottom (indicating minimum volume)
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.ic_less),
-                                        contentDescription = "Decrease Volume",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-
-                    // --- ISO Slider Overlay (for Manual Mode) ---
-                    if (showIsoSlider) {
-                        val configuration = LocalConfiguration.current
-                        val screenWidth = configuration.screenWidthDp.dp
-
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .padding(bottom = 100.dp) // Adjust padding as needed
-                                    .width(screenWidth * 0.7f) // 70% of the screen width
-                            ) {
-                                // Optionally add a title or label here (e.g. "ISO Adjustment")
-                                IsoSlider(
-                                    isoValue = isoSliderValue,
-                                    onValueChange = { newValue -> isoSliderValue = newValue },
-                                    updateSensorSensitivity = { newIso ->
-                                        activeCameraSource.setSensorSensitivity(newIso)
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                                // Back button to return to the Manual submenu
-                                AuxButton(
-                                    modifier = Modifier.size(40.dp),
-                                    painter = painterResource(id = R.drawable.ic_settings_back),
-                                    onClick = {
-                                        showIsoSlider = false
-                                        showManualSubMenu = true
-                                    }
-                                )
-                            }
-                        }
-                    }
-
-                    // --- Sensor Exposure Time Slider Overlay (for Manual Mode) ---
-                    if (showSensorExposureTimeSlider) {
-                        val configuration = LocalConfiguration.current
-                        val screenWidth = configuration.screenWidthDp.dp
-
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .padding(bottom = 100.dp)
-                                    .width(screenWidth * 0.7f)
-                            ) {
-                                // Show sensor exposure controls based on the current mode.
-                                if (sensorExposureTimeMode == "MANUAL") {
-                                    // Use a default slider value if no manual change has been made.
-                                    val sliderValue = sensorExposureTimeIndex ?: defaultSensorExposureIndex
-                                    Text(
-                                        text = "Sensor Exposure Time: ${sensorExposureTimeOptions[sliderValue.toInt()].first}",
-                                        color = Color.White,
-                                        fontSize = 16.sp
-                                    )
-                                    SensorExposureTimeSlider(
-                                        index = sliderValue,
-                                        onValueChange = { newIndex ->
-                                            sensorExposureTimeIndex = newIndex
-                                            val idx = newIndex.toInt().coerceIn(0, sensorExposureTimeOptions.size - 1)
-                                            val newSensorTime = sensorExposureTimeOptions[idx].second
-                                            activeCameraSource.setSensorExposureTime(newSensorTime)
-                                            // Store the exact value for later reapplication.
-                                            currentSensorExposureTime = newSensorTime
-                                            // Update the normalized exposure slider value.
-                                            exposureLevel = ((newSensorTime - minSensorExposure).toFloat() / (maxSensorExposure - minSensorExposure))
-                                            baseExposureLevel = exposureLevel
-                                        },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        exposureOptions = sensorExposureTimeOptions
-                                    )
-                                } else {
-                                    Text(
-                                        text = "Sensor Exposure Time: AUTO",
-                                        color = Color.White,
-                                        fontSize = 16.sp
-                                    )
-                                }
-                                // Back button to return to the Manual submenu
-                                AuxButton(
-                                    modifier = Modifier.size(40.dp),
-                                    painter = painterResource(id = R.drawable.ic_settings_back),
-                                    onClick = {
-                                        showSensorExposureTimeSlider = false
-                                        showManualSubMenu = true
-                                    }
-                                )
-                            }
-                        }
-                    }
-
-                    if (showExposureCompensationSlider) {
-                        val configuration = LocalConfiguration.current
-                        val screenWidth = configuration.screenWidthDp.dp
-                        // Determine if exposure compensation is available.
-                        val isExposureCompAvailable = activeCameraSource.isExposureCompensationAvailable()
-
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .padding(bottom = 100.dp) // Adjust padding as needed
-                                    .width(screenWidth * 0.7f)  // 70% of the screen width
-                            ) {
-                                if (isExposureCompAvailable) {
-                                    Text(
-                                        text = "Exposure Compensation",
-                                        color = Color.White,
-                                        fontSize = 16.sp
-                                    )
-                                    ExposureCompensationSlider(
-                                        compensation = activeCameraSource.getExposureCompensationManual(),
-                                        onValueChange = { newComp ->
-                                            activeCameraSource.setExposureCompensationManual(newComp)
-                                        },
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                    Text(
-                                        text = "EV: ${activeCameraSource.getExposureCompensationManual()}",
-                                        color = Color.White,
-                                        fontSize = 14.sp
-                                    )
-                                } else {
-                                    Text(
-                                        text = "Exposure compensation is disabled\nbecause both ISO and sensor exposure time are set to manual.",
-                                        color = Color.Gray,
-                                        fontSize = 16.sp,
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
-                                // Back button to return to the Auto submenu
-                                AuxButton(
-                                    modifier = Modifier.size(40.dp),
-                                    painter = painterResource(id = R.drawable.ic_settings_back),
-                                    onClick = {
-                                        showExposureCompensationSlider = false
-                                        showAutoSubMenu = true
-                                    }
-                                )
-                            }
-                        }
-                    }
-
-                    /*
-                    // --- White Balance Controls Overlay (Commented out for now) ---
-                    if (showWhiteBalanceSlider) {
-                        val configuration = LocalConfiguration.current
-                        val screenWidth = configuration.screenWidthDp.dp
-
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .padding(bottom = 100.dp)
-                                    .width(screenWidth * 0.7f)
-                            ) {
-                                WhiteBalanceModeSelector(
-                                    selectedMode = whiteBalanceMode,
-                                    onModeChange = { newMode ->
-                                        whiteBalanceMode = newMode
-                                        if (newMode == "AUTO") {
-                                            activeCameraSource.setWhiteBalance(CaptureRequest.CONTROL_AWB_MODE_AUTO)
-                                        }
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                                if (whiteBalanceMode == "MANUAL") {
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    ManualWhiteBalanceSlider(
-                                        temperature = manualWhiteBalanceTemperature,
-                                        onValueChange = { newTemperature ->
-                                            manualWhiteBalanceTemperature = newTemperature
-                                            activeCameraSource.setManualWhiteBalance(newTemperature)
-                                        },
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    */
-
-
-//                    // White balance controls UI:
-//                    if (showWhiteBalanceSlider) {
-//                        val configuration = LocalConfiguration.current
-//                        val screenWidth = configuration.screenWidthDp.dp
-//
-//                        Box(modifier = Modifier.fillMaxSize()) {
-//                            Column(
-//                                horizontalAlignment = Alignment.CenterHorizontally,
-//                                modifier = Modifier
-//                                    .align(Alignment.BottomCenter)
-//                                    .padding(bottom = 100.dp)
-//                                    .width(screenWidth * 0.7f)
-//                            ) {
-//                                // White Balance Mode Selector
-//                                WhiteBalanceModeSelector(
-//                                    selectedMode = whiteBalanceMode,
-//                                    onModeChange = { newMode ->
-//                                        whiteBalanceMode = newMode
-//                                        if (newMode == "AUTO") {
-//                                            // Update the camera immediately with auto mode.
-//                                            activeCameraSource.setWhiteBalance(CaptureRequest.CONTROL_AWB_MODE_AUTO)
-//                                        }
-//                                    },
-//                                    modifier = Modifier.fillMaxWidth()
-//                                )
-//                                // Show the manual slider only in MANUAL mode.
-//                                if (whiteBalanceMode == "MANUAL") {
-//                                    Spacer(modifier = Modifier.height(16.dp))
-//                                    ManualWhiteBalanceSlider(
-//                                        temperature = manualWhiteBalanceTemperature,
-//                                        onValueChange = { newTemperature ->
-//                                            manualWhiteBalanceTemperature = newTemperature
-//                                            // Update the camera with manual white balance settings.
-//                                            activeCameraSource.setManualWhiteBalance(newTemperature)
-//                                        },
-//                                        modifier = Modifier.fillMaxWidth()
-//                                    )
-//                                }
-//                            }
-//                        }
-//                    }
-
-                }
 
                 // Calculate dimensions for the settings menu.
                 val screenHeight = LocalContext.current.resources.displayMetrics.heightPixels.dp
@@ -1545,9 +897,11 @@ fun CameraScreenContent() {
                     onStreamKeyChange = { streamKey = it },
                     availableVideoCodecs = getAvailableVideoCodecs(),
                     availableAudioCodecs = getAvailableAudioCodecs(),
-                    onApply = { finalStreamUrl ->
+                    onApply = { finalStreamUrl, newRtmpUrl, newStreamKey ->
 
                         streamUrl = finalStreamUrl
+                        rtmpUrl = newRtmpUrl
+                        streamKey = newStreamKey
                         // Launch a coroutine to introduce a delay after stopping the preview.
                         coroutineScope.launch {
                             if (!isStreaming) {
@@ -1571,7 +925,7 @@ fun CameraScreenContent() {
                                         videoWidth = 1280
                                         videoHeight = 720
                                     }
-                                    "2k" -> {
+                                    "1440p" -> {
                                         videoWidth = 2560
                                         videoHeight = 1440
                                     }
@@ -1584,6 +938,8 @@ fun CameraScreenContent() {
                                     putInt("videoHeight", videoHeight)
                                     putInt("videoBitrate", videoBitrate)
                                     putString("streamUrl", finalStreamUrl)
+                                    putString("rtmpUrl", rtmpUrl)
+                                    putString("streamKey", streamKey)
                                     apply()
                                 }
 
@@ -1665,25 +1021,6 @@ fun CameraScreenContent() {
                     }
                 )
 
-                // Auxiliary Teams Overlay Menu
-                OverlayTeamsMenu(
-                    visible = showTeamPlayersOverlayMenu,
-                    screenWidth = screenWidth,
-                    screenHeight = screenHeight,
-                    showTeamsOverlay = showTeamPlayersOverlay,
-                    selectedTeamsOverlayDuration = selectedTeamsOverlayDuration,
-                    onTeamsOverlayDurationChange = { selectedTeamsOverlayDuration = it },
-                    onToggleTeamsOverlay = {
-                        showTeamPlayersOverlay = it
-                    },
-                    onClose = {
-                        showTeamPlayersOverlayMenu = false
-                        if (showTeamPlayersOverlay) {
-                            showScoreboardOverlay = false
-                        }
-                    }
-                )
-
                 // Place the recording timer at the very top with a high z-index.
                 if (isStreaming) {
                     Box(
@@ -1707,819 +1044,6 @@ fun CameraScreenContent() {
         }
     )
 }
-
-@SuppressLint("ClickableViewAccessibility")
-@Composable
-fun CameraPreview(
-    genericStream: GenericStream,
-    surfaceViewRef: MutableState<SurfaceView?>,
-    context: Context,
-    videoSource: CameraCalypsoSource
-) {
-
-    // Cache the "fingerSpacing" field reference to avoid reflection overhead per event.
-    val fingerSpacingField = remember {
-        try {
-            videoSource.javaClass.getDeclaredField("fingerSpacing").apply { isAccessible = true }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        }
-    }
-
-    AndroidView(
-        factory = { ctx ->
-            SurfaceView(ctx).apply {
-
-
-                layoutParams = ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                )
-                surfaceViewRef.value = this
-
-                holder.setFormat(PixelFormat.TRANSLUCENT)
-
-                holder.addCallback(object : SurfaceHolder.Callback {
-                    override fun surfaceCreated(holder: SurfaceHolder) {
-                        if (!genericStream.isOnPreview) {
-                            genericStream.startPreview(this@apply)
-                        }
-                    }
-                    override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
-                        genericStream.getGlInterface().setPreviewResolution(width, height)
-                    }
-                    override fun surfaceDestroyed(holder: SurfaceHolder) {
-                        if (genericStream.isOnPreview) {
-                            genericStream.stopPreview()
-                        }
-                    }
-                })
-            }
-        },
-        modifier = Modifier.fillMaxSize()
-    )
-}
-
-@Composable
-fun SettingsMenu(
-    visible: Boolean,
-    isStreaming: Boolean,
-    screenWidth: Dp,
-    screenHeight: Dp,
-    selectedCameraSource: String,
-    onCameraSourceChange: (String) -> Unit,
-    selectedAudioSource: String,
-    onAudioSourceChange: (String) -> Unit,
-    selectedVideoEncoder: String,
-    onVideoEncoderChange: (String) -> Unit,
-    selectedAudioEncoder: String,
-    onAudioEncoderChange: (String) -> Unit,
-    selectedBitrate: Int,
-    onBitrateChange: (Int) -> Unit,
-    selectedFPS: String,
-    onFPSChange: (String) -> Unit,
-    selectedResolution: String,
-    onResolutionChange: (String) -> Unit,
-    rtmpUrl: String,
-    onRtmpUrlChange: (String) -> Unit,
-    streamKey: String,
-    onStreamKeyChange: (String) -> Unit,
-    availableVideoCodecs: List<String>,
-    availableAudioCodecs: List<String>,
-    onApply: (constructedStreamUrl: String) -> Unit,
-    onClose: () -> Unit
-) {
-
-    // Validate RTMP URL: must start with "rtmp://" or "rtmps://"
-    // and must not contain any spaces.
-    val isRtmpUrlValid = rtmpUrl.isNotBlank() &&
-        !rtmpUrl.contains(" ") &&
-        (rtmpUrl.startsWith("rtmp://") || rtmpUrl.startsWith("rtmps://"))
-
-    AnimatedVisibility(
-        visible = visible,
-        enter = fadeIn(tween(300)) + slideInVertically(initialOffsetY = { it / 2 }),
-        exit = fadeOut(tween(300)) + slideOutVertically(targetOffsetY = { it / 2 })
-    ) {
-        // Calculate dimensions for a 16:9 preview.
-        val cameraPreviewHeight = screenHeight
-        val cameraPreviewWidth = cameraPreviewHeight * (16f / 9f)
-        val horizontalPadding = (screenWidth - cameraPreviewWidth) / 2
-
-        Box(modifier = Modifier.fillMaxSize()) {
-            Box(
-                modifier = Modifier
-                    .width(cameraPreviewWidth)
-                    .height(cameraPreviewHeight)
-                    .padding(horizontal = horizontalPadding)
-                    .background(Gray.copy(alpha = 0.92f), shape = RoundedCornerShape(16.dp))
-                    .border(2.dp, Color.White, shape = RoundedCornerShape(16.dp))
-                    .align(Alignment.Center)
-                    .shadow(8.dp, shape = RoundedCornerShape(16.dp))
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp)
-                        .verticalScroll(rememberScrollState())
-                ) {
-                    // Close button.
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        IconButton(onClick = onClose) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_close),
-                                contentDescription = "Close",
-                                tint = Color.White
-                            )
-                        }
-                    }
-                    Text(
-                        text = "Camera Settings",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    Divider(
-                        color = Color.White.copy(alpha = 0.3f),
-                        thickness = 1.dp
-                    )
-                    SectionSubtitle("Camera Source")
-                    ModernDropdown(
-                        items = listOf("Device Camera", "USB Camera"),
-                        selectedValue = selectedCameraSource,
-                        displayMapper = { it },
-                        onValueChange = onCameraSourceChange,
-                        enabled = !isStreaming
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    SectionSubtitle("Audio Source")
-                    ModernDropdown(
-                        items = listOf("Device Audio", "USB Mic"),
-                        selectedValue = selectedAudioSource,
-                        displayMapper = { it },
-                        onValueChange = onAudioSourceChange,
-                        enabled = !isStreaming
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Streaming Settings",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    Divider(
-                        color = Color.White.copy(alpha = 0.3f),
-                        thickness = 1.dp
-                    )
-                    SectionSubtitle("Video Encoder")
-                    ModernDropdown(
-                        items = availableVideoCodecs,
-                        selectedValue = selectedVideoEncoder,
-                        displayMapper = { it },
-                        onValueChange = onVideoEncoderChange,
-                        enabled = !isStreaming
-                    )
-                    SectionSubtitle("Audio Encoder")
-                    ModernDropdown(
-                        items = availableAudioCodecs,
-                        selectedValue = selectedAudioEncoder,
-                        displayMapper = { it },
-                        onValueChange = onAudioEncoderChange,
-                        enabled = !isStreaming
-                    )
-                    SectionSubtitle("Bitrate")
-                    ModernDropdown(
-                        items = listOf(3000 * 1000, 5000 * 1000, 7000 * 1000, 10000 * 1000, 12000 * 1000, 15000 * 1000, 20000 * 1000, 25000 * 1000, 30000 * 1000, 35000 * 1000, 40000 * 1000, 45000 * 1000),
-                        selectedValue = selectedBitrate,
-                        displayMapper = { "${it / 1000 / 1000} Mbps" },
-                        onValueChange = onBitrateChange
-                    )
-                    SectionSubtitle("Stream FPS")
-                    ModernDropdown(
-                        items = if (selectedCameraSource == "USB Camera") listOf("30", "60") else listOf("30", "60"),
-                        selectedValue = selectedFPS,
-                        displayMapper = { it },
-                        onValueChange = onFPSChange,
-                        enabled = !isStreaming
-                    )
-                    SectionSubtitle("Resolution")
-                    ModernDropdown(
-                        items = listOf("1440p", "1080p", "720p"),
-                        selectedValue = selectedResolution,
-                        displayMapper = { it },
-                        onValueChange = onResolutionChange,
-                        enabled = !isStreaming
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    SectionSubtitle("RTMP URL")
-                    OutlinedTextField(
-                        value = rtmpUrl,
-                        onValueChange = onRtmpUrlChange,
-                        label = { Text("RTMP URL") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !isStreaming,
-                        isError = !isRtmpUrlValid,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color.Red,
-                            unfocusedBorderColor = Color.Gray,
-                            focusedLabelColor = Color.Red,
-                            unfocusedLabelColor = Color.Gray
-                        )
-                    )
-                    if (!isRtmpUrlValid) {
-                        Text(
-                            text = "Invalid RTMP URL. Must start with rtmp:// or rtmps://.",
-                            color = Color.Red,
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    SectionSubtitle("Stream Key")
-                    OutlinedTextField(
-                        value = streamKey,
-                        onValueChange = onStreamKeyChange,
-                        label = { Text("Stream Key") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !isStreaming,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color.Red,
-                            unfocusedBorderColor = Color.Gray,
-                            focusedLabelColor = Color.Red,
-                            unfocusedLabelColor = Color.Gray
-                        )
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = {
-                            // Remove any trailing slash from the RTMP URL.
-                            val sanitizedRtmpUrl = rtmpUrl.trim().removeSuffix("/")
-                            // Construct final stream URL.
-                            val constructedStreamUrl = "$sanitizedRtmpUrl/$streamKey"
-                            onApply(constructedStreamUrl.trim())
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(40.dp),
-                        enabled = !isStreaming && isRtmpUrlValid && streamKey.isNotBlank(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = CalypsoRed,
-                            contentColor = Color.White
-                        ),
-                        shape = CircleShape
-                    ) {
-                        Text("Apply", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun OverlayTeamsMenu(
-    visible: Boolean,
-    screenWidth: Dp,
-    screenHeight: Dp,
-    selectedTeamsOverlayDuration: String,
-    onTeamsOverlayDurationChange: (String) -> Unit,
-    showTeamsOverlay: Boolean,
-    onToggleTeamsOverlay: (Boolean) -> Unit,
-    onClose: () -> Unit
-) {
-    AnimatedVisibility(
-        visible = visible,
-        enter = fadeIn(tween(300)) + slideInVertically(initialOffsetY = { it / 2 }),
-        exit = fadeOut(tween(300)) + slideOutVertically(targetOffsetY = { it / 2 })
-    ) {
-        val cameraPreviewHeight = screenHeight
-        val cameraPreviewWidth = cameraPreviewHeight * (16f / 9f)
-        val horizontalPadding = (screenWidth - cameraPreviewWidth) / 2
-
-        Box(modifier = Modifier.fillMaxSize()) {
-            Box(
-                modifier = Modifier
-                    .width(cameraPreviewWidth)
-                    .height(cameraPreviewHeight)
-                    .padding(horizontal = horizontalPadding)
-                    .background(Gray.copy(alpha = 0.92f), shape = RoundedCornerShape(16.dp))
-                    .border(2.dp, Color.White, shape = RoundedCornerShape(16.dp))
-                    .align(Alignment.Center)
-                    .shadow(8.dp, shape = RoundedCornerShape(16.dp))
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp)
-                        .verticalScroll(rememberScrollState()),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    // Close Button (X)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        IconButton(onClick = onClose) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_close),
-                                contentDescription = "Close",
-                                tint = Color.White
-                            )
-                        }
-                    }
-
-                    // Scoreboard Toggle (Header)
-                    Text(
-                        text = "Teams Overlay Configuration",
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    Divider(color = Color.White.copy(alpha = 0.3f), thickness = 1.dp)
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Show Teams",
-                            fontSize = 18.sp,
-                            color = Color.White
-                        )
-                        Switch(
-                            checked = showTeamsOverlay,
-                            onCheckedChange = onToggleTeamsOverlay,
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = CalypsoRed,
-                                uncheckedThumbColor = Color.Gray
-                            )
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Team Selection Layout (Side by Side)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            SectionSubtitle("Duration")
-                            ModernDropdown(
-                                items = listOf("5s", "10s", "15s", "20s", "25s", "30s"),
-                                selectedValue = selectedTeamsOverlayDuration,
-                                displayMapper = { it },
-                                onValueChange = {
-                                    onTeamsOverlayDurationChange(it)
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun TeamPlayersOverlay(
-    visible: Boolean,
-    genericStream: GenericStream,
-    screenWidth: Int,
-    screenHeight: Int,
-    team1Name: String,
-    team2Name: String,
-    team1Players: List<PlayerEntry>,
-    team2Players: List<PlayerEntry>,
-    leftLogo: Bitmap,
-    rightLogo: Bitmap,
-    selectedTeamsOverlayDuration: String,
-    lineUpFilter: ImageObjectFilterRender,
-    context: Context,
-    onLineUpFinished: () -> Unit
-){
-    // Add or remove the overlay filter based on visibility.
-    Log.d("TeamPlayersOverlay", "Visibility: $visible")
-    Log.d("TeamPlayersOverlay", "isOnPreview: ${genericStream.isOnPreview}")
-    LaunchedEffect(visible) {
-        if (visible && genericStream.isOnPreview) {
-            genericStream.getGlInterface().clearFilters()
-            genericStream.getGlInterface().addFilter(lineUpFilter)
-        } else {
-            genericStream.getGlInterface().removeFilter(lineUpFilter)
-        }
-
-        if (visible && genericStream.isOnPreview) {
-            drawTeamPlayersOverlay(
-                context = context,
-                screenWidth = screenWidth,
-                screenHeight = screenHeight,
-                leftLogoBitmap = leftLogo,
-                rightLogoBitmap = rightLogo,
-                leftTeamName = team1Name,
-                rightTeamName = team2Name,
-                leftTeamPlayers = team1Players,
-                rightTeamPlayers = team2Players,
-                imageObjectFilterRender = lineUpFilter,
-                isOnPreview = genericStream.isOnPreview
-            )
-
-            val teamPlayersOverlayDelay = selectedTeamsOverlayDuration.split("s").first()
-            delay(teamPlayersOverlayDelay.toLong() * 1000)
-            genericStream.getGlInterface().removeFilter(lineUpFilter)
-            onLineUpFinished()
-        }
-    }
-}
-
-@Composable
-fun OverlayMenu(
-    visible: Boolean,
-    screenWidth: Dp,
-    screenHeight: Dp,
-    teams: List<Team>,
-    selectedTeam1: String,
-    onTeam1Change: (String) -> Unit,
-    selectedTeam2: String,
-    onTeam2Change: (String) -> Unit,
-    onLeftLogoUrlChange: (String?) -> Unit, // New parameter to update logo URL
-    onRightLogoUrlChange: (String?) -> Unit, // New parameter to update logo URL
-    showScoreboardOverlay: Boolean,
-    onToggleScoreboard: (Boolean) -> Unit,
-    selectedTeamsOverlayDuration: String,
-    onTeamsOverlayDurationChange: (String) -> Unit,
-    showLineUpOverlay: Boolean,
-    onToggleLineUp: (Boolean) -> Unit,
-    showReplays: Boolean,
-    onToggleReplays: (Boolean) -> Unit,
-    selectedReplaysDuration: String,
-    onReplaysDurationChange: (String) -> Unit,
-    selectedLeftColor: String,
-    onLeftColorChange: (String) -> Unit,
-    selectedRightColor: String,
-    onRightColorChange: (String) -> Unit,
-    onClose: () -> Unit
-) {
-    val colorOptions = listOf(
-        "Black" to Color.Black,
-        "Blue" to Color.Blue,
-        "Cyan" to Color.Cyan,
-        "Green" to Color.Green,
-        "Orange" to Color(0xFFFFA500),
-        "Pink" to Color(0xFFFF69B4),
-        "Purple" to Color(0xFF800080),
-        "Red" to Color.Red,
-        "Soft Blue" to Color(0xFF87CEFA),
-        "White" to Color.White,
-        "Yellow" to Color.Yellow
-    )
-
-    AnimatedVisibility(
-        visible = visible,
-        enter = fadeIn(tween(300)) + slideInVertically(initialOffsetY = { it / 2 }),
-        exit = fadeOut(tween(300)) + slideOutVertically(targetOffsetY = { it / 2 })
-    ) {
-        val cameraPreviewHeight = screenHeight
-        val cameraPreviewWidth = cameraPreviewHeight * (16f / 9f)
-
-        // Center horizontally.
-        val horizontalPadding = (screenWidth - cameraPreviewWidth) / 2
-
-        Box(modifier = Modifier.fillMaxSize()) {
-            Box(
-                modifier = Modifier
-                    .width(cameraPreviewWidth)
-                    .height(cameraPreviewHeight)
-                    .padding(horizontal = horizontalPadding)
-                    .background(Gray.copy(alpha = 0.92f), shape = RoundedCornerShape(16.dp))
-                    .border(2.dp, Color.White, shape = RoundedCornerShape(16.dp))
-                    .align(Alignment.Center)
-                    .shadow(8.dp, shape = RoundedCornerShape(16.dp))
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp)
-                        .verticalScroll(rememberScrollState()),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    // Close Button (X)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        IconButton(onClick = onClose) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_close),
-                                contentDescription = "Close",
-                                tint = Color.White
-                            )
-                        }
-                    }
-
-                    // Scoreboard Toggle (Header)
-                    Text(
-                        text = "Scoreboard Configuration",
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    HorizontalDivider(thickness = 1.dp, color = Color.White.copy(alpha = 0.3f))
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Show Scoreboard",
-                            fontSize = 18.sp,
-                            color = Color.White
-                        )
-                        Switch(
-                            checked = showScoreboardOverlay,
-                            onCheckedChange = onToggleScoreboard,
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = CalypsoRed,
-                                uncheckedThumbColor = Color.Gray
-                            )
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Team Selection Layout (Side by Side)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            SectionSubtitle("Team 1")
-                            ModernDropdown(
-                                items = teams.map { it.name },
-                                selectedValue = selectedTeam1,
-                                displayMapper = { it },
-                                onValueChange = {
-                                    onTeam1Change(it)
-                                    val team = teams.find { team -> team.name == it }
-                                    onLeftLogoUrlChange(team?.logo) // Save the new logo URL
-                                }
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            SectionSubtitle("Team 2")
-                            ModernDropdown(
-                                items = teams.map { it.name },
-                                selectedValue = selectedTeam2,
-                                displayMapper = { it },
-                                onValueChange = {
-                                    onTeam2Change(it)
-                                    val team = teams.find { team -> team.name == it }
-                                    onRightLogoUrlChange(team?.logo) // Save the new logo URL
-                                }
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Color Selection Layout (Side by Side)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            SectionSubtitle("Left Color")
-                            ColorDropdown(
-                                colorOptions = colorOptions,
-                                selectedColorName = selectedLeftColor,
-                                onColorChange = onLeftColorChange
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            SectionSubtitle("Right Color")
-                            ColorDropdown(
-                                colorOptions = colorOptions,
-                                selectedColorName = selectedRightColor,
-                                onColorChange = onRightColorChange
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(32.dp))
-
-                    // Line Up Config
-                    Text(
-                        text = "Line Up Configuration",
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    HorizontalDivider(thickness = 1.dp, color = Color.White.copy(alpha = 0.3f))
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Show Line Up",
-                            fontSize = 18.sp,
-                            color = Color.White
-                        )
-                        Switch(
-                            checked = showLineUpOverlay,
-                            onCheckedChange = onToggleLineUp,
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = CalypsoRed,
-                                uncheckedThumbColor = Color.Gray
-                            )
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Line Up Duration",
-                            fontSize = 18.sp,
-                            color = Color.White,
-                            modifier = Modifier.align(
-                                Alignment.CenterVertically
-                            )
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        ModernDropdown(
-                            items = listOf("5s", "10s", "15s", "20s", "25s", "30s"),
-                            selectedValue = selectedTeamsOverlayDuration,
-                            displayMapper = { it },
-                            onValueChange = {
-                                onTeamsOverlayDurationChange(it)
-                            }
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Replays Config
-                    Text(
-                        text = "Replays Configuration",
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    HorizontalDivider(thickness = 1.dp, color = Color.White.copy(alpha = 0.3f))
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Show Replays",
-                            fontSize = 18.sp,
-                            color = Color.White
-                        )
-                        Switch(
-                            checked = showReplays,
-                            onCheckedChange = onToggleReplays,
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = CalypsoRed,
-                                uncheckedThumbColor = Color.Gray
-                            )
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Replays Duration",
-                            fontSize = 18.sp,
-                            color = Color.White,
-                            modifier = Modifier.align(
-                                Alignment.CenterVertically
-                            )
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        ModernDropdown(
-                            items = listOf("5s", "10s", "15s", "20s"),
-                            selectedValue = selectedReplaysDuration,
-                            displayMapper = { it },
-                            onValueChange = {
-                                onReplaysDurationChange(it)
-                            }
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-
-@Composable
-fun ScoreboardOverlay(
-    visible: Boolean,
-    genericStream: GenericStream,
-    leftLogo: Bitmap,
-    rightLogo: Bitmap,
-    leftTeamGoals: Int,
-    rightTeamGoals: Int,
-    leftTeamAlias: String,
-    rightTeamAlias: String,
-    leftTeamColor: String,
-    rightTeamColor: String,
-    backgroundColor: Int,
-    imageObjectFilterRender: ImageObjectFilterRender,
-    onLeftIncrement: () -> Unit,
-    onRightIncrement: () -> Unit,
-    onLeftDecrement: () -> Unit,
-    onRightDecrement: () -> Unit
-) {
-
-    Log.d("ScoreboardOverlay", "Visible: $visible")
-    Log.d("ScoreboardOverlay", "isOnPreview: ${genericStream.isOnPreview}")
-
-    // Add or remove the overlay filter based on visibility.
-    LaunchedEffect(visible) {
-        if (visible) {
-            genericStream.getGlInterface().clearFilters()
-            genericStream.getGlInterface().addFilter(imageObjectFilterRender)
-        } else {
-            genericStream.getGlInterface().removeFilter(imageObjectFilterRender)
-        }
-    }
-    if (visible) {
-        drawOverlay(
-            context = LocalContext.current,
-            leftLogoBitmap = leftLogo,
-            rightLogoBitmap = rightLogo,
-            leftTeamGoals = leftTeamGoals,
-            rightTeamGoals = rightTeamGoals,
-            leftTeamAlias = leftTeamAlias,
-            rightTeamAlias = rightTeamAlias,
-            leftTeamColor = leftTeamColor,
-            rightTeamColor = rightTeamColor,
-            backgroundColor = backgroundColor,
-            imageObjectFilterRender = imageObjectFilterRender,
-            isOnPreview = genericStream.isOnPreview
-        )
-        ScoreboardActionButtons(
-            onLeftButtonClick = onLeftIncrement,
-            onRightButtonClick = onRightIncrement,
-            onLeftDecrement = onLeftDecrement,
-            onRightDecrement = onRightDecrement
-        )
-    }
-}
-
 
 @SuppressLint("DefaultLocale")
 @Composable
