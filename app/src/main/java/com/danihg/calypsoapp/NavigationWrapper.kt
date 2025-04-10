@@ -17,13 +17,23 @@ import com.danihg.calypsoapp.presentation.login.LoginScreen
 import com.danihg.calypsoapp.presentation.signup.SignupScreen
 import com.danihg.calypsoapp.presentation.camera.CameraScreen
 import com.danihg.calypsoapp.presentation.settings.SettingsScreen
+import com.danihg.calypsoapp.presentation.splash.SplashScreen
 import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun NavigationWrapper (navHostController: NavHostController, auth: FirebaseAuth) {
 
-    NavHost(navController = navHostController, startDestination = "initial") {
-        composable("initial"){
+    NavHost(navController = navHostController, startDestination = "splash") {
+        composable("splash") {
+            SplashScreen(
+                onSplashFinished = {
+                    navHostController.navigate("initial") {
+                        popUpTo("splash") { inclusive = true } // remove splash from backstack
+                    }
+                }
+            )
+        }
+        composable("initial") {
             InitialScreen(
                 navigateToHome = { navHostController.navigate("home") }
             )
