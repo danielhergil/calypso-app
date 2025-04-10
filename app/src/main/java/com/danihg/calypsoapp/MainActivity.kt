@@ -62,43 +62,20 @@ class MainActivity : ComponentActivity() {
         hideSystemUI()
 
         auth = Firebase.auth
-        requestPermissions()
-        setContent {
-            val navHostController = rememberNavController()
-            val isInitialLaunch = remember { mutableStateOf(true) } // Tracks if this is the first launch
-
-//            // Restore the last route if available
-//            val sharedPreferences = getSharedPreferences("AppState", Context.MODE_PRIVATE)
-//            val lastRoute = sharedPreferences.getString("lastRoute", null)
-//            if (!lastRoute.isNullOrEmpty()) {
-//                lifecycleScope.launch {
-//                    navHostController.navigate(lastRoute) {
-//                        popUpTo(0) // Clear any previous routes
-//                    }
+        requestPermissionsAndSetupContent()
+//        setContent {
+//            val navHostController = rememberNavController()
+//            val isInitialLaunch = remember { mutableStateOf(true) } // Tracks if this is the first launch
+//            CalypsoAppTheme {
+//
+//                Scaffold(modifier = Modifier.fillMaxSize()) {
+//                    NavigationWrapper(navHostController, auth)
 //                }
 //            }
-            CalypsoAppTheme {
-
-                Scaffold(modifier = Modifier.fillMaxSize()) {
-                    NavigationWrapper(navHostController, auth)
-                }
-            }
-
-            // Observe lifecycle and handle navigation
-            HandleLifecycleNavigation(navHostController, isInitialLaunch)
-
-//            // Save the current route when the app is paused
-//            DisposableEffect(navHostController) {
-//                val lifecycleObserver = LifecycleEventObserver { _, event ->
-//                    if (event == Lifecycle.Event.ON_PAUSE) {
-//                        val currentRoute = navHostController.currentBackStackEntry?.destination?.route
-//                        sharedPreferences.edit().putString("lastRoute", currentRoute).apply()
-//                    }
-//                }
-//                lifecycle.addObserver(lifecycleObserver)
-//                onDispose { lifecycle.removeObserver(lifecycleObserver) }
-//            }
-        }
+//
+//            // Observe lifecycle and handle navigation
+//            HandleLifecycleNavigation(navHostController, isInitialLaunch)
+//        }
     }
 
     @Composable
@@ -195,4 +172,40 @@ class MainActivity : ComponentActivity() {
         controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
         controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
+
+    @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
+    private fun requestPermissionsAndSetupContent() {
+        val permissions = mutableListOf(
+            Manifest.permission.CAMERA,
+            Manifest.permission.RECORD_AUDIO,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE
+        )
+
+        if (Build.VERSION.SDK_INT >= 34) {
+            permissions.add(Manifest.permission.FOREGROUND_SERVICE_MICROPHONE)
+            permissions.add(Manifest.permission.FOREGROUND_SERVICE_CAMERA)
+        }
+
+        permissionsLauncher.launch(permissions.toTypedArray())
+
+        lifecycleScope.launch {
+            // 🚀 Wait a bit for the system to fully register permissions (even if granted fast)
+            kotlinx.coroutines.delay(1000)
+
+            // 🚀 Now it's safe to launch the UI
+            setContent {
+                val navHostController = rememberNavController()
+                val isInitialLaunch = remember { mutableStateOf(true) }
+
+                CalypsoAppTheme {
+                    Scaffold(modifier = Modifier.fillMaxSize()) {
+                        NavigationWrapper(navHostController, auth)
+                    }
+                }
+
+                HandleLifecycleNavigation(navHostController, isInitialLaunch)
+            }
+        }
+    }
+
 }
