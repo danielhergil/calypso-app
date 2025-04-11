@@ -29,7 +29,7 @@ fun SplashScreen(onSplashFinished: () -> Unit) {
         // Force load any simple resource
         context.resources.getString(R.string.app_name)
 
-        delay(5000) // 2.5 seconds delay
+        delay(3000) // 2.5 seconds delay
         onSplashFinished()
     }
 

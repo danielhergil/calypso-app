@@ -15,12 +15,15 @@ import android.graphics.BitmapFactory
 import android.graphics.drawable.BitmapDrawable
 import android.hardware.camera2.CaptureRequest
 import android.media.MediaRecorder
+import android.media.MediaScannerConnection
 import android.os.Build
+import android.os.Environment
 import android.util.Log
 import android.view.SurfaceView
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -86,10 +90,13 @@ import java.util.Date
 import com.pedro.extrasources.CameraUvcSource
 import com.pedro.library.base.recording.RecordController
 import com.pedro.library.generic.GenericStream
+import com.pedro.library.view.TakePhotoCallback
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.io.File
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -164,6 +171,11 @@ fun CameraScreenContent() {
     var selectedTeamsOverlayDuration by remember { mutableStateOf("10s") }
     var selectedReplayDuration by remember { mutableStateOf("10s") }
 
+    var isStreamMode by remember { mutableStateOf(true) }
+    var isRecordMode by remember { mutableStateOf(false) }
+    var isPictureMode by remember { mutableStateOf(false) }
+
+    var snapshot by remember { mutableStateOf<Bitmap?>(null) }
 
     // Map string values to codec objects.
     val enumAudioMapping = mapOf(
@@ -192,6 +204,7 @@ fun CameraScreenContent() {
     var wasScoreboardActive by remember { mutableStateOf(true) }
 
     var backgroundRecordPath by remember { mutableStateOf<String?>(null) }
+    var currentRecordPath: String? = null
 
 
     // State for recording timer (in seconds).
@@ -463,7 +476,7 @@ fun CameraScreenContent() {
 
 
 
-    fun startForegroundService() {
+    fun startForegroundService(mode: String) {
 
         // Check if the FOREGROUND_SERVICE_CAMERA permission is granted
         if (Build.VERSION.SDK_INT >= 34 &&
@@ -484,9 +497,17 @@ fun CameraScreenContent() {
             // Add slight delay before starting stream
             CoroutineScope(Dispatchers.Main).launch {
                 delay(500)
-                if (!genericStream.isStreaming) {
-                    genericStream.startStream(streamUrl)
-                    isStreaming = true
+                if (mode == "Stream") {
+                    if (!genericStream.isStreaming) {
+                        genericStream.startStream(streamUrl)
+                        isStreaming = true
+                    }
+                }
+                if (mode == "Record") {
+                    if (!isRecording) {
+                        recordVideoStreaming(context, genericStream) { }
+                        isRecording = true
+                    }
                 }
             }
         } catch (e: SecurityException) {
@@ -496,13 +517,17 @@ fun CameraScreenContent() {
     }
 
     // Replace stopForegroundService function
-    fun stopForegroundService() {
+    fun stopForegroundService(mode: String) {
         val serviceIntent = Intent(context, StreamingService::class.java)
         context.stopService(serviceIntent)
 
-        if (genericStream.isStreaming) {
+        if (genericStream.isStreaming && mode == "Stream") {
             genericStream.stopStream()
             isStreaming = false
+        }
+        if (genericStream.isRecording && mode == "Record") {
+            recordVideoStreaming(context, genericStream) { }
+            isRecording = false
         }
     }
 
@@ -719,12 +744,31 @@ fun CameraScreenContent() {
                     }
                 }
 
+                // Snapshot overlay at the bottom left:
+                snapshot?.let { capturedBitmap ->
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = fadeIn(),
+                        exit = fadeOut(),
+                        modifier = Modifier
+                            .zIndex(4f)
+                            .align(Alignment.BottomStart)
+                            .padding(start = 70.dp, bottom = 16.dp)
+                    ) {
+                        Image(
+                            bitmap = capturedBitmap.asImageBitmap(),
+                            contentDescription = "Snapshot of the taken picture",
+                            modifier = Modifier.size(120.dp)
+                        )
+                    }
+                }
+
                 // Right-side action buttons.
                 CameraUI(
                     onShowApplyButton = { showApplyButton = !showApplyButton },
                     streamUrl = streamUrl,
                     onStartStreaming = {
-                        if (isStreaming) stopForegroundService() else startForegroundService()
+                        if (isStreaming) stopForegroundService("Stream") else startForegroundService("Stream")
                     },
                     isStreaming = isStreaming,
                     onRecordWhileStreaming = {
@@ -863,6 +907,43 @@ fun CameraScreenContent() {
                     onExposureCompensationBack = {
                         showExposureCompensationSlider = false
                         showAutoSubMenu = true
+                    },
+//                    isStreamMode = isStreamMode,
+//                    onToggleStreamMode = {
+//                        isStreamMode = !isStreamMode
+//                        isRecordMode = false
+//                        isPictureMode = false
+//                    },
+//                    isRecordMode = isRecordMode,
+//                    onToggleRecordMode = {
+//                        isRecordMode = !isRecordMode
+//                        isStreamMode = false
+//                        isPictureMode = false
+//                    },
+//                    isPictureMode = isPictureMode,
+//                    onTogglePictureMode = {
+//                        isPictureMode = !isPictureMode
+//                        isStreamMode = false
+//                        isRecordMode = false
+//                    },
+                    onStartRecord = {
+                        if (isRecording) stopForegroundService("Record") else startForegroundService("Record")
+                    },
+                    onTakePicture = {
+                        genericStream.getGlInterface().takePhoto { bitmap ->
+                            val success = saveBitmapToDevice(context, bitmap)
+                            if (success) {
+                                Log.d("Picture", "Picture saved successfully!")
+                            } else {
+                                Log.e("Picture", "Error saving picture!")
+                            }
+                            // Set snapshot state to display the overlay:
+                            snapshot = bitmap
+                            coroutineScope.launch {
+                                delay(5000)
+                                snapshot = null
+                            }
+                        }
                     }
                 )
 
@@ -1022,21 +1103,21 @@ fun CameraScreenContent() {
                 )
 
                 // Place the recording timer at the very top with a high z-index.
-                if (isStreaming) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .zIndex(10f), // Ensures the timer is drawn above all other UI elements.
-                        contentAlignment = Alignment.TopCenter
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            // Streaming timer
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .zIndex(10f), // Ensures the timer is drawn above all other UI elements.
+                    contentAlignment = Alignment.TopCenter
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        // Streaming timer
+                        if (isStreaming) {
                             RecordingTimer(recordingSeconds = streamingTimerSeconds)
-                            // If recording, show recording timer just below
-                            if (isRecording) {
-                                Spacer(modifier = Modifier.height(4.dp))
-                                RecordingTimer(recordingSeconds = recordingTimerSeconds)
-                            }
+                        }
+                        // If recording, show recording timer just below
+                        if (isRecording) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            RecordingTimer(recordingSeconds = recordingTimerSeconds)
                         }
                     }
                 }
@@ -1111,6 +1192,41 @@ fun recordVideoStreaming(context: Context, genericStream: GenericStream, state: 
     }
 }
 
+fun saveBitmapToDevice(context: Context, bitmap: Bitmap): Boolean {
+    // Generate a unique file name using a timestamp
+    val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+    val fileName = "IMG_$timeStamp.jpg"
+
+    // Choose a directory to save the image; here we use the public pictures directory.
+    // Note: Starting with API 29 (Android 10), you might want to use MediaStore for better integration with scoped storage.
+    val picturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
+    if (!picturesDir.exists()) {
+        picturesDir.mkdirs() // Create folder if it does not exist
+    }
+
+    val imageFile = File(picturesDir, fileName)
+    var fos: FileOutputStream? = null
+
+    return try {
+        fos = FileOutputStream(imageFile)
+        // Compress the bitmap into JPEG format and write the image data to the output stream.
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos)
+        fos.flush()
+
+        // Optionally, update the gallery so that the new image appears in gallery apps.
+        MediaScannerConnection.scanFile(context,
+            arrayOf(imageFile.absolutePath),
+            arrayOf("image/jpeg"),
+            null)
+
+        true // Successfully saved
+    } catch (e: Exception) {
+        e.printStackTrace()
+        false // Error occurred
+    } finally {
+        fos?.close()
+    }
+}
 //fun startBackgroundRecording(context: Context, genericStream: GenericStream): String {
 //    val folder = PathUtils.getRecordPath()
 //    if (!folder.exists()) folder.mkdir()

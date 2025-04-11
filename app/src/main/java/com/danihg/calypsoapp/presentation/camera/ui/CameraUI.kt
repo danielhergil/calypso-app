@@ -1,5 +1,6 @@
 package com.danihg.calypsoapp.presentation.camera.ui
 
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -14,6 +15,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -42,6 +44,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
@@ -50,6 +53,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.danihg.calypsoapp.R
 import com.danihg.calypsoapp.sources.CameraCalypsoSource
+import com.danihg.calypsoapp.ui.theme.CalypsoRed
 import com.danihg.calypsoapp.utils.AuxButton
 import com.danihg.calypsoapp.utils.AuxButtonSquare
 import com.danihg.calypsoapp.utils.ExposureCompensationSlider
@@ -106,27 +110,135 @@ fun CameraUI(
     onSensorExposureTimeSliderBack: () -> Unit,
     showExposureCompensationSlider: Boolean,
     activeCameraSource: CameraCalypsoSource,
-    onExposureCompensationBack: () -> Unit
+    onExposureCompensationBack: () -> Unit,
+    onStartRecord: () -> Unit,
+    onTakePicture: () -> Unit,
 ) {
+    val configuration = LocalConfiguration.current
+    val screenWidthDp = configuration.screenWidthDp.dp
+    val screenHeightDp = configuration.screenHeightDp.dp
+
+    val screenWidthDpReference = 788.dp
+    var paddingFix = 0.dp
+    if (screenWidthDpReference < screenWidthDp) {
+        paddingFix = (screenWidthDp - screenWidthDpReference) / 2
+    }
+
+    Log.d("CameraUI", "screenWidthDp: $screenWidthDp, screenHeightDp: $screenHeightDp")
     Box(
         modifier = Modifier
             .fillMaxHeight()
-            .fillMaxWidth(),
+            .fillMaxWidth()
+            .padding(start = paddingFix, end = paddingFix),
         contentAlignment = Alignment.CenterEnd
     ) {
         Column(
             modifier = Modifier
                 .fillMaxHeight()
-                .width(70.dp)
-                .background(Color.Red)
-                .align(Alignment.CenterEnd)
+                .width(100.dp)
+                .background(Color.Black)
+                .align(Alignment.CenterEnd),
+            verticalArrangement = Arrangement.SpaceEvenly,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // (Optional content for the red column)
+            Button(
+                modifier = Modifier
+                    .size(55.dp),
+                contentPadding = PaddingValues(0.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                shape = CircleShape,
+                onClick = {
+                    onTakePicture()
+//                    if (isStreaming) stopForegroundService() else startForegroundService()
+                }
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_picture_mode),
+                    contentDescription = "Button Icon",
+                    tint = Color.Gray,
+                    modifier = Modifier.size(30.dp)
+                )
+            }
+
+            val validStreamUrl = streamUrl.isNotBlank() &&
+                    (streamUrl.startsWith("rtmp://") || streamUrl.startsWith("rtmps://")) &&
+                    !streamUrl.contains(" ") &&
+                    streamUrl.split("/").filter { it.isNotBlank() }.size >= 4
+
+            Button(
+                modifier = Modifier
+                    .size(60.dp),
+                contentPadding = PaddingValues(0.dp),
+                enabled = validStreamUrl,
+                colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                shape = CircleShape,
+                onClick = {
+                    onStartStreaming()
+//                    if (isStreaming) stopForegroundService() else startForegroundService()
+                }
+            ) {
+                Icon(
+                    painter = if (isStreaming)
+                        painterResource(id = R.drawable.ic_stop)
+                    else
+                        painterResource(id = R.drawable.ic_stream_mode),
+                    contentDescription = "Button Icon",
+                    tint = if (isStreaming)
+                        Color.Red
+                    else
+                        Color.Gray,
+                    modifier = Modifier.size(30.dp)
+                )
+            }
+
+            Button(
+                modifier = Modifier
+                    .size(55.dp),
+                contentPadding = PaddingValues(0.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                shape = CircleShape,
+                onClick = {
+                    onStartRecord()
+//                    if (isStreaming) stopForegroundService() else startForegroundService()
+                }
+            ) {
+                Icon(
+                    painter = if (isRecording)
+                        painterResource(id = R.drawable.ic_stop)
+                    else
+                        painterResource(id = R.drawable.ic_record_mode),
+                    contentDescription = "Button Icon",
+                    tint = if (isRecording)
+                        Color.Red
+                    else
+                        Color.Gray,
+                    modifier = Modifier.size(30.dp)
+                )
+            }
         }
+//            ModeButton(
+//                modifier = Modifier.padding(top = 40.dp),
+//                painter = painterResource(id = R.drawable.ic_stream_mode),
+//                toggled = isStreamMode,
+//                onToggle = { onToggleStreamMode() }
+//            )
+//            ModeButton(
+//                modifier = Modifier,
+//                painter = painterResource(id = R.drawable.ic_record_mode),
+//                toggled = isRecordMode,
+//                onToggle = { onToggleRecordMode() }
+//            )
+//            ModeButton(
+//                modifier = Modifier.padding(bottom = 40.dp),
+//                painter = painterResource(id = R.drawable.ic_picture_mode),
+//                toggled = isPictureMode,
+//                onToggle = { onTogglePictureMode() }
+//            )
+//        }
         Column(
             modifier = Modifier
                 .fillMaxHeight()
-                .padding(end = 80.dp),
+                .padding(end = 110.dp),
             verticalArrangement = Arrangement.SpaceEvenly,
             horizontalAlignment = Alignment.End
         ) {
@@ -152,60 +264,89 @@ fun CameraUI(
 
             Spacer(modifier = Modifier.height(5.dp))
 
-            val validStreamUrl = streamUrl.isNotBlank() &&
-                    (streamUrl.startsWith("rtmp://") || streamUrl.startsWith("rtmps://")) &&
-                    !streamUrl.contains(" ") &&
-                    streamUrl.split("/").filter { it.isNotBlank() }.size >= 4
+//            if (isStreamMode) {
+//            val validStreamUrl = streamUrl.isNotBlank() &&
+//                    (streamUrl.startsWith("rtmp://") || streamUrl.startsWith("rtmps://")) &&
+//                    !streamUrl.contains(" ") &&
+//                    streamUrl.split("/").filter { it.isNotBlank() }.size >= 4
+//
+//            Button(
+//                modifier = Modifier
+//                    .size(70.dp)
+//                    .border(3.dp, Color.White, CircleShape),
+//                enabled = validStreamUrl,
+//                colors = if (validStreamUrl)
+//                    ButtonDefaults.buttonColors(containerColor = Color.Red)
+//                else
+//                    ButtonDefaults.buttonColors(containerColor = Color.Gray),
+//                shape = CircleShape,
+//                onClick = {
+//                    onStartStreaming()
+////                    if (isStreaming) stopForegroundService() else startForegroundService()
+//                }
+//            ) {}
+//            }
+//            if (isRecordMode) {
+//                Button(
+//                    modifier = Modifier
+//                        .size(70.dp)
+//                        .border(15.dp, Color.White, CircleShape),
+//                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+//                    shape = CircleShape,
+//                    onClick = {
+//                        onStartRecording()
+////                    if (isStreaming) stopForegroundService() else startForegroundService()
+//                    }
+//                ) {}
+//            }
+//            if (isPictureMode) {
+//                Button(
+//                    modifier = Modifier
+//                        .size(70.dp)
+//                        .border(3.dp, Color.White, CircleShape),
+//                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+//                    shape = CircleShape,
+//                    onClick = {
+//                        onTakePicture()
+////                    if (isStreaming) stopForegroundService() else startForegroundService()
+//                    }
+//                ) {}
+//            }
 
-            Button(
-                modifier = Modifier
-                    .size(70.dp)
-                    .border(3.dp, Color.White, CircleShape),
-                enabled = validStreamUrl,
-                colors = if (validStreamUrl)
-                    ButtonDefaults.buttonColors(containerColor = Color.Red)
-                else
-                    ButtonDefaults.buttonColors(containerColor = Color.Gray),
-                shape = CircleShape,
-                onClick = {
-                    onStartStreaming()
-//                    if (isStreaming) stopForegroundService() else startForegroundService()
-                }
-            ) {}
-
-            Spacer(modifier = Modifier.height(5.dp))
-
-            if (isStreaming) {
-                // Recording button
-                Box(
-                    modifier = Modifier
-                        .size(50.dp)
-                        .clip(CircleShape)
-                        .background(Color.Red.copy(alpha = 0.5f))
-                        .clickable {
-                            onRecordWhileStreaming()
-//                            if (!isRecording) {
-//                                recordVideoStreaming(context, genericStream) { }
-//                                isRecording = true
-//                            } else {
-//                                recordVideoStreaming(context, genericStream) { }
-//                                isRecording = false
-//                            }
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(id = if (isRecording) R.drawable.ic_stop else R.drawable.ic_record),
-                        contentDescription = "Button Icon",
-                        tint = Color.White,
-                        modifier = Modifier.size(30.dp)
-                    )
-                }
-            }
+//            Spacer(modifier = Modifier.height(5.dp))
+//
+//            if (isStreaming) {
+//                // Recording button
+//                Box(
+//                    modifier = Modifier
+//                        .size(50.dp)
+//                        .clip(CircleShape)
+//                        .background(Color.Red.copy(alpha = 0.5f))
+//                        .clickable {
+//                            onRecordWhileStreaming()
+////                            if (!isRecording) {
+////                                recordVideoStreaming(context, genericStream) { }
+////                                isRecording = true
+////                            } else {
+////                                recordVideoStreaming(context, genericStream) { }
+////                                isRecording = false
+////                            }
+//                        },
+//                    contentAlignment = Alignment.Center
+//                ) {
+//                    Icon(
+//                        painter = painterResource(id = if (isRecording) R.drawable.ic_stop else R.drawable.ic_record),
+//                        contentDescription = "Button Icon",
+//                        tint = Color.White,
+//                        modifier = Modifier.size(30.dp)
+//                    )
+//                }
+//            }
 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(top = 100.dp)
                     .size(60.dp)
                     .zIndex(3f)
             ) {
@@ -510,7 +651,6 @@ fun CameraUI(
             }
         }
         if (showIsoSlider) {
-            val configuration = LocalConfiguration.current
             val screenWidth = configuration.screenWidthDp.dp
 
             Box(modifier = Modifier.fillMaxSize()) {
@@ -548,7 +688,6 @@ fun CameraUI(
             }
         }
         if (showSensorExposureTimeSlider) {
-            val configuration = LocalConfiguration.current
             val screenWidth = configuration.screenWidthDp.dp
 
             Box(modifier = Modifier.fillMaxSize()) {
@@ -606,7 +745,6 @@ fun CameraUI(
             }
         }
         if (showExposureCompensationSlider) {
-            val configuration = LocalConfiguration.current
             val screenWidth = configuration.screenWidthDp.dp
             // Determine if exposure compensation is available.
             val isExposureCompAvailable = activeCameraSource.isExposureCompensationAvailable()
@@ -659,5 +797,35 @@ fun CameraUI(
             }
         }
 
+    }
+}
+
+@Composable
+fun ModeButton(
+    modifier: Modifier = Modifier.size(50.dp),
+    painter: Painter,
+    toggled: Boolean,
+    onToggle: (Boolean) -> Unit
+) {
+    // Choose background based on the passed toggled state.
+    val tintColor = if (toggled)
+        CalypsoRed
+    else
+        Color.White
+
+    Box(
+        modifier = modifier
+            .size(50.dp)
+            .clip(CircleShape)
+            .background(Color.Transparent)
+            .clickable { onToggle(!toggled) },
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            painter = painter,
+            contentDescription = "Toggle Button Icon",
+            tint = tintColor,
+            modifier = Modifier.size(30.dp)
+        )
     }
 }
