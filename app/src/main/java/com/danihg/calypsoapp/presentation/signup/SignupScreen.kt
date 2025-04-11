@@ -163,6 +163,7 @@ fun SignupScreen(auth: FirebaseAuth, navigateToHome: () -> Unit, navigateToLogin
         // Sign Up Button
         Button(
             onClick = {
+                // Basic field validations
                 if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
                     emailError = true
                 } else if (password != verifyPassword) {
@@ -171,13 +172,29 @@ fun SignupScreen(auth: FirebaseAuth, navigateToHome: () -> Unit, navigateToLogin
                 } else {
                     emailError = false
                     passwordError = false
-                    auth.createUserWithEmailAndPassword(email, password).addOnCompleteListener { task ->
+
+                    // Check if the email already exists.
+                    auth.fetchSignInMethodsForEmail(email).addOnCompleteListener { task ->
                         if (task.isSuccessful) {
-                            navigateToHome()
-                            Log.i("aris", "SIGNUP OK")
+                            val signInMethods = task.result?.signInMethods
+                            // If the list is not empty, then there is already an account registered with this email.
+                            if (signInMethods != null && signInMethods.isNotEmpty()) {
+                                signupError = "This email is already in use."
+                            } else {
+                                // Otherwise, continue with the account creation.
+                                auth.createUserWithEmailAndPassword(email, password)
+                                    .addOnCompleteListener { createTask ->
+                                        if (createTask.isSuccessful) {
+                                            navigateToHome()
+                                            Log.i("aris", "SIGNUP OK")
+                                        } else {
+                                            signupError = createTask.exception?.message ?: "Sign up failed. Please try again."
+                                            Log.i("aris", "SIGNUP KO: ${createTask.exception?.message}")
+                                        }
+                                    }
+                            }
                         } else {
-                            signupError = task.exception?.message ?: "Sign up failed. Please try again."
-                            Log.i("aris", "SIGNUP KO: ${task.exception?.message}")
+                            signupError = "An error occurred. Please try again."
                         }
                     }
                 }

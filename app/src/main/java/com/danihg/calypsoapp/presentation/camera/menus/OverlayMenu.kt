@@ -297,62 +297,62 @@ fun OverlayMenu(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Replays Config
-                    Text(
-                        text = "Replays Configuration",
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    HorizontalDivider(thickness = 1.dp, color = Color.White.copy(alpha = 0.3f))
+//                    // Replays Config
+//                    Text(
+//                        text = "Replays Configuration",
+//                        fontSize = 22.sp,
+//                        fontWeight = FontWeight.Bold,
+//                        color = Color.White,
+//                        modifier = Modifier.padding(bottom = 8.dp)
+//                    )
+//                    HorizontalDivider(thickness = 1.dp, color = Color.White.copy(alpha = 0.3f))
+//
+//                    Row(
+//                        modifier = Modifier
+//                            .fillMaxWidth()
+//                            .padding(top = 12.dp),
+//                        horizontalArrangement = Arrangement.SpaceBetween,
+//                        verticalAlignment = Alignment.CenterVertically
+//                    ) {
+//                        Text(
+//                            text = "Show Replays",
+//                            fontSize = 18.sp,
+//                            color = Color.White
+//                        )
+//                        Switch(
+//                            checked = showReplays,
+//                            onCheckedChange = onToggleReplays,
+//                            colors = SwitchDefaults.colors(
+//                                checkedThumbColor = CalypsoRed,
+//                                uncheckedThumbColor = Color.Gray
+//                            )
+//                        )
+//                    }
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Show Replays",
-                            fontSize = 18.sp,
-                            color = Color.White
-                        )
-                        Switch(
-                            checked = showReplays,
-                            onCheckedChange = onToggleReplays,
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = CalypsoRed,
-                                uncheckedThumbColor = Color.Gray
-                            )
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Replays Duration",
-                            fontSize = 18.sp,
-                            color = Color.White,
-                            modifier = Modifier.align(
-                                Alignment.CenterVertically
-                            )
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        ModernDropdown(
-                            items = listOf("5s", "10s", "15s", "20s"),
-                            selectedValue = selectedReplaysDuration,
-                            displayMapper = { it },
-                            onValueChange = {
-                                onReplaysDurationChange(it)
-                            }
-                        )
-                    }
+//                    Spacer(modifier = Modifier.height(16.dp))
+//
+//                    Row(
+//                        modifier = Modifier.fillMaxWidth(),
+//                        horizontalArrangement = Arrangement.SpaceBetween
+//                    ) {
+//                        Text(
+//                            text = "Replays Duration",
+//                            fontSize = 18.sp,
+//                            color = Color.White,
+//                            modifier = Modifier.align(
+//                                Alignment.CenterVertically
+//                            )
+//                        )
+//                        Spacer(modifier = Modifier.width(16.dp))
+//                        ModernDropdown(
+//                            items = listOf("5s", "10s", "15s", "20s"),
+//                            selectedValue = selectedReplaysDuration,
+//                            displayMapper = { it },
+//                            onValueChange = {
+//                                onReplaysDurationChange(it)
+//                            }
+//                        )
+//                    }
                 }
             }
         }

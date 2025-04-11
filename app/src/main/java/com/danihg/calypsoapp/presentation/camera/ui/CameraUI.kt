@@ -26,17 +26,25 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarData
+import androidx.compose.material3.SnackbarDefaults
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,7 +69,10 @@ import com.danihg.calypsoapp.utils.IsoSlider
 import com.danihg.calypsoapp.utils.SensorExposureTimeSlider
 import com.danihg.calypsoapp.utils.ToggleAuxButtonSquare
 import com.danihg.calypsoapp.utils.ZoomControls
+import com.danihg.calypsoapp.utils.rememberToast
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun CameraUI(
@@ -123,6 +134,13 @@ fun CameraUI(
     if (screenWidthDpReference < screenWidthDp) {
         paddingFix = (screenWidthDp - screenWidthDpReference) / 2
     }
+
+    val coroutineScope = rememberCoroutineScope()
+    // State to show the waiting (progress) indicator after stop
+    val isWaiting = remember { mutableStateOf(false) }
+
+    val showToast = rememberToast()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     Log.d("CameraUI", "screenWidthDp: $screenWidthDp, screenHeightDp: $screenHeightDp")
     Box(
@@ -195,25 +213,43 @@ fun CameraUI(
                 modifier = Modifier
                     .size(55.dp),
                 contentPadding = PaddingValues(0.dp),
+                enabled = !isWaiting.value,
                 colors = ButtonDefaults.buttonColors(containerColor = Color.White),
                 shape = CircleShape,
                 onClick = {
-                    onStartRecord()
+                    if (isRecording) {
+                        onStartRecord()
+                        isWaiting.value = true
+                        coroutineScope.launch {
+                            delay(2000L) // 5 seconds delay before re-enabling the record button.
+                            isWaiting.value = false
+                            snackbarHostState.showSnackbar("✅ Video Saved Successfully")
+                        }
+                    }
+                    else {
+                        onStartRecord()
+                        isWaiting.value = true
+                        coroutineScope.launch {
+                            delay(2000L) // 5 seconds delay before re-enabling the record button.
+                            isWaiting.value = false
+                        }
+                    }
 //                    if (isStreaming) stopForegroundService() else startForegroundService()
                 }
             ) {
-                Icon(
-                    painter = if (isRecording)
-                        painterResource(id = R.drawable.ic_stop)
-                    else
-                        painterResource(id = R.drawable.ic_record_mode),
-                    contentDescription = "Button Icon",
-                    tint = if (isRecording)
-                        Color.Red
-                    else
-                        Color.Gray,
-                    modifier = Modifier.size(30.dp)
-                )
+                if (isWaiting.value) {
+                    CircularProgressIndicator(modifier = Modifier.size(30.dp), color = CalypsoRed)
+                } else {
+                    Icon(
+                        painter = if (isRecording)
+                            painterResource(id = R.drawable.ic_stop)
+                        else
+                            painterResource(id = R.drawable.ic_record_mode),
+                        contentDescription = "Record Button Icon",
+                        tint = if (isRecording) Color.Red else Color.Gray,
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
             }
         }
 //            ModeButton(
@@ -797,6 +833,39 @@ fun CameraUI(
             }
         }
 
+        // Add the SnackbarHost at the bottom center.
+        Box(
+            modifier = Modifier
+                .fillMaxSize(), // This Box takes the full available size
+            contentAlignment = Alignment.BottomCenter // Align content to bottom center
+        ) {
+            // Place the SnackbarHost with bottom padding
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier
+                    .wrapContentWidth() // Let the Snackbar take its intrinsic width
+                    .padding(bottom = 40.dp),
+                snackbar = { data ->
+                    // Custom Snackbar styling:
+                    Snackbar(
+                        modifier = Modifier
+                            .widthIn(max = 250.dp) // Adjust max width as desired
+                            .wrapContentWidth(),
+                        containerColor = Color.DarkGray,
+                        contentColor = Color.White,
+                        shape = SnackbarDefaults.shape,
+                        content = {
+                            // Force single line by using maxLines = 1.
+                            Text(
+                                text = data.visuals.message,
+                                maxLines = 1,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    )
+                }
+            )
+        }
     }
 }
 

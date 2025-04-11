@@ -25,6 +25,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -44,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
@@ -744,8 +746,10 @@ fun CameraScreenContent() {
                     }
                 }
 
-                // Snapshot overlay at the bottom left:
                 snapshot?.let { capturedBitmap ->
+                    // Calculate the aspect ratio of the bitmap
+                    val aspectRatio = capturedBitmap.width.toFloat() / capturedBitmap.height.toFloat()
+
                     AnimatedVisibility(
                         visible = true,
                         enter = fadeIn(),
@@ -753,13 +757,31 @@ fun CameraScreenContent() {
                         modifier = Modifier
                             .zIndex(4f)
                             .align(Alignment.BottomStart)
-                            .padding(start = 70.dp, bottom = 16.dp)
+                            .padding(start = 80.dp, bottom = 40.dp)
                     ) {
-                        Image(
-                            bitmap = capturedBitmap.asImageBitmap(),
-                            contentDescription = "Snapshot of the taken picture",
-                            modifier = Modifier.size(120.dp)
-                        )
+                        // Wrap in a Box that adapts to the bitmap's aspect ratio
+                        Box(
+                            modifier = Modifier
+                                // Set a fixed width (or height) as desired:
+                                .width(120.dp)
+                                // Adjust the height based on the calculated aspect ratio
+                                .aspectRatio(aspectRatio)
+                                .border(
+                                    width = 2.dp,
+                                    color = androidx.compose.ui.graphics.Color.White,
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .shadow(
+                                    elevation = 4.dp,
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                        ) {
+                            Image(
+                                bitmap = capturedBitmap.asImageBitmap(),
+                                contentDescription = "Snapshot of the taken picture",
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
                     }
                 }
 
@@ -1172,23 +1194,87 @@ suspend fun loadBitmapFromUrl(context: Context, url: String): Bitmap? {
     return (result.drawable as? BitmapDrawable)?.bitmap
 }
 
-fun recordVideoStreaming(context: Context, genericStream: GenericStream, state: (RecordController.Status) -> Unit) {
-    var recordPath = ""
+// Declare a property at the class level so that the file path persists between start and stop.
+private var currentRecordPath: String? = null
+
+fun recordVideoStreaming(
+    context: Context,
+    genericStream: GenericStream,
+    state: (RecordController.Status) -> Unit
+) {
     if (!genericStream.isRecording) {
         val folder = PathUtils.getRecordPath()
         if (!folder.exists()) folder.mkdir()
         val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
-        recordPath = "${folder.absolutePath}/${sdf.format(Date())}.mp4"
-        genericStream.startRecord(recordPath) { status ->
-            if (status == RecordController.Status.RECORDING) {
-                state(RecordController.Status.RECORDING)
+        currentRecordPath = "${folder.absolutePath}/${sdf.format(Date())}.mp4"
+
+        genericStream.startRecord(currentRecordPath!!) { status ->
+            when (status) {
+                RecordController.Status.RECORDING -> {
+                    state(RecordController.Status.RECORDING)
+                }
+                RecordController.Status.STOPPED -> {
+                    // When the STOPPED status is delivered, trigger the gallery update with polling.
+                    updateGalleryWithPolling(context, initialDelay = 2000, timeoutMillis = 5000, pollInterval = 500)
+                }
+                else -> { /* handle other states if needed */ }
             }
         }
         state(RecordController.Status.STARTED)
     } else {
+        // Stop recording
         genericStream.stopRecord()
         state(RecordController.Status.STOPPED)
-        PathUtils.updateGallery(context, recordPath)
+        // As a fallback, if the callback isn't reliable, schedule an update.
+        CoroutineScope(Dispatchers.Main).launch {
+            delay(2000)
+            updateGalleryWithPolling(context, initialDelay = 0, timeoutMillis = 5000, pollInterval = 500)
+        }
+    }
+}
+
+// This helper suspend function polls the file until its size is greater than zero or a timeout is reached.
+private suspend fun waitForFileToBeFinalized(
+    filePath: String,
+    timeoutMillis: Long,
+    pollInterval: Long
+): Boolean {
+    val startTime = System.currentTimeMillis()
+    val file = File(filePath)
+
+    while (System.currentTimeMillis() - startTime < timeoutMillis) {
+        if (file.exists() && file.length() > 0L) {
+            // File is no longer empty.
+            return true
+        }
+        delay(pollInterval)
+    }
+    return false
+}
+
+// This function delays the gallery update until the file is confirmed to be finalized.
+private fun updateGalleryWithPolling(
+    context: Context,
+    initialDelay: Long,
+    timeoutMillis: Long,
+    pollInterval: Long
+) {
+    CoroutineScope(Dispatchers.Main).launch {
+        // Wait an initial delay if necessary.
+        if (initialDelay > 0) delay(initialDelay)
+
+        currentRecordPath?.let { path ->
+            val isFinalized = waitForFileToBeFinalized(path, timeoutMillis, pollInterval)
+            if (isFinalized) {
+                // Update the gallery with the finalized file.
+                PathUtils.updateGallery(context, path)
+            } else {
+                // Optionally, log an error indicating that the file didn't finalize in time.
+                Log.e("RecordVideo", "File finalization timeout: $path still appears empty.")
+            }
+        }
+        // Clear the stored path after updating.
+        currentRecordPath = null
     }
 }
 

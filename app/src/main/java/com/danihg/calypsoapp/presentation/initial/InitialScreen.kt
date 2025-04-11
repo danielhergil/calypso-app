@@ -71,7 +71,8 @@ import kotlinx.coroutines.tasks.await
 @Composable
 fun InitialScreen(
     auth: FirebaseAuth = FirebaseAuth.getInstance(),
-    navigateToHome: () -> Unit = {}
+    navigateToHome: () -> Unit = {},
+    navigateToSignup: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val sharedPreferences = context.getSharedPreferences("LoginPrefs", Context.MODE_PRIVATE)
@@ -277,7 +278,7 @@ fun InitialScreen(
         } else {
             // Sign Up View
             Button(
-                onClick = { isLoginView = true },
+                onClick = { navigateToSignup() },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp)
