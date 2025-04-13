@@ -153,9 +153,31 @@ fun CameraScreenContent() {
     val sharedPreferences = context.getSharedPreferences("CameraSettings", Context.MODE_PRIVATE)
     var videoWidth by remember { mutableIntStateOf(sharedPreferences.getInt("videoWidth", 1920)) }
     var videoHeight by remember { mutableIntStateOf(sharedPreferences.getInt("videoHeight", 1080)) }
-    var streamUrl by remember { mutableStateOf(sharedPreferences.getString("streamUrl", "") ?: "") }
-    var rtmpUrl by remember { mutableStateOf(sharedPreferences.getString("rtmpUrl", "") ?: "") }
-    var streamKey by remember { mutableStateOf(sharedPreferences.getString("streamKey", "") ?: "") }
+//    var streamUrl by remember { mutableStateOf(sharedPreferences.getString("streamUrl", "") ?: "") }
+//    var rtmpUrl by remember { mutableStateOf(sharedPreferences.getString("rtmpUrl", "") ?: "") }
+//    var streamKey by remember { mutableStateOf(sharedPreferences.getString("streamKey", "") ?: "") }
+    var streamUrl by remember { mutableStateOf("") }
+    var rtmpUrl by remember { mutableStateOf("") }
+    var streamKey by remember { mutableStateOf("") }
+
+    val firestoreManager = remember { FirestoreManager() }
+
+    // This will update the state variables, which in turn update your streaming instance.
+    LaunchedEffect(Unit) {
+        val configs = firestoreManager.getRTMPConfigs()  // returns List<RTMPConfig>
+        if (configs.isNotEmpty()) {
+            // Choose a configuration—here we select the first one.
+            val config = configs.first()
+            streamUrl = config.constructedUrl  // The full stream URL (rtmpUrl/streamKey)
+            rtmpUrl = config.rtmpUrl
+            streamKey = config.streamKey
+            // Optionally log it or show a toast
+            Log.d("CameraScreen", "RTMP config loaded. Stream URL: $streamUrl")
+        } else {
+            Log.d("CameraScreen", "No RTMP configuration found in Firestore.")
+        }
+    }
+
     var videoBitrate = sharedPreferences.getInt("videoBitrate", 5000 * 1000)
     val videoFPS = sharedPreferences.getInt("videoFPS", 30)
     val audioSampleRate = sharedPreferences.getInt("audioSampleRate", 48000)

@@ -21,6 +21,17 @@ data class Team(
     val players: List<String> = emptyList() // List of players
 )
 
+// Data class for RTMP configurations.
+// The constructedUrl property provides the final URL by combining rtmpUrl and streamKey.
+data class RTMPConfig(
+    val alias: String = "",
+    val rtmpUrl: String = "",
+    val streamKey: String = ""
+) {
+    val constructedUrl: String
+        get() = rtmpUrl.trim().removeSuffix("/") + "/" + streamKey.trim()
+}
+
 class FirestoreManager {
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
@@ -200,5 +211,70 @@ class FirestoreManager {
 
     fun getLogoDownloadUrl(logoPath: String): String? {
         return logoPath // Just return the URL since we're now storing the full URL
+    }
+
+    /**
+     * Saves the provided RTMP configuration to Firestore under the current user's subcollection "rtmp_configs".
+     * Here the document ID is set to the alias so that the RTMP configuration is unique per alias.
+     */
+    suspend fun saveRTMPConfig(config: RTMPConfig): Boolean {
+        val user = auth.currentUser ?: return false
+        // Use the alias as the document ID (you may choose another unique field if preferred)
+        val docRef = db.collection("users").document(user.uid)
+            .collection("rtmp_configs").document(config.alias)
+        val data = hashMapOf(
+            "alias" to config.alias,
+            "rtmpUrl" to config.rtmpUrl,
+            "streamKey" to config.streamKey,
+            "constructedUrl" to config.constructedUrl,
+            "createdAt" to Timestamp.now()
+        )
+
+        return try {
+            docRef.set(data).await()
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    /**
+     * Retrieves all saved RTMP configurations for the current user.
+     */
+    suspend fun getRTMPConfigs(): List<RTMPConfig> {
+        val user = auth.currentUser ?: return emptyList()
+        return try {
+            val snapshot = db.collection("users").document(user.uid)
+                .collection("rtmp_configs").get().await()
+            snapshot.documents.mapNotNull { doc ->
+                val alias = doc.getString("alias")
+                val rtmpUrl = doc.getString("rtmpUrl")
+                val streamKey = doc.getString("streamKey")
+                if (!alias.isNullOrBlank() && !rtmpUrl.isNullOrBlank() && !streamKey.isNullOrBlank()) {
+                    RTMPConfig(alias, rtmpUrl, streamKey)
+                } else {
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+
+    /**
+     * Deletes the RTMP configuration identified by the provided alias.
+     */
+    suspend fun deleteRTMPConfig(alias: String): Boolean {
+        val user = auth.currentUser ?: return false
+        return try {
+            db.collection("users").document(user.uid)
+                .collection("rtmp_configs").document(alias).delete().await()
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
     }
 }

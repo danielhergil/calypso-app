@@ -183,6 +183,8 @@ fun CameraUI(
                     !streamUrl.contains(" ") &&
                     streamUrl.split("/").filter { it.isNotBlank() }.size >= 4
 
+            Log.d("CameraUI", "validStreamUrl: $streamUrl")
+
             Button(
                 modifier = Modifier
                     .size(60.dp),
