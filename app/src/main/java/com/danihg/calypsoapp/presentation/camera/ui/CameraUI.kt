@@ -10,7 +10,6 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,7 +34,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Snackbar
-import androidx.compose.material3.SnackbarData
 import androidx.compose.material3.SnackbarDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -60,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.danihg.calypsoapp.R
+import com.danihg.calypsoapp.presentation.camera.ui.components.BatteryIndicator
 import com.danihg.calypsoapp.sources.CameraCalypsoSource
 import com.danihg.calypsoapp.ui.theme.CalypsoRed
 import com.danihg.calypsoapp.utils.AuxButton
@@ -284,8 +283,16 @@ fun CameraUI(
                 modifier = Modifier
                     .fillMaxWidth()
                     .size(50.dp)
-                    .zIndex(3f)
+//                    .zIndex(3f)
             ) {
+                // Place the battery indicator with an upward offset so it appears above the rocket button.
+                BatteryIndicator(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .offset(y = (-50).dp)  // Adjust this value as needed
+                        .zIndex(3f)            // Higher zIndex so it's drawn on top
+                )
+
                 // Rocket button (this is the reference position)
                 AuxButton(
                     modifier = Modifier

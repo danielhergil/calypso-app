@@ -150,7 +150,7 @@ fun AuxButtonSquare(
         .width(60.dp) // set a custom width
         .height(60.dp), // and a custom height
     painter: Painter,
-    iconModifier: Modifier = Modifier.fillMaxSize() ,
+    iconModifier: Modifier = Modifier.fillMaxSize(),
     onClick: () -> Unit
 ) {
     Box(
