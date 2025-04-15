@@ -61,6 +61,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
 import coil.ImageLoader
 import coil.request.ImageRequest
 import com.danihg.calypsoapp.R
@@ -69,6 +70,7 @@ import com.danihg.calypsoapp.data.Team
 import com.danihg.calypsoapp.overlays.PlayerEntry
 import com.danihg.calypsoapp.overlays.drawOverlay
 import com.danihg.calypsoapp.presentation.camera.menus.OverlayMenu
+import com.danihg.calypsoapp.presentation.camera.menus.OverlayMenu2
 import com.danihg.calypsoapp.services.StreamingService
 import com.danihg.calypsoapp.sources.CameraCalypsoSource
 import com.danihg.calypsoapp.utils.AuxButton
@@ -103,7 +105,7 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 
 @Composable
-fun CameraScreen() {
+fun CameraScreen(navHostController: NavHostController) {
     val context = LocalContext.current
     var showContent by remember { mutableStateOf(false) }
     var isOrientationSet by remember { mutableStateOf(false) }
@@ -135,7 +137,7 @@ fun CameraScreen() {
             exit = fadeOut()
         ) {
             if (isOrientationSet) {
-                CameraScreenContent()
+                CameraScreenContent(navHostController)
             }
         }
     }
@@ -143,7 +145,7 @@ fun CameraScreen() {
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
-fun CameraScreenContent() {
+fun CameraScreenContent(navHostController: NavHostController) {
     val context = LocalContext.current
     val isServiceRunning by remember { mutableStateOf(false) }
     PreventScreenLock()
@@ -296,8 +298,8 @@ fun CameraScreenContent() {
     defaultRightLogo.setDensity(context.resources.displayMetrics.densityDpi)
 
     // The selected team names for scoreboard overlay.
-    var selectedTeam1 by rememberSaveable { mutableStateOf(if (teams.isNotEmpty()) teams.first().name else "Rivas") }
-    var selectedTeam2 by rememberSaveable { mutableStateOf(if (teams.size > 1) teams[1].name else "Alcorcón") }
+    var selectedTeam1 by rememberSaveable { mutableStateOf(if (teams.isNotEmpty()) teams.first().name else "") }
+    var selectedTeam2 by rememberSaveable { mutableStateOf(if (teams.size > 1) teams[1].name else "") }
 
     // Look up the teams based on the selected names.
     val team1 = teams.find { it.name == selectedTeam1 }
@@ -1115,36 +1117,48 @@ fun CameraScreenContent() {
                 )
 
                 // Auxiliary overlay menu.
-                OverlayMenu(
+                OverlayMenu2(
                     visible = showApplyButton,
-                    screenWidth = screenWidth,
-                    screenHeight = screenHeight,
-                    teams = teams,  // Pass the list of teams from Firestore.
+                    teams = teams,
                     selectedTeam1 = selectedTeam1,
                     onTeam1Change = { selectedTeam1 = it },
                     selectedTeam2 = selectedTeam2,
                     onTeam2Change = { selectedTeam2 = it },
-                    onLeftLogoUrlChange = { leftLogoUrl = it }, // Save the new left logo URL
-                    onRightLogoUrlChange = { rightLogoUrl = it }, // Save the new right logo URL
-                    showScoreboardOverlay = showScoreboardOverlay,
-                    onToggleScoreboard = { showScoreboardOverlay = it },
-                    selectedLeftColor = leftTeamColor,
-                    onLeftColorChange = { leftTeamColor = it },
-                    selectedRightColor = rightTeamColor,
-                    onRightColorChange = { rightTeamColor = it },
-                    selectedTeamsOverlayDuration = selectedTeamsOverlayDuration,
-                    onTeamsOverlayDurationChange = { selectedTeamsOverlayDuration = it },
-                    showLineUpOverlay = showTeamPlayersOverlay,
-                    onToggleLineUp = { showTeamPlayersOverlay = it },
-                    showReplays = showReplays,
-                    onToggleReplays = { showReplays = it },
-                    selectedReplaysDuration = selectedReplayDuration,
-                    onReplaysDurationChange = { selectedReplayDuration = it },
-                    onClose = {
-                        showApplyButton = false
-                        showOverlaySubMenu = false
-                    }
+                    onLeftLogoUrlChange = { leftLogoUrl = it },
+                    onRightLogoUrlChange = { rightLogoUrl = it },
+                    onAddTeam = { navHostController.navigate("addTeam") },
+                    onClose = { showApplyButton = false}
                 )
+//                OverlayMenu(
+//                    visible = showApplyButton,
+//                    screenWidth = screenWidth,
+//                    screenHeight = screenHeight,
+//                    teams = teams,  // Pass the list of teams from Firestore.
+//                    selectedTeam1 = selectedTeam1,
+//                    onTeam1Change = { selectedTeam1 = it },
+//                    selectedTeam2 = selectedTeam2,
+//                    onTeam2Change = { selectedTeam2 = it },
+//                    onLeftLogoUrlChange = { leftLogoUrl = it }, // Save the new left logo URL
+//                    onRightLogoUrlChange = { rightLogoUrl = it }, // Save the new right logo URL
+//                    showScoreboardOverlay = showScoreboardOverlay,
+//                    onToggleScoreboard = { showScoreboardOverlay = it },
+//                    selectedLeftColor = leftTeamColor,
+//                    onLeftColorChange = { leftTeamColor = it },
+//                    selectedRightColor = rightTeamColor,
+//                    onRightColorChange = { rightTeamColor = it },
+//                    selectedTeamsOverlayDuration = selectedTeamsOverlayDuration,
+//                    onTeamsOverlayDurationChange = { selectedTeamsOverlayDuration = it },
+//                    showLineUpOverlay = showTeamPlayersOverlay,
+//                    onToggleLineUp = { showTeamPlayersOverlay = it },
+//                    showReplays = showReplays,
+//                    onToggleReplays = { showReplays = it },
+//                    selectedReplaysDuration = selectedReplayDuration,
+//                    onReplaysDurationChange = { selectedReplayDuration = it },
+//                    onClose = {
+//                        showApplyButton = false
+//                        showOverlaySubMenu = false
+//                    }
+//                )
 
                 // Place the recording timer at the very top with a high z-index.
                 Box(

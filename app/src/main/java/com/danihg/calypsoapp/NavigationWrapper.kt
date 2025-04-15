@@ -63,7 +63,7 @@ fun NavigationWrapper (navHostController: NavHostController, auth: FirebaseAuth)
                 fadeOut(animationSpec = tween(300))
             }
         ) {
-            CameraScreen()
+            CameraScreen(navHostController = navHostController)
         }
         composable("addTeam") {
             val firestoreManager = FirestoreManager()
