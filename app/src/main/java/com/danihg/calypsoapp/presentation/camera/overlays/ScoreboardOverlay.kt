@@ -23,6 +23,8 @@ fun ScoreboardOverlay(
     leftTeamColor: String,
     rightTeamColor: String,
     backgroundColor: Int,
+    showLogos: Boolean,
+    showAlias: Boolean,
     imageObjectFilterRender: ImageObjectFilterRender,
     onLeftIncrement: () -> Unit,
     onRightIncrement: () -> Unit,
@@ -54,6 +56,8 @@ fun ScoreboardOverlay(
             leftTeamColor = leftTeamColor,
             rightTeamColor = rightTeamColor,
             backgroundColor = backgroundColor,
+            showLogos = showLogos,
+            showAlias = showAlias,
             imageObjectFilterRender = imageObjectFilterRender,
             isOnPreview = genericStream.isOnPreview
         )

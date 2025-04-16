@@ -112,7 +112,7 @@ fun ColorDropdown(
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            modifier = Modifier.background(Color.Black)
+            modifier = Modifier.background(Color.Gray)
         ) {
             colorOptions.forEach { (name, color) ->
                 DropdownMenuItem(

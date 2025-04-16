@@ -222,6 +222,8 @@ fun CameraScreenContent(navHostController: NavHostController) {
     var showApplyButton by rememberSaveable { mutableStateOf(false) }
     var showOverlaySubMenu by rememberSaveable { mutableStateOf(false) }
     var showScoreboardOverlay by rememberSaveable { mutableStateOf(false) }
+    var showScoreboardLogos by rememberSaveable { mutableStateOf(true) }
+    var showScoreboardAlias by rememberSaveable { mutableStateOf(true) }
     var showSettingsSubMenu  by rememberSaveable { mutableStateOf(false) }
     var showTeamPlayersOverlayMenu by rememberSaveable { mutableStateOf(false) }
     var showLineUpOverlay by rememberSaveable { mutableStateOf(false) }
@@ -487,6 +489,8 @@ fun CameraScreenContent(navHostController: NavHostController) {
                                 leftTeamColor = leftTeamColor,
                                 rightTeamColor = rightTeamColor,
                                 backgroundColor = selectedBackgroundColor,
+                                showLogos = showScoreboardLogos,
+                                showAlias = showScoreboardAlias,
                                 imageObjectFilterRender = imageObjectFilterRender,
                                 isOnPreview = genericStream.isOnPreview
                             )
@@ -624,6 +628,8 @@ fun CameraScreenContent(navHostController: NavHostController) {
                     leftTeamColor = leftTeamColor,
                     rightTeamColor = rightTeamColor,
                     backgroundColor = selectedBackgroundColor,
+                    showLogos = showScoreboardLogos,
+                    showAlias = showScoreboardAlias,
                     imageObjectFilterRender = imageObjectFilterRender,
                     onLeftIncrement = {
                         leftTeamGoals++
@@ -638,6 +644,8 @@ fun CameraScreenContent(navHostController: NavHostController) {
                             leftTeamColor = leftTeamColor,
                             rightTeamColor = rightTeamColor,
                             backgroundColor = selectedBackgroundColor,
+                            showLogos = showScoreboardLogos,
+                            showAlias = showScoreboardAlias,
                             imageObjectFilterRender = imageObjectFilterRender,
                             isOnPreview = genericStream.isOnPreview
                         )
@@ -655,6 +663,8 @@ fun CameraScreenContent(navHostController: NavHostController) {
                             leftTeamColor = leftTeamColor,
                             rightTeamColor = rightTeamColor,
                             backgroundColor = selectedBackgroundColor,
+                            showLogos = showScoreboardLogos,
+                            showAlias = showScoreboardAlias,
                             imageObjectFilterRender = imageObjectFilterRender,
                             isOnPreview = genericStream.isOnPreview
                         )
@@ -672,6 +682,8 @@ fun CameraScreenContent(navHostController: NavHostController) {
                             leftTeamColor = leftTeamColor,
                             rightTeamColor = rightTeamColor,
                             backgroundColor = selectedBackgroundColor,
+                            showLogos = showScoreboardLogos,
+                            showAlias = showScoreboardAlias,
                             imageObjectFilterRender = imageObjectFilterRender,
                             isOnPreview = genericStream.isOnPreview
                         )
@@ -689,6 +701,8 @@ fun CameraScreenContent(navHostController: NavHostController) {
                             leftTeamColor = leftTeamColor,
                             rightTeamColor = rightTeamColor,
                             backgroundColor = selectedBackgroundColor,
+                            showLogos = showScoreboardLogos,
+                            showAlias = showScoreboardAlias,
                             imageObjectFilterRender = imageObjectFilterRender,
                             isOnPreview = genericStream.isOnPreview
                         )
@@ -954,24 +968,6 @@ fun CameraScreenContent(navHostController: NavHostController) {
                         showExposureCompensationSlider = false
                         showAutoSubMenu = true
                     },
-//                    isStreamMode = isStreamMode,
-//                    onToggleStreamMode = {
-//                        isStreamMode = !isStreamMode
-//                        isRecordMode = false
-//                        isPictureMode = false
-//                    },
-//                    isRecordMode = isRecordMode,
-//                    onToggleRecordMode = {
-//                        isRecordMode = !isRecordMode
-//                        isStreamMode = false
-//                        isPictureMode = false
-//                    },
-//                    isPictureMode = isPictureMode,
-//                    onTogglePictureMode = {
-//                        isPictureMode = !isPictureMode
-//                        isStreamMode = false
-//                        isRecordMode = false
-//                    },
                     onStartRecord = {
                         if (isRecording) stopForegroundService("Record") else startForegroundService("Record")
                     },
@@ -1127,6 +1123,16 @@ fun CameraScreenContent(navHostController: NavHostController) {
                     onLeftLogoUrlChange = { leftLogoUrl = it },
                     onRightLogoUrlChange = { rightLogoUrl = it },
                     onAddTeam = { navHostController.navigate("addTeam") },
+                    selectedLeftColor = leftTeamColor,
+                    onLeftColorChange = { leftTeamColor = it },
+                    selectedRightColor = rightTeamColor,
+                    onRightColorChange = { rightTeamColor = it },
+                    showLogos = showScoreboardLogos,
+                    onToggleShowLogos = { showScoreboardLogos = it },
+                    showAlias = showScoreboardAlias,
+                    onToggleShowAlias = { showScoreboardAlias = it },
+                    showScoreboard = showScoreboardOverlay,
+                    onToggleScoreboard = { showScoreboardOverlay = it },
                     onClose = { showApplyButton = false}
                 )
 //                OverlayMenu(

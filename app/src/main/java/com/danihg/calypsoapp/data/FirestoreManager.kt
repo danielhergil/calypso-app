@@ -32,6 +32,12 @@ data class RTMPConfig(
         get() = rtmpUrl.trim().removeSuffix("/") + "/" + streamKey.trim()
 }
 
+data class Scoreboard(
+    val name: String = "",
+    val snapshot: String = "",
+    val type: String = ""
+)
+
 class FirestoreManager {
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
@@ -275,6 +281,18 @@ class FirestoreManager {
         } catch (e: Exception) {
             e.printStackTrace()
             false
+        }
+    }
+
+    suspend fun getScoreboards(): List<Scoreboard> {
+        return try {
+            val snapshot = db.collection("scoreboard").get().await()
+            snapshot.documents.mapNotNull { doc ->
+                doc.toObject(Scoreboard::class.java)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
         }
     }
 }
