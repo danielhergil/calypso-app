@@ -295,4 +295,17 @@ class FirestoreManager {
             emptyList()
         }
     }
+
+    // Fetch all lineup templates
+    suspend fun getLineups(): List<Scoreboard> {
+        return try {
+            val snapshot = db.collection("lineup").get().await()
+            snapshot.documents.mapNotNull { doc ->
+                doc.toObject(Scoreboard::class.java)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
 }

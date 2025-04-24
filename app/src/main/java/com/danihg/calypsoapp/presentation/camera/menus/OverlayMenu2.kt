@@ -71,6 +71,14 @@ fun OverlayMenu2(
     onToggleShowAlias: (Boolean) -> Unit,
     showScoreboard: Boolean,
     onToggleScoreboard: (Boolean) -> Unit,
+    selectedScoreboard: String,
+    onScoreboardSelected: (String) -> Unit,
+    selectedLineup: String,
+    onLineupSelected: (String) -> Unit,
+    selectedIntervalSeconds: Int,
+    onIntervalChange: (Int) -> Unit,
+    showLineup: Boolean,
+    onToggleLineup: (Boolean) -> Unit,
     onClose: () -> Unit
 ) {
     // Get screen dimensions.
@@ -88,8 +96,7 @@ fun OverlayMenu2(
 
     // Track currently selected tab (default is tab 1)
     var selectedTab by remember { mutableStateOf(1) }
-    // Local state for the selected scoreboard name.
-    var selectedScoreboard by rememberSaveable { mutableStateOf("") }
+
 
     AnimatedVisibility(
         visible = visible,
@@ -148,9 +155,13 @@ fun OverlayMenu2(
                             )
                             VerticalDivider()
                             TabItem(
-                                label = "Tab 3",
+                                label = "Lineup",
                                 isSelected = selectedTab == 3,
-                                onClick = { selectedTab = 3 }
+                                onClick = {
+                                    if (selectedTeam1.isNotEmpty() && selectedTeam2.isNotEmpty())
+                                        selectedTab = 3
+                                },
+                                enabled = selectedTeam1.isNotEmpty() && selectedTeam2.isNotEmpty()
                             )
                             VerticalDivider()
                             TabItem(
@@ -191,7 +202,7 @@ fun OverlayMenu2(
                             )
                             2 -> ScoreboardContent(
                                 selectedScoreboard = selectedScoreboard,
-                                onScoreboardSelected = { selectedScoreboard = it },
+                                onScoreboardSelected = onScoreboardSelected,
                                 selectedLeftColor = selectedLeftColor,
                                 onLeftColorChange = onLeftColorChange,
                                 selectedRightColor = selectedRightColor,
@@ -202,6 +213,15 @@ fun OverlayMenu2(
                                 onToggleShowAlias = onToggleShowAlias,
                                 showScoreboard = showScoreboard,
                                 onToggleScoreboard = onToggleScoreboard,
+                            )
+                            3 -> LineupContent(
+                                selectedScoreboard = selectedScoreboard,
+                                selectedLineup = selectedLineup,
+                                onLineupSelected = onLineupSelected,
+                                selectedIntervalSeconds = selectedIntervalSeconds,
+                                onIntervalChange = onIntervalChange,
+                                showLineup = showLineup,
+                                onToggleLineup = onToggleLineup
                             )
                             else -> Text(
                                 text = "Content for Tab $selectedTab",
@@ -648,6 +668,141 @@ fun ScoreboardContent(
                             }
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun LineupContent(
+    selectedScoreboard: String,
+    selectedLineup: String,
+    onLineupSelected: (String) -> Unit,
+    selectedIntervalSeconds: Int,
+    onIntervalChange: (Int) -> Unit,
+    showLineup: Boolean,
+    onToggleLineup: (Boolean) -> Unit
+) {
+    val firestoreManager = remember { FirestoreManager() }
+    var lineups by remember { mutableStateOf<List<Scoreboard>>(emptyList()) }
+
+    LaunchedEffect(Unit) {
+        lineups = firestoreManager.getLineups()
+    }
+
+    LaunchedEffect(selectedScoreboard) {
+        if (selectedScoreboard.isNotEmpty() && selectedLineup.isEmpty()) {
+            onLineupSelected(selectedScoreboard)
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (lineups.isNotEmpty()) {
+                    val placeholder = "Select Lineup"
+                    val names = lineups.map { it.name }
+                    val items = if (selectedLineup.isEmpty()) listOf(placeholder) + names else names
+                    val display = selectedLineup.ifEmpty { placeholder }
+
+                    SectionSubtitle("Lineup Model:")
+                    ModernDropdown(
+                        items = items,
+                        selectedValue = display,
+                        displayMapper = { it },
+                        onValueChange = { new ->
+                            if (new == placeholder) return@ModernDropdown
+                            onLineupSelected(new)
+                        }
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    if (selectedLineup.isNotEmpty()) {
+                        val chosen = lineups.find { it.name == selectedLineup }
+                        chosen?.snapshot?.let { url ->
+                            val painter = rememberAsyncImagePainter(model = url)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(0.9f)
+                                    .height(300.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Image(
+                                    painter = painter,
+                                    contentDescription = "Lineup Snapshot",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                                if (painter.state is AsyncImagePainter.State.Loading) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(30.dp),
+                                        color = CalypsoRed
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    Text("No Lineups found", color = Color.White, fontSize = 16.sp)
+                }
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+            VerticalDivider(color = Color.White, thickness = 1.dp, height = 300.dp)
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 8.dp, end = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                SectionSubtitle("Interval (seconds):")
+                val intervals = listOf("15s", "20s", "25s", "30s", "35s", "40s", "45s")
+                val displayInterval = "${selectedIntervalSeconds}s"
+                ModernDropdown(
+                    items = intervals,
+                    selectedValue = displayInterval,
+                    displayMapper = { it },
+                    onValueChange = { new ->
+                        new.removeSuffix("s").toIntOrNull()?.let {
+                            onIntervalChange(it)
+                        }
+                    }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ){
+                    Text("Show Lineup:", style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White))
+                    Switch(
+                        checked = showLineup,
+                        onCheckedChange = onToggleLineup,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = CalypsoRed,
+                            uncheckedThumbColor = Color.Gray
+                        ),
+                        thumbContent = {
+                            if (showLineup) {
+                                Icon(
+                                    imageVector = Icons.Filled.Check,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(SwitchDefaults.IconSize),
+                                )
+                            }
+                        }
+                    )
                 }
             }
         }

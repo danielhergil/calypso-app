@@ -281,6 +281,15 @@ fun CameraScreenContent(navHostController: NavHostController) {
     // Reference for the SurfaceView.
     val surfaceViewRef = remember { mutableStateOf<SurfaceView?>(null) }
 
+    // Which scoreboard model is selected in the menu
+    var selectedScoreboardModel by rememberSaveable { mutableStateOf("") }
+
+    // Which lineup model is selected in the menu
+    var selectedLineupModel by rememberSaveable { mutableStateOf("") }
+
+    // Interval (in seconds) for the lineup tab
+    var selectedLineupInterval by rememberSaveable { mutableStateOf(15) }
+
     // Retrieve teams from Firestore.
     // (Make sure FirestoreManager is properly initialized in your app.)
     var teams by remember { mutableStateOf<List<Team>>(emptyList()) }
@@ -1133,6 +1142,14 @@ fun CameraScreenContent(navHostController: NavHostController) {
                     onToggleShowAlias = { showScoreboardAlias = it },
                     showScoreboard = showScoreboardOverlay,
                     onToggleScoreboard = { showScoreboardOverlay = it },
+                    selectedScoreboard = selectedScoreboardModel,
+                    onScoreboardSelected = { selectedScoreboardModel = it },
+                    selectedLineup = selectedLineupModel,
+                    onLineupSelected = { selectedLineupModel = it },
+                    selectedIntervalSeconds = selectedLineupInterval,
+                    onIntervalChange = { selectedLineupInterval = it },
+                    showLineup = showTeamPlayersOverlay,
+                    onToggleLineup = { showTeamPlayersOverlay = it },
                     onClose = { showApplyButton = false}
                 )
 //                OverlayMenu(
