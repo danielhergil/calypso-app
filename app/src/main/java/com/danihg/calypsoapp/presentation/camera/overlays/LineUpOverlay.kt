@@ -33,7 +33,8 @@ fun TeamPlayersOverlay(
     Log.d("TeamPlayersOverlay", "isOnPreview: ${genericStream.isOnPreview}")
     LaunchedEffect(visible) {
         if (visible && genericStream.isOnPreview) {
-            genericStream.getGlInterface().clearFilters()
+//            genericStream.getGlInterface().clearFilters()
+            delay(500)
             genericStream.getGlInterface().addFilter(lineUpFilter)
         } else {
             genericStream.getGlInterface().removeFilter(lineUpFilter)

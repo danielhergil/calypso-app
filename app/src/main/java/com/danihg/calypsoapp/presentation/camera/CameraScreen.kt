@@ -28,7 +28,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -69,7 +68,6 @@ import com.danihg.calypsoapp.data.FirestoreManager
 import com.danihg.calypsoapp.data.Team
 import com.danihg.calypsoapp.overlays.PlayerEntry
 import com.danihg.calypsoapp.overlays.drawOverlay
-import com.danihg.calypsoapp.presentation.camera.menus.OverlayMenu
 import com.danihg.calypsoapp.presentation.camera.menus.OverlayMenu2
 import com.danihg.calypsoapp.services.StreamingService
 import com.danihg.calypsoapp.sources.CameraCalypsoSource
@@ -86,7 +84,6 @@ import com.danihg.calypsoapp.presentation.camera.ui.CameraUI
 import com.pedro.common.AudioCodec
 import com.pedro.common.ConnectChecker
 import com.pedro.common.VideoCodec
-import com.pedro.encoder.TimestampMode
 import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
 import com.pedro.encoder.input.sources.audio.AudioSource
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
@@ -94,7 +91,6 @@ import java.util.Date
 import com.pedro.extrasources.CameraUvcSource
 import com.pedro.library.base.recording.RecordController
 import com.pedro.library.generic.GenericStream
-import com.pedro.library.view.TakePhotoCallback
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -196,10 +192,6 @@ fun CameraScreenContent(navHostController: NavHostController) {
     var selectedBitrate by remember { mutableIntStateOf(5000 * 1000) }
     var selectedTeamsOverlayDuration by remember { mutableStateOf("10s") }
     var selectedReplayDuration by remember { mutableStateOf("10s") }
-
-    var isStreamMode by remember { mutableStateOf(true) }
-    var isRecordMode by remember { mutableStateOf(false) }
-    var isPictureMode by remember { mutableStateOf(false) }
 
     var snapshot by remember { mutableStateOf<Bitmap?>(null) }
 
@@ -485,7 +477,7 @@ fun CameraScreenContent(navHostController: NavHostController) {
                         }
                         // If the scoreboard overlay should be visible, reapply it.
                         if (showScoreboardOverlay && !isStreaming) {
-                            genericStream.getGlInterface().clearFilters()
+//                            genericStream.getGlInterface().clearFilters()
                             genericStream.getGlInterface().addFilter(imageObjectFilterRender)
                             drawOverlay(
                                 context = context,
@@ -598,7 +590,7 @@ fun CameraScreenContent(navHostController: NavHostController) {
                 Log.d("PixelsHeight", LocalContext.current.resources.displayMetrics.heightPixels.toString())
 
                 TeamPlayersOverlay(
-                    visible = showLineUpOverlay && !showTeamPlayersOverlayMenu,
+                    visible = showLineUpOverlay,
                     genericStream = genericStream,
                     screenWidth = LocalContext.current.resources.displayMetrics.widthPixels,
                     screenHeight = LocalContext.current.resources.displayMetrics.heightPixels,
@@ -613,20 +605,20 @@ fun CameraScreenContent(navHostController: NavHostController) {
                     context = context,
                     onLineUpFinished = {
                         showLineUpOverlay = false
-                        if (wasScoreboardActive) {
-                            CoroutineScope(Dispatchers.Main).launch {
-                                genericStream.getGlInterface().clearFilters()
-                                showScoreboardOverlay = false
-                                delay(50)
-                                showScoreboardOverlay = true
-                            }
-                        }
+//                        if (wasScoreboardActive) {
+//                            CoroutineScope(Dispatchers.Main).launch {
+//                                genericStream.getGlInterface().clearFilters()
+//                                showScoreboardOverlay = false
+//                                delay(50)
+//                                showScoreboardOverlay = true
+//                            }
+//                        }
                     }
                 )
 
                 // Scoreboard overlay.
                 ScoreboardOverlay(
-                    visible = showScoreboardOverlay && !showApplyButton,
+                    visible = showScoreboardOverlay,
                     genericStream = genericStream,
                     leftLogo = finalLeftLogo,
                     rightLogo = finalRightLogo,
@@ -718,7 +710,7 @@ fun CameraScreenContent(navHostController: NavHostController) {
                     }
                 )
                 // Reset scoreboard if overlay is hidden.
-                if (!showScoreboardOverlay && !showApplyButton) {
+                if (!showScoreboardOverlay) {
                     genericStream.getGlInterface().removeFilter(imageObjectFilterRender)
                     leftTeamGoals = 0
                     rightTeamGoals = 0
@@ -742,8 +734,11 @@ fun CameraScreenContent(navHostController: NavHostController) {
                                 painter = painterResource(id = R.drawable.ic_line_up),
                                 onClick = {
                                     wasScoreboardActive = showScoreboardOverlay
-                                    showScoreboardOverlay = false
+//                                    showScoreboardOverlay = false
                                     showLineUpOverlay = true
+//                                    val gifFilter = GifObjectFilterRender()
+//                                    gifFilter.setGif(context.resources.openRawResource(R.raw.gif_banana))
+//                                    genericStream.getGlInterface().addFilter(gifFilter)
                                 }
                             )
                         }

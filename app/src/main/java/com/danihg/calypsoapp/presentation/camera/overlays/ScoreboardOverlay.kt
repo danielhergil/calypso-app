@@ -9,6 +9,7 @@ import com.danihg.calypsoapp.overlays.drawOverlay
 import com.danihg.calypsoapp.utils.ScoreboardActionButtons
 import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
 import com.pedro.library.generic.GenericStream
+import kotlinx.coroutines.delay
 
 @Composable
 fun ScoreboardOverlay(
@@ -38,7 +39,8 @@ fun ScoreboardOverlay(
     // Add or remove the overlay filter based on visibility.
     LaunchedEffect(visible) {
         if (visible) {
-            genericStream.getGlInterface().clearFilters()
+//            genericStream.getGlInterface().clearFilters()
+            delay(500)
             genericStream.getGlInterface().addFilter(imageObjectFilterRender)
         } else {
             genericStream.getGlInterface().removeFilter(imageObjectFilterRender)
