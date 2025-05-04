@@ -1,11 +1,14 @@
 package com.danihg.calypsoapp.utils
 
 // CameraUtils.kt
+import android.app.Activity
 import android.content.Context
 import android.media.MediaCodecList
 import android.os.PowerManager
 import android.util.Log
+import android.view.KeyEvent
 import android.view.MotionEvent
+import android.view.View
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.runtime.Composable
@@ -30,6 +33,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -49,12 +53,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.sp
 import com.danihg.calypsoapp.R
+import com.danihg.calypsoapp.sources.CameraCalypsoSource
 import com.danihg.calypsoapp.ui.theme.CalypsoRed
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -137,6 +143,63 @@ fun ToggleAuxButton(
         )
     }
 }
+
+@Composable
+fun AuxButtonSquare(
+    modifier: Modifier = Modifier
+        .width(60.dp) // set a custom width
+        .height(60.dp), // and a custom height
+    painter: Painter,
+    iconModifier: Modifier = Modifier.fillMaxSize(),
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp)) // apply rounded corners
+            .background(Color.Gray.copy(alpha = 0.5f))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            painter = painter,
+            contentDescription = "Button Icon",
+            tint = Color.White,
+            modifier = iconModifier
+        )
+    }
+}
+
+@Composable
+fun ToggleAuxButtonSquare(
+    modifier: Modifier = Modifier
+        .width(60.dp)
+        .height(60.dp),
+    painter: Painter,
+    toggled: Boolean,
+    onToggle: (Boolean) -> Unit
+) {
+    val backgroundColor = if (toggled)
+        Color.DarkGray.copy(alpha = 0.7f)  // Darker when toggled
+    else
+        Color.Gray.copy(alpha = 0.5f)      // Default appearance
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(backgroundColor)
+            .clickable { onToggle(!toggled) },
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            painter = painter,
+            contentDescription = "Toggle Square Button Icon",
+            tint = Color.White,
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+}
+
+
 
 fun getSupportedVideoCodecs(): List<String> {
     val supportedCodecs = mutableListOf<String>()
@@ -240,7 +303,7 @@ fun ContinuousZoomButton(
     // A Box mimicking the AuxButton styling while handling press using pointerInput.
     Box(
         modifier = modifier
-            .size(30.dp)
+            .size(40.dp)
             .clip(CircleShape)
             .background(Color.Gray.copy(alpha = 0.5f))
             .pointerInput(Unit) {
@@ -280,7 +343,7 @@ fun ZoomControls(
             zoomSpeed = 1f, // Adjust the speed (units per second) for zooming in.
             onZoomDelta = onZoomDelta
         )
-        Spacer(modifier = Modifier.height(30.dp))
+        Spacer(modifier = Modifier.height(80.dp))
         // Zoom Out button with a negative zoom speed.
         ContinuousZoomButton(
             painter = painterResource(id = R.drawable.ic_less), // Replace with your minus icon resource.
@@ -289,6 +352,44 @@ fun ZoomControls(
         )
     }
 }
+
+@Composable
+fun ZoomKeyHandler(
+    activeCameraSource: CameraCalypsoSource,
+    zoomLevel: Float,
+    onZoomChange: (Float) -> Unit
+) {
+    val context = LocalContext.current as Activity
+    DisposableEffect(Unit) {
+        val keyListener = View.OnKeyListener { _, keyCode, event ->
+            if (event.action == KeyEvent.ACTION_DOWN) {
+                when (keyCode) {
+                    KeyEvent.KEYCODE_VOLUME_UP -> {
+                        // Increase zoom level in small steps.
+                        val newZoom = (zoomLevel + 0.1f).coerceIn(1f, 5f)
+                        onZoomChange(newZoom)
+                        activeCameraSource.setZoom(newZoom)
+                        true
+                    }
+                    KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                        // Decrease zoom level.
+                        val newZoom = (zoomLevel - 0.1f).coerceIn(1f, 5f)
+                        onZoomChange(newZoom)
+                        activeCameraSource.setZoom(newZoom)
+                        true
+                    }
+                    else -> false
+                }
+            } else false
+        }
+        // Install the key listener on the decor view.
+        context.window.decorView.setOnKeyListener(keyListener)
+        onDispose {
+            context.window.decorView.setOnKeyListener(null)
+        }
+    }
+}
+
 
 /**
  * A continuous ISO slider.

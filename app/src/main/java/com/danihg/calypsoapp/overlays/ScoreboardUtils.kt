@@ -39,6 +39,8 @@ fun createScoreboardBitmap(
     rightTeamAlias: String,
     leftTeamColor: String,
     rightTeamColor: String,
+    showLogos: Boolean,
+    showAlias: Boolean,
     backgroundColor: Int  // Not used visually; kept for parameter compatibility.
 ): Bitmap {
     // Fixed sizes for this layout:
@@ -183,8 +185,10 @@ fun createScoreboardBitmap(
     val leftTextX = scoreboardX - 95 + scoreboardWidth * 0.15f
     val rightTextX = scoreboardX + 85 + scoreboardWidth * 0.85f
     val teamTextY = scoreboardY + 15 + scoreboardHeight * 0.5f
-    canvas.drawText(leftTeamAlias, leftTextX, teamTextY, bigTextPaintLeft)
-    canvas.drawText(rightTeamAlias, rightTextX, teamTextY, bigTextPaintRight)
+    if (showAlias) {
+        canvas.drawText(leftTeamAlias, leftTextX, teamTextY, bigTextPaintLeft)
+        canvas.drawText(rightTeamAlias, rightTextX, teamTextY, bigTextPaintRight)
+    }
 
     // Optionally, if you want to add "FULL TIME" at the top, you can do so here:
     // mediumTextPaint.textSize = 30f
@@ -200,7 +204,9 @@ fun createScoreboardBitmap(
             leftLogoX + leftLogoWidth,
             leftLogoY + leftLogoSize
         )
-        canvas.drawBitmap(it, null, destRect1, null)
+        if(showLogos) {
+            canvas.drawBitmap(it, null, destRect1, null)
+        }
     }
     // For the right logo, use the narrower width (rightLogoWidth).
     rightLogoBitmap?.let {
@@ -210,7 +216,9 @@ fun createScoreboardBitmap(
             rightLogoX + rightLogoWidth,
             rightLogoY + rightLogoSize
         )
-        canvas.drawBitmap(it, null, destRect2, null)
+        if (showLogos) {
+            canvas.drawBitmap(it, null, destRect2, null)
+        }
     }
 
     return bitmap
@@ -241,6 +249,8 @@ fun updateOverlay(
     leftTeamColor: String,
     rightTeamColor: String,
     backgroundColor: Int,
+    showLogos: Boolean,
+    showAlias: Boolean,
     imageObjectFilterRender: ImageObjectFilterRender
 ) {
     Handler(Looper.getMainLooper()).post {
@@ -254,6 +264,8 @@ fun updateOverlay(
             rightTeamAlias,
             leftTeamColor,
             rightTeamColor,
+            showLogos,
+            showAlias,
             backgroundColor
         )
         imageObjectFilterRender.setImage(scoreboardBitmap)
@@ -282,6 +294,8 @@ fun drawOverlay(
     leftTeamColor: String,
     rightTeamColor: String,
     backgroundColor: Int,
+    showLogos: Boolean,
+    showAlias: Boolean,
     imageObjectFilterRender: ImageObjectFilterRender,
     isOnPreview: Boolean
 ) {
@@ -297,6 +311,8 @@ fun drawOverlay(
             leftTeamColor,
             rightTeamColor,
             backgroundColor,
+            showLogos,
+            showAlias,
             imageObjectFilterRender
         )
     }

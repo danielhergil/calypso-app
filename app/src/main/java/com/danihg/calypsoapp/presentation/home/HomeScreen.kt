@@ -3,6 +3,7 @@ package com.danihg.calypsoapp.presentation.home
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.pm.ActivityInfo
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -65,6 +66,13 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Spacer(modifier = Modifier.weight(1f))
+        Icon(
+            painter = painterResource(id = R.drawable.logo_calypso),
+            contentDescription = "Calypso Logo",
+            tint = CalypsoRed,
+            modifier = Modifier.size(200.dp)
+        )
         Spacer(modifier = Modifier.weight(1f))
         ModernCard(
             title = "Camera",
