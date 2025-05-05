@@ -516,7 +516,9 @@ fun EditTeamDialog(
                         coroutineScope.launch {
                             isUploading = true
                             // Convert playersData to a list of "name,number" strings.
-                            val updatedPlayers = playersData.map { "${it.name},${it.number}" }
+                            val updatedPlayers = playersData
+                                .filter{ it.name.isNotBlank() && it.number.isNotBlank() }
+                                .map{ "${it.name.trim()},${it.number.trim()}" }
                             val success = firestoreManager.updateTeam(
                                 context = context,
                                 team = team,

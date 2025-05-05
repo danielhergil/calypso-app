@@ -55,10 +55,10 @@ fun TeamPlayersOverlay(
                 isOnPreview = genericStream.isOnPreview
             )
 
-            val teamPlayersOverlayDelay = selectedTeamsOverlayDuration.split("s").first()
-            delay(teamPlayersOverlayDelay.toLong() * 1000)
-            genericStream.getGlInterface().removeFilter(lineUpFilter)
-            onLineUpFinished()
+//            val teamPlayersOverlayDelay = selectedTeamsOverlayDuration.split("s").first()
+//            delay(teamPlayersOverlayDelay.toLong() * 1000)
+//            genericStream.getGlInterface().removeFilter(lineUpFilter)
+//            onLineUpFinished()
         }
     }
 }

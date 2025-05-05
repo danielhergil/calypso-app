@@ -766,20 +766,20 @@ fun LineupContent(
                     .padding(start = 8.dp, end = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                SectionSubtitle("Interval (seconds):")
-                val intervals = listOf("15s", "20s", "25s", "30s", "35s", "40s", "45s")
-                val displayInterval = "${selectedIntervalSeconds}s"
-                ModernDropdown(
-                    items = intervals,
-                    selectedValue = displayInterval,
-                    displayMapper = { it },
-                    onValueChange = { new ->
-                        new.removeSuffix("s").toIntOrNull()?.let {
-                            onIntervalChange(it)
-                        }
-                    }
-                )
-                Spacer(modifier = Modifier.height(8.dp))
+//                SectionSubtitle("Interval (seconds):")
+//                val intervals = listOf("15s", "20s", "25s", "30s", "35s", "40s", "45s")
+//                val displayInterval = "${selectedIntervalSeconds}s"
+//                ModernDropdown(
+//                    items = intervals,
+//                    selectedValue = displayInterval,
+//                    displayMapper = { it },
+//                    onValueChange = { new ->
+//                        new.removeSuffix("s").toIntOrNull()?.let {
+//                            onIntervalChange(it)
+//                        }
+//                    }
+//                )
+//                Spacer(modifier = Modifier.height(8.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,

@@ -223,6 +223,9 @@ fun CameraScreenContent(navHostController: NavHostController) {
     var showReplays by rememberSaveable { mutableStateOf(false) }
     var wasScoreboardActive by remember { mutableStateOf(true) }
 
+    var isScoreboardConfigured by rememberSaveable { mutableStateOf(false) }
+    var isLineUpConfigured by rememberSaveable { mutableStateOf(false) }
+
     var backgroundRecordPath by remember { mutableStateOf<String?>(null) }
     var currentRecordPath: String? = null
 
@@ -603,17 +606,18 @@ fun CameraScreenContent(navHostController: NavHostController) {
                     selectedTeamsOverlayDuration = selectedTeamsOverlayDuration,
                     lineUpFilter = lineUpFilter,
                     context = context,
-                    onLineUpFinished = {
-                        showLineUpOverlay = false
-//                        if (wasScoreboardActive) {
-//                            CoroutineScope(Dispatchers.Main).launch {
-//                                genericStream.getGlInterface().clearFilters()
-//                                showScoreboardOverlay = false
-//                                delay(50)
-//                                showScoreboardOverlay = true
-//                            }
-//                        }
-                    }
+                    onLineUpFinished = {}
+//                    onLineUpFinished = {
+//                        showLineUpOverlay = false
+////                        if (wasScoreboardActive) {
+////                            CoroutineScope(Dispatchers.Main).launch {
+////                                genericStream.getGlInterface().clearFilters()
+////                                showScoreboardOverlay = false
+////                                delay(50)
+////                                showScoreboardOverlay = true
+////                            }
+////                        }
+//                    }
                 )
 
                 // Scoreboard overlay.
@@ -826,7 +830,7 @@ fun CameraScreenContent(navHostController: NavHostController) {
                         }
                     }
                 }
-
+                var teamsSelected = selectedTeam1.isNotEmpty() && selectedTeam2.isNotEmpty()
                 // Right-side action buttons.
                 CameraUI(
                     onShowApplyButton = { showApplyButton = !showApplyButton },
@@ -990,7 +994,12 @@ fun CameraScreenContent(navHostController: NavHostController) {
                                 snapshot = null
                             }
                         }
-                    }
+                    },
+                    teamsSelected = teamsSelected,
+                    showLineUpOverlay = showLineUpOverlay,
+                    showScoreboardOverlay = showScoreboardOverlay,
+                    onToggleLineUpOverlay = { showLineUpOverlay = !showLineUpOverlay },
+                    onToggleScoreboardOverlay = { showScoreboardOverlay = !showScoreboardOverlay }
                 )
 
 
@@ -1115,6 +1124,8 @@ fun CameraScreenContent(navHostController: NavHostController) {
                     },
                     onClose = { isSettingsMenuVisible = false }
                 )
+
+
 
                 // Auxiliary overlay menu.
                 OverlayMenu2(

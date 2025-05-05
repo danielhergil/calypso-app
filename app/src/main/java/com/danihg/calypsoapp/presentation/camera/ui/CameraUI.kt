@@ -123,6 +123,11 @@ fun CameraUI(
     onExposureCompensationBack: () -> Unit,
     onStartRecord: () -> Unit,
     onTakePicture: () -> Unit,
+    teamsSelected: Boolean,
+    showLineUpOverlay: Boolean,
+    showScoreboardOverlay: Boolean,
+    onToggleLineUpOverlay: () -> Unit,
+    onToggleScoreboardOverlay: () -> Unit
 ) {
     val configuration = LocalConfiguration.current
     val screenWidthDp = configuration.screenWidthDp.dp
@@ -140,6 +145,8 @@ fun CameraUI(
 
     val showToast = rememberToast()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    var showOverlayMenu by remember { mutableStateOf(false) }
 
     Log.d("CameraUI", "screenWidthDp: $screenWidthDp, screenHeightDp: $screenHeightDp")
     Box(
@@ -293,18 +300,69 @@ fun CameraUI(
                         .zIndex(3f)            // Higher zIndex so it's drawn on top
                 )
 
-                // Rocket button (this is the reference position)
-                AuxButton(
+                Row(
                     modifier = Modifier
-                        .size(50.dp)
-                        .align(Alignment.CenterEnd)
-                        .zIndex(2f),
-                    painter = painterResource(id = R.drawable.ic_rocket),
-                    onClick = {
-                        onShowApplyButton()
-//                        showApplyButton = !showApplyButton
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .zIndex(3f),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (teamsSelected) {
+                        AuxButton(
+                            modifier = Modifier.size(50.dp),
+                            painter = painterResource(id = R.drawable.ic_overlay_fast_menu),
+                            onClick = { showOverlayMenu = !showOverlayMenu }
+                        )
                     }
-                )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    AuxButton(
+                        modifier = Modifier.size(50.dp),
+                        painter = painterResource(id = R.drawable.ic_rocket),
+                        onClick = { onShowApplyButton() }
+                    )
+                }
+
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = showOverlayMenu,
+                    enter = slideInHorizontally(
+                        // start fully off to the right of its final position
+                        initialOffsetX = { fullWidth -> fullWidth },
+                        animationSpec = tween(durationMillis = 200)
+                    ) + fadeIn(animationSpec = tween(200)),
+                    exit = slideOutHorizontally(
+                        // slide back to the right when hiding
+                        targetOffsetX = { fullWidth -> fullWidth },
+                        animationSpec = tween(durationMillis = 200)
+                    ) + fadeOut(animationSpec = tween(200)),
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        // shift it left of the overlay button:
+                        // 2 toggles × 50.dp each + 1 spacer of 12.dp = 112.dp
+                        .offset(x = (-120).dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+//                            .background(Color.Black.copy(alpha = 0.8f), shape = CircleShape)
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ToggleAuxButtonSquare(
+                            modifier = Modifier.size(40.dp),
+                            painter = painterResource(id = R.drawable.ic_lineup),
+                            toggled = showLineUpOverlay,
+                            onToggle = { onToggleLineUpOverlay() }
+                        )
+
+                        ToggleAuxButtonSquare(
+                            modifier = Modifier.size(40.dp),
+                            painter = painterResource(id = R.drawable.ic_scoreboard),
+                            toggled = showScoreboardOverlay,
+                            onToggle = { onToggleScoreboardOverlay() }
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(5.dp))
