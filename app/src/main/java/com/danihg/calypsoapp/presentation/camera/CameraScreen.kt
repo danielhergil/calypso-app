@@ -16,6 +16,7 @@ import android.graphics.drawable.BitmapDrawable
 import android.hardware.camera2.CaptureRequest
 import android.media.MediaRecorder
 import android.media.MediaScannerConnection
+import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.util.Log
@@ -191,7 +192,6 @@ fun CameraScreenContent(navHostController: NavHostController) {
     var selectedResolution by remember { mutableStateOf("1080p") }
     var selectedBitrate by remember { mutableIntStateOf(5000 * 1000) }
     var selectedTeamsOverlayDuration by remember { mutableStateOf("10s") }
-    var selectedReplayDuration by remember { mutableStateOf("10s") }
 
     var snapshot by remember { mutableStateOf<Bitmap?>(null) }
 
@@ -223,8 +223,9 @@ fun CameraScreenContent(navHostController: NavHostController) {
     var showReplays by rememberSaveable { mutableStateOf(false) }
     var wasScoreboardActive by remember { mutableStateOf(true) }
 
-    var isScoreboardConfigured by rememberSaveable { mutableStateOf(false) }
-    var isLineUpConfigured by rememberSaveable { mutableStateOf(false) }
+    var selectedReplayImageUri by remember { mutableStateOf<Uri?>(null) }
+    var selectedReplayDuration by remember { mutableStateOf(20) }
+    var showReplayMenu by rememberSaveable { mutableStateOf(false) }
 
     var backgroundRecordPath by remember { mutableStateOf<String?>(null) }
     var currentRecordPath: String? = null
@@ -747,48 +748,48 @@ fun CameraScreenContent(navHostController: NavHostController) {
                             )
                         }
                         Spacer(modifier = Modifier.width(12.dp))
-                        if (showReplays) {
-                            AuxButton(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .zIndex(2f),
-                                painter = painterResource(id = R.drawable.ic_replay),
-                                onClick = {
-//                                    coroutineScope.launch {
-//                                        backgroundRecordPath?.let { path ->
-//                                            try {
-//                                                // Wait for FFmpegKit to finish processing.
-//                                                val savedReplay = handleReplaySuspended(context, genericStream, path, selectedReplayDuration)
-//                                                val replayUri = Uri.fromFile(File(savedReplay))
-//                                                genericStream.changeVideoSource(VideoFileSource(context, replayUri, false) {})
-//                                                // Keep the replay on screen for the selected duration.
-//                                                val time = selectedReplayDuration.split("s")[0].toLong() * 1000
-//                                                delay(time)
-//                                                genericStream.changeVideoSource(activeCameraSource)
-//                                            } catch (e: Exception) {
-//                                                Log.e("Replay", "Error processing replay: ${e.message}")
-//                                            }
-//                                        } ?: run {
-//                                            Log.e("Replay", "No background recording found!")
-//                                        }
-//                                    }
-
-                                        //ESTO ERA OTRO CODIGO COMENTADO
-//                                    coroutineScope.launch {
-//                                        backgroundRecordPath?.let { path ->
-//                                            val savedReplay = handleReplay(context, genericStream, path, selectedReplayDuration)
-//                                            val replayUri = Uri.fromFile(File(savedReplay))
-//                                            genericStream.changeVideoSource(VideoFileSource(context, replayUri, false) {})
-//                                            val time = selectedReplayDuration.split("s")[0].toLong() * 1000
-//                                            delay(time)
-//                                            genericStream.changeVideoSource(activeCameraSource)
-//                                        } ?: run {
-//                                            Log.e("Replay", "No background recording found!")
-//                                        }
-//                                    }
-                                }
-                            )
-                        }
+//                        if (showReplays) {
+//                            AuxButton(
+//                                modifier = Modifier
+//                                    .size(40.dp)
+//                                    .zIndex(2f),
+//                                painter = painterResource(id = R.drawable.ic_replay),
+//                                onClick = {
+////                                    coroutineScope.launch {
+////                                        backgroundRecordPath?.let { path ->
+////                                            try {
+////                                                // Wait for FFmpegKit to finish processing.
+////                                                val savedReplay = handleReplaySuspended(context, genericStream, path, selectedReplayDuration)
+////                                                val replayUri = Uri.fromFile(File(savedReplay))
+////                                                genericStream.changeVideoSource(VideoFileSource(context, replayUri, false) {})
+////                                                // Keep the replay on screen for the selected duration.
+////                                                val time = selectedReplayDuration.split("s")[0].toLong() * 1000
+////                                                delay(time)
+////                                                genericStream.changeVideoSource(activeCameraSource)
+////                                            } catch (e: Exception) {
+////                                                Log.e("Replay", "Error processing replay: ${e.message}")
+////                                            }
+////                                        } ?: run {
+////                                            Log.e("Replay", "No background recording found!")
+////                                        }
+////                                    }
+//
+//                                        //ESTO ERA OTRO CODIGO COMENTADO
+////                                    coroutineScope.launch {
+////                                        backgroundRecordPath?.let { path ->
+////                                            val savedReplay = handleReplay(context, genericStream, path, selectedReplayDuration)
+////                                            val replayUri = Uri.fromFile(File(savedReplay))
+////                                            genericStream.changeVideoSource(VideoFileSource(context, replayUri, false) {})
+////                                            val time = selectedReplayDuration.split("s")[0].toLong() * 1000
+////                                            delay(time)
+////                                            genericStream.changeVideoSource(activeCameraSource)
+////                                        } ?: run {
+////                                            Log.e("Replay", "No background recording found!")
+////                                        }
+////                                    }
+//                                }
+//                            )
+//                        }
                     }
                 }
 
@@ -999,7 +1000,10 @@ fun CameraScreenContent(navHostController: NavHostController) {
                     showLineUpOverlay = showLineUpOverlay,
                     showScoreboardOverlay = showScoreboardOverlay,
                     onToggleLineUpOverlay = { showLineUpOverlay = !showLineUpOverlay },
-                    onToggleScoreboardOverlay = { showScoreboardOverlay = !showScoreboardOverlay }
+                    onToggleScoreboardOverlay = { showScoreboardOverlay = !showScoreboardOverlay },
+                    showReplayMenuBtn = showReplayMenu,
+                    onTogglePlayReplay = {  },
+                    onToggleSaveReplay = {  }
                 )
 
 
@@ -1156,8 +1160,16 @@ fun CameraScreenContent(navHostController: NavHostController) {
                     onIntervalChange = { selectedLineupInterval = it },
                     showLineup = showTeamPlayersOverlay,
                     onToggleLineup = { showTeamPlayersOverlay = it },
+                    selectedReplayImageUri = selectedReplayImageUri,
+                    onReplayImageUriChange = { selectedReplayImageUri = it },
+                    selectedReplayDuration = selectedReplayDuration,
+                    onReplayDurationChange = { selectedReplayDuration = it },
+                    showReplays = showReplayMenu,
+                    onToggleShowReplays = { showReplayMenu = it },
                     onClose = { showApplyButton = false}
                 )
+
+                Log.d("ShowReplays", "ShowReplays: $showReplayMenu")
 //                OverlayMenu(
 //                    visible = showApplyButton,
 //                    screenWidth = screenWidth,

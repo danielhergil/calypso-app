@@ -1,6 +1,9 @@
 package com.danihg.calypsoapp.presentation.camera.menus
 
+import android.net.Uri
 import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -79,6 +82,12 @@ fun OverlayMenu2(
     onIntervalChange: (Int) -> Unit,
     showLineup: Boolean,
     onToggleLineup: (Boolean) -> Unit,
+    selectedReplayImageUri: Uri?,
+    onReplayImageUriChange: (Uri?) -> Unit,
+    selectedReplayDuration: Int,
+    onReplayDurationChange: (Int) -> Unit,
+    showReplays: Boolean,
+    onToggleShowReplays: (Boolean) -> Unit,
     onClose: () -> Unit
 ) {
     // Get screen dimensions.
@@ -165,7 +174,7 @@ fun OverlayMenu2(
                             )
                             VerticalDivider()
                             TabItem(
-                                label = "Tab 4",
+                                label = "Replays",
                                 isSelected = selectedTab == 4,
                                 onClick = { selectedTab = 4 }
                             )
@@ -222,6 +231,14 @@ fun OverlayMenu2(
                                 onIntervalChange = onIntervalChange,
                                 showLineup = showLineup,
                                 onToggleLineup = onToggleLineup
+                            )
+                            4 -> ReplaysContent(
+                                selectedImageUri = selectedReplayImageUri,
+                                onImageUriChange = onReplayImageUriChange,
+                                selectedDurationSeconds = selectedReplayDuration,
+                                onDurationChange = onReplayDurationChange,
+                                showReplays = showReplays,
+                                onToggleReplays = onToggleShowReplays
                             )
                             else -> Text(
                                 text = "Content for Tab $selectedTab",
@@ -804,6 +821,118 @@ fun LineupContent(
                         }
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun ReplaysContent(
+    selectedImageUri: Uri?,
+    onImageUriChange: (Uri?) -> Unit,
+    selectedDurationSeconds: Int,
+    onDurationChange: (Int) -> Unit,
+    showReplays: Boolean,
+    onToggleReplays: (Boolean) -> Unit
+) {
+    // launcher hands the picked Uri right back out
+    val launcher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        onImageUriChange(uri)
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly
+    ) {
+        // ─── Left: image picker & preview ───
+        Column(
+            modifier = Modifier.weight(1f),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            SectionSubtitle("Upload Replay Image:")
+            Button(
+                onClick = { launcher.launch("image/*") },
+                colors = ButtonDefaults.buttonColors(CalypsoRed)
+            ) { Text("Select Image") }
+            Spacer(modifier = Modifier.height(8.dp))
+
+            selectedImageUri?.let { uri ->
+                val painter = rememberAsyncImagePainter(model = uri)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.9f)
+                        .height(300.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painter,
+                        contentDescription = "Replay Image",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                    if (painter.state is AsyncImagePainter.State.Loading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(30.dp),
+                            color = CalypsoRed
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.width(8.dp))
+        VerticalDivider(color = Color.White, thickness = 1.dp, height = 300.dp)
+
+        // ─── Right: duration dropdown + activate switch ───
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            SectionSubtitle("Replay Duration:")
+            val items = listOf("10s", "15s", "20s", "25s", "30s")
+            ModernDropdown(
+                items = items,
+                selectedValue = "${selectedDurationSeconds}s",
+                displayMapper = { it },
+                onValueChange = { text ->
+                    onDurationChange(text.removeSuffix("s").toInt())
+                }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "Activate Replays Menu:",
+                    style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                )
+                Switch(
+                    checked = showReplays,
+                    onCheckedChange = onToggleReplays,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = CalypsoRed,
+                        uncheckedThumbColor = Color.Gray
+                    ),
+                    thumbContent = {
+                        if (showReplays) {
+                            Icon(
+                                imageVector = Icons.Filled.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(SwitchDefaults.IconSize)
+                            )
+                        }
+                    }
+                )
             }
         }
     }

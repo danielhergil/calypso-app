@@ -176,12 +176,12 @@ fun ToggleAuxButtonSquare(
         .height(60.dp),
     painter: Painter,
     toggled: Boolean,
-    onToggle: (Boolean) -> Unit
+    onToggle: (Boolean) -> Unit,
+    // new optional parameters with the old behaviour as default
+    toggledColor: Color = Color.DarkGray.copy(alpha = 0.7f),
+    untoggledColor: Color = Color.Gray.copy(alpha = 0.5f)
 ) {
-    val backgroundColor = if (toggled)
-        Color.DarkGray.copy(alpha = 0.7f)  // Darker when toggled
-    else
-        Color.Gray.copy(alpha = 0.5f)      // Default appearance
+    val backgroundColor = if (toggled) toggledColor else untoggledColor
 
     Box(
         modifier = modifier

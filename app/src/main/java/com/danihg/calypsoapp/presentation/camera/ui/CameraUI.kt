@@ -127,7 +127,10 @@ fun CameraUI(
     showLineUpOverlay: Boolean,
     showScoreboardOverlay: Boolean,
     onToggleLineUpOverlay: () -> Unit,
-    onToggleScoreboardOverlay: () -> Unit
+    onToggleScoreboardOverlay: () -> Unit,
+    showReplayMenuBtn: Boolean,
+    onTogglePlayReplay: () -> Unit,
+    onToggleSaveReplay: () -> Unit
 ) {
     val configuration = LocalConfiguration.current
     val screenWidthDp = configuration.screenWidthDp.dp
@@ -147,6 +150,7 @@ fun CameraUI(
     val snackbarHostState = remember { SnackbarHostState() }
 
     var showOverlayMenu by remember { mutableStateOf(false) }
+    var showReplayMenu  by remember { mutableStateOf(false) }
 
     Log.d("CameraUI", "screenWidthDp: $screenWidthDp, screenHeightDp: $screenHeightDp")
     Box(
@@ -308,19 +312,65 @@ fun CameraUI(
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (teamsSelected) {
-                        AuxButton(
-                            modifier = Modifier.size(50.dp),
-                            painter = painterResource(id = R.drawable.ic_overlay_fast_menu),
-                            onClick = { showOverlayMenu = !showOverlayMenu }
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
+
                     AuxButton(
                         modifier = Modifier.size(50.dp),
-                        painter = painterResource(id = R.drawable.ic_rocket),
-                        onClick = { onShowApplyButton() }
+                        painter = painterResource(id = R.drawable.ic_overlay_fast_menu),
+                        onClick = { showOverlayMenu = !showOverlayMenu }
                     )
+
+//                    Spacer(modifier = Modifier.width(12.dp))
+//                    AuxButton(
+//                        modifier = Modifier.size(50.dp),
+//                        painter = painterResource(id = R.drawable.ic_rocket),
+//                        onClick = { onShowApplyButton() }
+//                    )
+                }
+                if (showReplayMenuBtn) {
+                    AuxButton(
+                        modifier = Modifier
+                            .size(50.dp)
+                            .align(Alignment.CenterEnd)    // same horizontal alignment as the first
+                            .offset(y = 60.dp),            // pushes it down 60dp (50dp height + 10dp spacing)
+                        painter = painterResource(id = R.drawable.ic_rocket),
+                        onClick = { showReplayMenu = !showReplayMenu }
+                    )
+                }
+
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = showReplayMenu,
+                    enter = slideInHorizontally(
+                        initialOffsetX = { fullWidth -> fullWidth },
+                        animationSpec = tween(200)
+                    ) + fadeIn(animationSpec = tween(200)),
+                    exit = slideOutHorizontally(
+                        targetOffsetX = { fullWidth -> fullWidth },
+                        animationSpec = tween(200)
+                    ) + fadeOut(animationSpec = tween(200)),
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        // moves the menu left of the rocket button, and down to match
+                        .offset(x = (-60).dp, y = 60.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // put whatever extra buttons you want here
+                        AuxButtonSquare(
+                            modifier = Modifier.size(40.dp),
+                            painter = painterResource(id = R.drawable.ic_view_replay),
+                            onClick = { onTogglePlayReplay() }
+                        )
+                        AuxButtonSquare(
+                            modifier = Modifier.size(40.dp),
+                            painter = painterResource(id = R.drawable.ic_save_replay),
+                            iconModifier = Modifier.fillMaxSize().scale(0.7f),
+                            onClick = { onToggleSaveReplay() }
+                        )
+                    }
                 }
 
                 androidx.compose.animation.AnimatedVisibility(
@@ -339,7 +389,7 @@ fun CameraUI(
                         .align(Alignment.CenterEnd)
                         // shift it left of the overlay button:
                         // 2 toggles × 50.dp each + 1 spacer of 12.dp = 112.dp
-                        .offset(x = (-120).dp)
+                        .offset(x = (-60).dp)
                 ) {
                     Row(
                         modifier = Modifier
@@ -348,18 +398,30 @@ fun CameraUI(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        ToggleAuxButtonSquare(
+                        if(teamsSelected) {
+                            ToggleAuxButtonSquare(
+                                modifier = Modifier.size(40.dp),
+                                painter = painterResource(id = R.drawable.ic_scoreboard),
+                                toggled = showScoreboardOverlay,
+                                onToggle = { onToggleScoreboardOverlay() },
+                                toggledColor = CalypsoRed.copy(alpha = 0.7f)
+                            )
+                            ToggleAuxButtonSquare(
+                                modifier = Modifier.size(40.dp),
+                                painter = painterResource(id = R.drawable.ic_lineup),
+                                toggled = showLineUpOverlay,
+                                onToggle = { onToggleLineUpOverlay() },
+                                toggledColor = CalypsoRed.copy(alpha = 0.7f)
+                            )
+                        }
+                        AuxButtonSquare(
                             modifier = Modifier.size(40.dp),
-                            painter = painterResource(id = R.drawable.ic_lineup),
-                            toggled = showLineUpOverlay,
-                            onToggle = { onToggleLineUpOverlay() }
-                        )
-
-                        ToggleAuxButtonSquare(
-                            modifier = Modifier.size(40.dp),
-                            painter = painterResource(id = R.drawable.ic_scoreboard),
-                            toggled = showScoreboardOverlay,
-                            onToggle = { onToggleScoreboardOverlay() }
+                            painter = painterResource(id = R.drawable.ic_settings),
+                            iconModifier = Modifier.fillMaxSize().scale(0.7f),
+                            onClick = {
+                                onShowApplyButton()
+//                            isVolumeMenuVisible = !isVolumeMenuVisible
+                            }
                         )
                     }
                 }
