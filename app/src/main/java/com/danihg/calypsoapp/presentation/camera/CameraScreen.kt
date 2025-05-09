@@ -226,10 +226,11 @@ fun CameraScreenContent(navHostController: NavHostController) {
     var wasScoreboardActive by remember { mutableStateOf(true) }
 
     var selectedReplayImageUri by remember { mutableStateOf<Uri?>(null) }
-    var selectedReplayDuration by remember { mutableStateOf(20) }
+    var selectedReplayDuration by remember { mutableStateOf(5) }
     var showReplayMenu by rememberSaveable { mutableStateOf(false) }
 
     var backgroundRecordPath by remember { mutableStateOf<String?>(null) }
+    var recordPath by remember { mutableStateOf<String?>(null) }
     var currentRecordPath: String? = null
 
 
@@ -542,7 +543,13 @@ fun CameraScreenContent(navHostController: NavHostController) {
                 }
                 if (mode == "Record") {
                     if (!isRecording) {
-                        recordVideoStreaming(context, genericStream) { }
+                        recordPath = recordVideoStreaming(context, genericStream, isRecording) { }
+                        isRecording = true
+                    }
+                }
+                if (mode == "Record Replay") {
+                    if (isRecording) {
+                        recordPath = recordVideoStreaming(context, genericStream, !isRecording) { }
                         isRecording = true
                     }
                 }
@@ -561,10 +568,24 @@ fun CameraScreenContent(navHostController: NavHostController) {
         if (genericStream.isStreaming && mode == "Stream") {
             genericStream.stopStream()
             isStreaming = false
+
+            // 2) stop the background recording if it was running
+            backgroundRecordPath?.let { path ->
+                genericStream.stopRecord()
+                File(path).delete()
+            }
+            // clear your stored path
+            backgroundRecordPath = null
         }
-        if (genericStream.isRecording && mode == "Record") {
-            recordVideoStreaming(context, genericStream) { }
+        Log.d("CameraScreen", "isRecording: $isRecording")
+        Log.d("CameraScreen", "mode: $mode")
+        if (isRecording && mode == "Record") {
+            recordVideoStreaming(context, genericStream, isRecording) { }
             isRecording = false
+        }
+
+        if (isRecording && mode == "Record Replay") {
+            recordVideoStreaming(context, genericStream, isRecording) { }
         }
     }
 
@@ -852,10 +873,10 @@ fun CameraScreenContent(navHostController: NavHostController) {
                     isStreaming = isStreaming,
                     onRecordWhileStreaming = {
                         if (!isRecording) {
-                            recordVideoStreaming(context, genericStream) { }
+                            recordVideoStreaming(context, genericStream, isRecording) { }
                             isRecording = true
                         } else {
-                            recordVideoStreaming(context, genericStream) { }
+                            recordVideoStreaming(context, genericStream, isRecording) { }
                             isRecording = false
                         }
                     },
@@ -1031,6 +1052,10 @@ fun CameraScreenContent(navHostController: NavHostController) {
                                     genericStream.stopRecord()
                                 }
 
+                                while (genericStream.isRecording) {
+                                    delay(50)
+                                }
+
                                 try {
                                     val replayFile = clipReplayFromRecording(context, backgroundRecordPath!!, streamId!!, selectedReplayDuration)
 
@@ -1058,7 +1083,31 @@ fun CameraScreenContent(navHostController: NavHostController) {
                                     backgroundRecordPath = startBackgroundRecording(context, genericStream, streamId!!)
                                 }
                             } else {
-                                showToast("No background recording available for replay")
+                                stopForegroundService("Record Replay")
+                                Log.d("Replay", "Stop manual recording, isRecording: $isRecording")
+                                try {
+                                    val replayFile = clipReplayFromRecording(context, recordPath!!, streamId!!, selectedReplayDuration)
+
+                                    // 2. Switch to replay video
+                                    val replayUri = Uri.fromFile(File(replayFile))
+                                    genericStream.changeVideoSource(VideoFileSource(context, replayUri, false) {})
+
+                                    delay(selectedReplayDuration * 1000L)
+
+                                    // 3. Restore to camera
+                                    genericStream.changeVideoSource(activeCameraSource)
+
+                                    // 4. Resume user recording if it was active
+                                    if (isRecording) {
+                                        Log.d("Replay", "Resume manual recording, isRecording: $isRecording")
+                                        startForegroundService("Record Replay")
+                                    }
+
+                                } catch (e: Exception) {
+                                    Log.e("Replay", "Replay error: ${e.message}")
+                                }
+
+//                                showToast("No background recording available for replay")
                             }
                         }
                     },
@@ -1361,39 +1410,57 @@ suspend fun loadBitmapFromUrl(context: Context, url: String): Bitmap? {
 // Declare a property at the class level so that the file path persists between start and stop.
 private var currentRecordPath: String? = null
 
+/**
+ * Starts or stops recording and returns the file path when starting.
+ * @return the absolute path of the new recording file when recording starts, or null when stopping.
+ */
 fun recordVideoStreaming(
     context: Context,
     genericStream: GenericStream,
+    isRecording: Boolean,
     state: (RecordController.Status) -> Unit
-) {
-    if (!genericStream.isRecording) {
-        val folder = PathUtils.getRecordPath()
-        if (!folder.exists()) folder.mkdir()
+): String? {
+    return if (!isRecording) {
+        // Ensure record folder exists
+        val folder = PathUtils.getRecordPath().apply {
+            if (!exists()) mkdir()
+        }
+        // Build a timestamped filename
         val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
-        currentRecordPath = "${folder.absolutePath}/${sdf.format(Date())}.mp4"
+        val path = "${folder.absolutePath}/${sdf.format(Date())}.mp4"
+        currentRecordPath = path
 
-        genericStream.startRecord(currentRecordPath!!) { status ->
+        // Start record and report status via callback
+        genericStream.startRecord(path) { status ->
             when (status) {
-                RecordController.Status.RECORDING -> {
-                    state(RecordController.Status.RECORDING)
-                }
-                RecordController.Status.STOPPED -> {
-                    // When the STOPPED status is delivered, trigger the gallery update with polling.
-                    updateGalleryWithPolling(context, initialDelay = 2000, timeoutMillis = 5000, pollInterval = 500)
-                }
-                else -> { /* handle other states if needed */ }
+                RecordController.Status.RECORDING -> state(RecordController.Status.RECORDING)
+                RecordController.Status.STOPPED   -> updateGalleryWithPolling(
+                    context,
+                    initialDelay = 2000,
+                    timeoutMillis = 5000,
+                    pollInterval = 500
+                )
+                else -> { /* other states if needed */ }
             }
         }
         state(RecordController.Status.STARTED)
+        path
     } else {
         // Stop recording
         genericStream.stopRecord()
         state(RecordController.Status.STOPPED)
-        // As a fallback, if the callback isn't reliable, schedule an update.
+
+        // Fallback gallery update
         CoroutineScope(Dispatchers.Main).launch {
             delay(2000)
-            updateGalleryWithPolling(context, initialDelay = 0, timeoutMillis = 5000, pollInterval = 500)
+            updateGalleryWithPolling(
+                context,
+                initialDelay = 0,
+                timeoutMillis = 5000,
+                pollInterval = 500
+            )
         }
+        null
     }
 }
 
