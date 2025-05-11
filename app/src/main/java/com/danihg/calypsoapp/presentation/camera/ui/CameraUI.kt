@@ -326,7 +326,7 @@ fun CameraUI(
 //                        onClick = { onShowApplyButton() }
 //                    )
                 }
-                if (showReplayMenuBtn) {
+                if (showReplayMenuBtn && isStreaming) {
                     AuxButton(
                         modifier = Modifier
                             .size(50.dp)
@@ -338,7 +338,7 @@ fun CameraUI(
                 }
 
                 androidx.compose.animation.AnimatedVisibility(
-                    visible = showReplayMenu,
+                    visible = showReplayMenu && isStreaming,
                     enter = slideInHorizontally(
                         initialOffsetX = { fullWidth -> fullWidth },
                         animationSpec = tween(200)

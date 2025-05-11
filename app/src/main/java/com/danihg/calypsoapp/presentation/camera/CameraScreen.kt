@@ -14,6 +14,10 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.drawable.BitmapDrawable
 import android.hardware.camera2.CaptureRequest
+import android.media.MediaCodec
+import android.media.MediaExtractor
+import android.media.MediaFormat
+import android.media.MediaMuxer
 import android.media.MediaRecorder
 import android.media.MediaScannerConnection
 import android.net.Uri
@@ -21,6 +25,7 @@ import android.os.Build
 import android.os.Environment
 import android.util.Log
 import android.view.SurfaceView
+import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -61,10 +66,20 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.mediacodec.MediaCodecInfo
+import androidx.media3.transformer.Composition
+import androidx.media3.transformer.EditedMediaItem
+import androidx.media3.transformer.Transformer
 import androidx.navigation.NavHostController
 import coil.ImageLoader
 import coil.request.ImageRequest
 import com.arthenica.ffmpegkit.FFmpegKit
+import androidx.media3.transformer.Transformer.Listener
+import com.daasuu.mp4compose.composer.Mp4Composer
+import com.daasuu.mp4compose.filter.GlMonochromeFilter
 import com.danihg.calypsoapp.R
 import com.danihg.calypsoapp.data.FirestoreManager
 import com.danihg.calypsoapp.data.Team
@@ -91,6 +106,7 @@ import com.pedro.encoder.input.sources.audio.AudioSource
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
 import com.pedro.encoder.input.sources.video.VideoFileSource
 import java.util.Date
+import android.media.MediaCodecInfo.CodecCapabilities
 import com.pedro.extrasources.CameraUvcSource
 import com.pedro.library.base.recording.RecordController
 import com.pedro.library.generic.GenericStream
@@ -100,8 +116,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
+import java.nio.ByteBuffer
 import java.text.SimpleDateFormat
 import java.util.Locale
+import java.util.concurrent.CountDownLatch
 
 @Composable
 fun CameraScreen(navHostController: NavHostController) {
@@ -1011,6 +1029,10 @@ fun CameraScreenContent(navHostController: NavHostController) {
                     onStartRecord = {
                         if (isRecording) {
                             stopForegroundService("Record")
+                            if (isStreaming) {
+                                streamId = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+                                backgroundRecordPath = startBackgroundRecording(context, genericStream, streamId!!)
+                            }
                         } else {
                             // Cancel background recording if exists
                             backgroundRecordPath?.let {
@@ -1553,6 +1575,7 @@ fun startBackgroundRecording(context: Context, genericStream: GenericStream, str
     return path
 }
 
+// ORIGINAL
 suspend fun clipReplayFromRecording(
     context: Context,
     filePath: String,
@@ -1581,81 +1604,68 @@ suspend fun clipReplayFromRecording(
     }
 }
 
-//fun startBackgroundRecording(context: Context, genericStream: GenericStream): String {
-//    val folder = PathUtils.getRecordPath()
-//    if (!folder.exists()) folder.mkdir()
-//    val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
-//    val path = "${folder.absolutePath}/background_${sdf.format(Date())}.mp4"
-//    genericStream.startRecord(path) { status ->
-//        // You might want to handle status updates if needed.
-//    }
-//    return path
-//}
-//
-//suspend fun handleReplaySuspended(
+// WITH SLOW-MOTION LOW RESOLUTION
+//@SuppressLint("WrongConstant")
+//suspend fun clipReplayFromRecording(
 //    context: Context,
-//    genericStream: GenericStream,
-//    backgroundRecordPath: String,
-//    secondsClip: String,
-//): String = suspendCancellableCoroutine { continuation ->
-//    // Stop background recording if it is still running.
-//    if (genericStream.isRecording) {
-//        genericStream.stopRecord()
+//    filePath: String,
+//    streamId: String,
+//    secondsClip: Int
+//): String {
+//    val folder = PathUtils.getRecordPath().also { it.mkdirs() }
+//    val clipName = "${streamId}_replay_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())}.mp4"
+//    val replayPath = File(folder, clipName).absolutePath
+//
+//    // 1. Trim with FFmpeg (fast copy)
+//    val trimmedPath = if (File(filePath).length() / 1024 / 1024 >= secondsClip) {
+//        val tempPath = File(folder, "trimmed_$clipName").absolutePath
+//        FFmpegKit.execute("-sseof -$secondsClip -i \"$filePath\" -c copy \"$tempPath\"")
+//        tempPath
+//    } else {
+//        filePath
 //    }
 //
-//    // Define the output path for the replay clip.
-//    val folder = PathUtils.getRecordPath()
-//    if (!folder.exists()) folder.mkdir()
-//    val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
-//    val replayPath = "${folder.absolutePath}/replay_${sdf.format(Date())}.mp4"
+//    // 2. Apply slow motion
+//    val extractor = MediaExtractor().apply { setDataSource(trimmedPath) }
+//    val muxer = MediaMuxer(replayPath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
 //
-//    // Build the FFmpeg command to clip the last `secondsClip` seconds.
-////    val command = """-sseof -"$secondsClip" -i "$backgroundRecordPath" -filter_complex '[0:v]setpts=1.25*PTS[v];[0:a]atempo=0.8[a]' -map "[v]" -map "[a]" -c:v h264 -preset ultrafast -tune zerolatency "$replayPath""""
-//    val command = "-sseof -\"$secondsClip\" -i \"$backgroundRecordPath\" -c copy \"$replayPath\""
-//
-//    // Execute the FFmpeg command asynchronously.
-//    FFmpegKit.executeAsync(command) { session ->
-//        val returnCode = session.returnCode
-//        if (ReturnCode.isSuccess(returnCode)) {
-//            Log.d("Replay", "Replay saved at $replayPath")
-//            // Optionally, delete the original background recording file.
-//            File(backgroundRecordPath).delete()
-//            // Resume with the replay path once processing is complete.
-//            continuation.resume(replayPath)
-//        } else {
-//            Log.e("Replay", "FFmpegKit failed to clip video, return code: $returnCode")
-//            continuation.resumeWithException(Exception("FFmpegKit failed"))
+//    // Find video track index
+//    var videoTrackIndex = -1
+//    for (i in 0 until extractor.trackCount) {
+//        val format = extractor.getTrackFormat(i)
+//        if (format.getString(MediaFormat.KEY_MIME)?.startsWith("video/") == true) {
+//            videoTrackIndex = i
+//            break
 //        }
 //    }
-//}
-
-//fun handleReplay(context: Context, genericStream: GenericStream, backgroundRecordPath: String, secondsClip: String): String {
-//    // Stop background recording if it is still running.
-//    if (genericStream.isRecording) {
-//        genericStream.stopRecord()
+//
+//    if (videoTrackIndex == -1) throw RuntimeException("No video track found")
+//
+//    extractor.selectTrack(videoTrackIndex)
+//    val format = extractor.getTrackFormat(videoTrackIndex)
+//    val muxerTrackIndex = muxer.addTrack(format)
+//
+//    val buffer = ByteBuffer.allocate(format.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE))
+//    val bufferInfo = MediaCodec.BufferInfo()
+//    val slowdownFactor = 1.0 / 0.8 // ≈ 1.25 slower
+//
+//    muxer.start()
+//
+//    while (true) {
+//        bufferInfo.offset = 0
+//        bufferInfo.size = extractor.readSampleData(buffer, 0)
+//        if (bufferInfo.size < 0) break
+//
+//        bufferInfo.flags = extractor.sampleFlags
+//        bufferInfo.presentationTimeUs = (extractor.sampleTime * slowdownFactor).toLong()
+//
+//        muxer.writeSampleData(muxerTrackIndex, buffer, bufferInfo)
+//        extractor.advance()
 //    }
 //
-//    // Define the output path for the replay clip.
-//    val folder = PathUtils.getRecordPath()
-//    if (!folder.exists()) folder.mkdir()
-//    val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
-//    val replayPath = "${folder.absolutePath}/replay_${sdf.format(Date())}.mp4"
-//
-//    // Build the FFmpeg command to clip the last 10 seconds.
-//    // The -sseof -10 flag seeks 10 seconds from the end.
-//    val command = "-sseof -\"$secondsClip\" -i \"$backgroundRecordPath\" -c copy \"$replayPath\""
-//
-//    // Execute the FFmpeg command asynchronously.
-//    FFmpegKit.executeAsync(command) { session ->
-//        val returnCode = session.returnCode
-//        if (ReturnCode.isSuccess(returnCode)) {
-//            Log.d("Replay", "Replay saved at $replayPath")
-//            // Optionally, delete the original background recording file.
-//            File(backgroundRecordPath).delete()
-//        } else {
-//            Log.e("Replay", "FFmpegKit failed to clip video, return code: $returnCode")
-//        }
-//    }
+//    muxer.stop()
+//    muxer.release()
+//    extractor.release()
 //
 //    return replayPath
 //}
