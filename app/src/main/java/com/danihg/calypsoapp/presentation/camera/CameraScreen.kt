@@ -66,20 +66,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MimeTypes
-import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.mediacodec.MediaCodecInfo
-import androidx.media3.transformer.Composition
-import androidx.media3.transformer.EditedMediaItem
-import androidx.media3.transformer.Transformer
 import androidx.navigation.NavHostController
 import coil.ImageLoader
 import coil.request.ImageRequest
 import com.arthenica.ffmpegkit.FFmpegKit
-import androidx.media3.transformer.Transformer.Listener
-import com.daasuu.mp4compose.composer.Mp4Composer
-import com.daasuu.mp4compose.filter.GlMonochromeFilter
 import com.danihg.calypsoapp.R
 import com.danihg.calypsoapp.data.FirestoreManager
 import com.danihg.calypsoapp.data.Team
@@ -107,6 +97,10 @@ import com.pedro.encoder.input.sources.audio.MicrophoneSource
 import com.pedro.encoder.input.sources.video.VideoFileSource
 import java.util.Date
 import android.media.MediaCodecInfo.CodecCapabilities
+import androidx.annotation.RawRes
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import com.danihg.calypsoapp.presentation.camera.ui.components.BottomSnackbarHost
 import com.pedro.extrasources.CameraUvcSource
 import com.pedro.library.base.recording.RecordController
 import com.pedro.library.generic.GenericStream
@@ -246,6 +240,10 @@ fun CameraScreenContent(navHostController: NavHostController) {
     var selectedReplayImageUri by remember { mutableStateOf<Uri?>(null) }
     var selectedReplayDuration by remember { mutableStateOf(5) }
     var showReplayMenu by rememberSaveable { mutableStateOf(false) }
+    var isPlayingReplay by rememberSaveable { mutableStateOf(false) }
+    var isReplayLoading by remember { mutableStateOf(false) }
+
+    val snackbarHostState = remember { SnackbarHostState() }
 
     var backgroundRecordPath by remember { mutableStateOf<String?>(null) }
     var recordPath by remember { mutableStateOf<String?>(null) }
@@ -649,17 +647,6 @@ fun CameraScreenContent(navHostController: NavHostController) {
                     lineUpFilter = lineUpFilter,
                     context = context,
                     onLineUpFinished = {}
-//                    onLineUpFinished = {
-//                        showLineUpOverlay = false
-////                        if (wasScoreboardActive) {
-////                            CoroutineScope(Dispatchers.Main).launch {
-////                                genericStream.getGlInterface().clearFilters()
-////                                showScoreboardOverlay = false
-////                                delay(50)
-////                                showScoreboardOverlay = true
-////                            }
-////                        }
-//                    }
                 )
 
                 // Scoreboard overlay.
@@ -758,8 +745,8 @@ fun CameraScreenContent(navHostController: NavHostController) {
                 // Reset scoreboard if overlay is hidden.
                 if (!showScoreboardOverlay) {
                     genericStream.getGlInterface().removeFilter(imageObjectFilterRender)
-                    leftTeamGoals = 0
-                    rightTeamGoals = 0
+//                    leftTeamGoals = 0
+//                    rightTeamGoals = 0
                 }
 
                 Box(
@@ -789,48 +776,6 @@ fun CameraScreenContent(navHostController: NavHostController) {
                             )
                         }
                         Spacer(modifier = Modifier.width(12.dp))
-//                        if (showReplays) {
-//                            AuxButton(
-//                                modifier = Modifier
-//                                    .size(40.dp)
-//                                    .zIndex(2f),
-//                                painter = painterResource(id = R.drawable.ic_replay),
-//                                onClick = {
-////                                    coroutineScope.launch {
-////                                        backgroundRecordPath?.let { path ->
-////                                            try {
-////                                                // Wait for FFmpegKit to finish processing.
-////                                                val savedReplay = handleReplaySuspended(context, genericStream, path, selectedReplayDuration)
-////                                                val replayUri = Uri.fromFile(File(savedReplay))
-////                                                genericStream.changeVideoSource(VideoFileSource(context, replayUri, false) {})
-////                                                // Keep the replay on screen for the selected duration.
-////                                                val time = selectedReplayDuration.split("s")[0].toLong() * 1000
-////                                                delay(time)
-////                                                genericStream.changeVideoSource(activeCameraSource)
-////                                            } catch (e: Exception) {
-////                                                Log.e("Replay", "Error processing replay: ${e.message}")
-////                                            }
-////                                        } ?: run {
-////                                            Log.e("Replay", "No background recording found!")
-////                                        }
-////                                    }
-//
-//                                        //ESTO ERA OTRO CODIGO COMENTADO
-////                                    coroutineScope.launch {
-////                                        backgroundRecordPath?.let { path ->
-////                                            val savedReplay = handleReplay(context, genericStream, path, selectedReplayDuration)
-////                                            val replayUri = Uri.fromFile(File(savedReplay))
-////                                            genericStream.changeVideoSource(VideoFileSource(context, replayUri, false) {})
-////                                            val time = selectedReplayDuration.split("s")[0].toLong() * 1000
-////                                            delay(time)
-////                                            genericStream.changeVideoSource(activeCameraSource)
-////                                        } ?: run {
-////                                            Log.e("Replay", "No background recording found!")
-////                                        }
-////                                    }
-//                                }
-//                            )
-//                        }
                     }
                 }
 
@@ -885,7 +830,9 @@ fun CameraScreenContent(navHostController: NavHostController) {
                             streamId = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
                             startForegroundService("Stream")
                             // Start background recording
-                            backgroundRecordPath = startBackgroundRecording(context, genericStream, streamId!!)
+                            if (showReplayMenu) {
+                                backgroundRecordPath = startBackgroundRecording(context, genericStream, streamId!!)
+                            }
                         }
                     },
                     isStreaming = isStreaming,
@@ -1066,8 +1013,12 @@ fun CameraScreenContent(navHostController: NavHostController) {
                     onToggleLineUpOverlay = { showLineUpOverlay = !showLineUpOverlay },
                     onToggleScoreboardOverlay = { showScoreboardOverlay = !showScoreboardOverlay },
                     showReplayMenuBtn = showReplayMenu,
+                    isPlayingReplay = isPlayingReplay,
+                    isReplayLoading = isReplayLoading,
                     onTogglePlayReplay = {
                         coroutineScope.launch {
+                            isPlayingReplay = true
+                            showReplayMenu = false
                             if (backgroundRecordPath != null) {
                                 // 1. Stop background or user recording temporarily
                                 if (genericStream.isRecording) {
@@ -1081,16 +1032,48 @@ fun CameraScreenContent(navHostController: NavHostController) {
                                 try {
                                     val replayFile = clipReplayFromRecording(context, backgroundRecordPath!!, streamId!!, selectedReplayDuration)
 
-                                    // 2. Switch to replay video
-                                    val replayUri = Uri.fromFile(File(replayFile))
-                                    genericStream.changeVideoSource(VideoFileSource(context, replayUri, false) {})
+                                    val isScoreboardInScreen = showScoreboardOverlay
+                                    if (isScoreboardInScreen) {
+                                        showScoreboardOverlay = false
+                                    }
+                                    // Enter replay
+                                    val replayInUri = getUriFromRawResource(context, R.raw.vid_replay_in)
+                                    genericStream.changeVideoSource(VideoFileSource(
+                                        context = context,
+                                        path = replayInUri,
+                                        loopMode = false,
+                                        onFinish = {
+                                            val replayUri = Uri.fromFile(File(replayFile))
+                                            genericStream.changeVideoSource(VideoFileSource(
+                                                context = context,
+                                                path = replayUri,
+                                                loopMode = false,
+                                                onFinish = {
+                                                    val replayOutUri = getUriFromRawResource(context, R.raw.vid_replay_out)
+                                                    genericStream.changeVideoSource(VideoFileSource(
+                                                        context = context,
+                                                        path = replayOutUri,
+                                                        loopMode = false,
+                                                        onFinish = {
+                                                            if (isScoreboardInScreen) {
+                                                                showScoreboardOverlay = true
+                                                            }
+                                                            genericStream.changeVideoSource(activeCameraSource)
+                                                            coroutineScope.launch {
+                                                                val delayReplayMenu = selectedReplayDuration * 1000L
+                                                                isReplayLoading = true
+                                                                delay(delayReplayMenu)
+                                                                showReplayMenu = true
+                                                                isReplayLoading = false
 
-                                    delay(selectedReplayDuration * 1000L)
+                                                            }
+                                                        }
+                                                    ))
+                                                }
+                                            ))
+                                        }
+                                    ))
 
-                                    // 3. Restore to camera
-                                    genericStream.changeVideoSource(activeCameraSource)
-
-                                    // 4. Resume user recording if it was active
                                     if (isRecording) {
                                         genericStream.startRecord(currentRecordPath!!) { }
                                     }
@@ -1108,16 +1091,61 @@ fun CameraScreenContent(navHostController: NavHostController) {
                                 stopForegroundService("Record Replay")
                                 Log.d("Replay", "Stop manual recording, isRecording: $isRecording")
                                 try {
+                                    Log.d("Replay", "backgroundRecordPath: $recordPath")
+                                    Log.d("Replay", "streamId: $streamId")
                                     val replayFile = clipReplayFromRecording(context, recordPath!!, streamId!!, selectedReplayDuration)
+                                    Log.d("Replay", "Replay file: $replayFile")
 
-                                    // 2. Switch to replay video
-                                    val replayUri = Uri.fromFile(File(replayFile))
-                                    genericStream.changeVideoSource(VideoFileSource(context, replayUri, false) {})
-
-                                    delay(selectedReplayDuration * 1000L)
-
-                                    // 3. Restore to camera
-                                    genericStream.changeVideoSource(activeCameraSource)
+                                    val isScoreboardInScreen = showScoreboardOverlay
+                                    if (isScoreboardInScreen) {
+                                        showScoreboardOverlay = false
+                                    }
+                                    // Enter replay in
+                                    val replayInUri = getUriFromRawResource(context, R.raw.vid_replay_in)
+                                    genericStream.changeVideoSource(VideoFileSource(
+                                        context = context,
+                                        path = replayInUri,
+                                        loopMode = false,
+                                        onFinish = {
+                                            val replayUri = Uri.fromFile(File(replayFile))
+                                            genericStream.changeVideoSource(VideoFileSource(
+                                                context = context,
+                                                path = replayUri,
+                                                loopMode = false,
+                                                onFinish = {
+                                                    val replayOutUri = getUriFromRawResource(context, R.raw.vid_replay_out)
+                                                    genericStream.changeVideoSource(VideoFileSource(
+                                                        context = context,
+                                                        path = replayOutUri,
+                                                        loopMode = false,
+                                                        onFinish = {
+                                                            if (isScoreboardInScreen) {
+                                                                showScoreboardOverlay = true
+                                                            }
+                                                            genericStream.changeVideoSource(activeCameraSource)
+                                                            coroutineScope.launch {
+                                                                val delayReplayMenu = selectedReplayDuration * 1000L
+                                                                isReplayLoading = true
+                                                                delay(delayReplayMenu)
+                                                                showReplayMenu = true
+                                                                isReplayLoading = false
+                                                            }
+                                                        }
+                                                    ))
+                                                }
+                                            ))
+                                        }
+                                    ))
+//                                    val replayFile = clipReplayFromRecording(context, recordPath!!, streamId!!, selectedReplayDuration)
+//
+//                                    // 2. Switch to replay video
+//                                    val replayUri = Uri.fromFile(File(replayFile))
+//                                    genericStream.changeVideoSource(VideoFileSource(context, replayUri, false) {})
+//
+//                                    delay(selectedReplayDuration * 1000L)
+//
+//                                    // 3. Restore to camera
+//                                    genericStream.changeVideoSource(activeCameraSource)
 
                                     // 4. Resume user recording if it was active
                                     if (isRecording) {
@@ -1131,39 +1159,71 @@ fun CameraScreenContent(navHostController: NavHostController) {
 
 //                                showToast("No background recording available for replay")
                             }
+                            isPlayingReplay = false
                         }
                     },
                     onToggleSaveReplay = {
+                        isPlayingReplay = false
+                        // now show the spinner
+                        isReplayLoading = true
+                        showReplayMenu  = false
                         coroutineScope.launch {
                             if (backgroundRecordPath != null) {
+                                // 1. Stop background or user recording temporarily
                                 if (genericStream.isRecording) {
                                     genericStream.stopRecord()
                                 }
 
+                                while (genericStream.isRecording) {
+                                    delay(50)
+                                }
+
                                 try {
-                                    val replayFile = clipReplayFromRecording(context, backgroundRecordPath!!, streamId!!, selectedReplayDuration)
-                                    PathUtils.updateGallery(context, replayFile)
+                                    clipReplayFromRecording(context, backgroundRecordPath!!, streamId!!, selectedReplayDuration)
+
+                                    // 4. Resume user recording if it was active
+                                    if (isRecording) {
+                                        genericStream.startRecord(currentRecordPath!!) { }
+                                    }
+
                                 } catch (e: Exception) {
-                                    Log.e("Replay", "Save replay error: ${e.message}")
+                                    Log.e("Replay", "Replay error: ${e.message}")
                                 }
 
-                                // Resume recording if it was previously active
-                                if (isRecording) {
-                                    genericStream.startRecord(currentRecordPath!!) { }
-                                }
-
-                                // Remove background file if no user recording
+                                // Remove background file if user wasn’t recording
                                 if (!isRecording) {
+                                    Log.d("Replay", "Remove background file: $backgroundRecordPath")
                                     File(backgroundRecordPath!!).delete()
                                     backgroundRecordPath = startBackgroundRecording(context, genericStream, streamId!!)
                                 }
                             } else {
-                                showToast("No background recording available for save")
+                                stopForegroundService("Record Replay")
+                                Log.d("Replay", "Stop manual recording, isRecording: $isRecording")
+                                try {
+                                    clipReplayFromRecording(context, recordPath!!, streamId!!, selectedReplayDuration)
+
+                                    // 4. Resume user recording if it was active
+                                    if (isRecording) {
+                                        Log.d("Replay", "Resume manual recording, isRecording: $isRecording")
+                                        startForegroundService("Record Replay")
+                                    }
+
+                                } catch (e: Exception) {
+                                    Log.e("Replay", "Replay error: ${e.message}")
+                                }
+
+//                                showToast("No background recording available for replay")
+                            }
+                            coroutineScope.launch {
+                                val delayReplayMenu = selectedReplayDuration * 1000L
+                                delay(delayReplayMenu)
+                                isReplayLoading = false
+                                showReplayMenu  = true
+                                snackbarHostState.showSnackbar("✅ Replay Saved Successfully")
                             }
                         }
                     }
                 )
-
 
                 // Calculate dimensions for the settings menu.
                 val screenHeight = LocalContext.current.resources.displayMetrics.heightPixels.dp
@@ -1378,6 +1438,8 @@ fun CameraScreenContent(navHostController: NavHostController) {
                         }
                     }
                 }
+
+                BottomSnackbarHost(hostState = snackbarHostState)
             }
         }
     )
@@ -1602,6 +1664,25 @@ suspend fun clipReplayFromRecording(
     } else {
         throw RuntimeException("FFmpegKit failed: ${session.returnCode}")
     }
+}
+
+fun getUriFromRawResource(
+    context: Context,
+    @RawRes resourceId: Int
+): Uri {
+    // derive a file name from the resource entry name, add .mp4 (or whatever your extension is)
+    val entryName = context.resources.getResourceEntryName(resourceId)
+    val outFile = File(context.cacheDir, "$entryName.mp4")
+
+    // copy raw‐resource → cache file
+    context.resources.openRawResource(resourceId).use { input ->
+        FileOutputStream(outFile).use { output ->
+            input.copyTo(output)
+        }
+    }
+
+    // return a file:// URI
+    return Uri.fromFile(outFile)
 }
 
 // WITH SLOW-MOTION LOW RESOLUTION

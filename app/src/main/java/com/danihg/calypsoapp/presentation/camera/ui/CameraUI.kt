@@ -129,6 +129,8 @@ fun CameraUI(
     onToggleLineUpOverlay: () -> Unit,
     onToggleScoreboardOverlay: () -> Unit,
     showReplayMenuBtn: Boolean,
+    isPlayingReplay: Boolean,
+    isReplayLoading: Boolean,
     onTogglePlayReplay: () -> Unit,
     onToggleSaveReplay: () -> Unit
 ) {
@@ -326,19 +328,33 @@ fun CameraUI(
 //                        onClick = { onShowApplyButton() }
 //                    )
                 }
-                if (showReplayMenuBtn && isStreaming) {
-                    AuxButton(
-                        modifier = Modifier
-                            .size(50.dp)
-                            .align(Alignment.CenterEnd)    // same horizontal alignment as the first
-                            .offset(y = 60.dp),            // pushes it down 60dp (50dp height + 10dp spacing)
-                        painter = painterResource(id = R.drawable.ic_rocket),
-                        onClick = { showReplayMenu = !showReplayMenu }
-                    )
+
+
+                if ((showReplayMenuBtn || isReplayLoading) && isStreaming && !isPlayingReplay) {
+                    if (isReplayLoading) {
+                        Box(
+                            modifier = Modifier
+                                .size(50.dp)
+                                .align(Alignment.CenterEnd)
+                                .offset(y = 60.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(30.dp), color = CalypsoRed)
+                        }
+                    } else {
+                        AuxButton(
+                            modifier = Modifier
+                                .size(50.dp)
+                                .align(Alignment.CenterEnd)
+                                .offset(y = 60.dp),
+                            painter = painterResource(id = R.drawable.ic_rocket),
+                            onClick = { showReplayMenu = !showReplayMenu }
+                        )
+                    }
                 }
 
                 androidx.compose.animation.AnimatedVisibility(
-                    visible = showReplayMenu && isStreaming,
+                    visible = showReplayMenu && isStreaming && !isPlayingReplay && showReplayMenuBtn,
                     enter = slideInHorizontally(
                         initialOffsetX = { fullWidth -> fullWidth },
                         animationSpec = tween(200)
@@ -362,7 +378,9 @@ fun CameraUI(
                         AuxButtonSquare(
                             modifier = Modifier.size(40.dp),
                             painter = painterResource(id = R.drawable.ic_view_replay),
-                            onClick = { onTogglePlayReplay() }
+                            onClick = {
+                                onTogglePlayReplay()
+                            }
                         )
                         AuxButtonSquare(
                             modifier = Modifier.size(40.dp),
