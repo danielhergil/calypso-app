@@ -48,8 +48,26 @@ dependencies {
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.crashlytics)
 
-    implementation(libs.rootencoder.library)
-    implementation(libs.rootencoder.extra)
+//    implementation(libs.rootencoder.library)
+//    implementation(libs.rootencoder.extra)
+    // Core “common” utilities
+    implementation(project(":common"))
+
+    // Encoding engine
+    implementation(project(":encoder"))
+
+    // Extra sources (CameraX, UVC, ExoPlayer)
+    implementation(project(":extra-sources"))
+
+    // Transport clients
+    implementation(project(":rtmp"))
+    implementation(project(":rtsp"))
+    implementation(project(":srt"))
+    implementation(project(":udp"))
+
+    // The “umbrella” library module (pulls in all the above via api())
+    implementation(project(":library"))
+
     implementation(libs.androidx.activity.ktx)
     implementation(libs.androidx.core.ktx.v1120)
     implementation(libs.opengl.api)
